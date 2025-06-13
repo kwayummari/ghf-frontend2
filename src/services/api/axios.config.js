@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AUTH_CONSTANTS } from '../../constants';
+import { AUTH_CONSTANTS, API_ENDPOINTS } from '../../constants';
 
 // Create axios instance
 const apiClient = axios.create({
@@ -59,33 +59,41 @@ apiClient.interceptors.response.use(
                 const refreshToken = localStorage.getItem(AUTH_CONSTANTS.REFRESH_TOKEN_KEY);
 
                 if (refreshToken) {
-                    // Attempt to refresh token
+                    // FIXED: Use correct endpoint and request format
                     const response = await axios.post(
-                        `${import.meta.env.VITE_API_BASE_URL}/auth/refresh-token`,
-                        { refresh_token: refreshToken }
+                        `${apiClient.defaults.baseURL}${API_ENDPOINTS.REFRESH_TOKEN}`,
+                        { refreshToken: refreshToken } // Your backend expects 'refreshToken'
                     );
 
-                    const { access_token, refresh_token: newRefreshToken } = response.data.data;
+                    const { data } = response.data;
 
-                    // Update tokens in localStorage
-                    localStorage.setItem(AUTH_CONSTANTS.TOKEN_KEY, access_token);
-                    if (newRefreshToken) {
-                        localStorage.setItem(AUTH_CONSTANTS.REFRESH_TOKEN_KEY, newRefreshToken);
+                    // FIXED: Handle both token field formats from your backend
+                    const newAccessToken = data.token || data.access_token;
+                    const newRefreshToken = data.refreshToken || data.refresh_token;
+
+                    if (newAccessToken) {
+                        // Update tokens in localStorage
+                        localStorage.setItem(AUTH_CONSTANTS.TOKEN_KEY, newAccessToken);
+
+                        if (newRefreshToken) {
+                            localStorage.setItem(AUTH_CONSTANTS.REFRESH_TOKEN_KEY, newRefreshToken);
+                        }
+
+                        // Update default headers and retry original request
+                        apiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+                        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+                        return apiClient(originalRequest);
                     }
-
-                    // Retry original request with new token
-                    originalRequest.headers.Authorization = `Bearer ${access_token}`;
-                    return apiClient(originalRequest);
                 }
             } catch (refreshError) {
                 console.error('Token refresh failed:', refreshError);
 
                 // Clear auth data and redirect to login
-                localStorage.removeItem(AUTH_CONSTANTS.TOKEN_KEY);
-                localStorage.removeItem(AUTH_CONSTANTS.REFRESH_TOKEN_KEY);
-                localStorage.removeItem(AUTH_CONSTANTS.USER_KEY);
+                clearAuthData();
+                delete apiClient.defaults.headers.common['Authorization'];
 
-                // Redirect to login page
+                // Redirect to login page if not already there
                 if (window.location.pathname !== '/login') {
                     window.location.href = '/login';
                 }
@@ -96,6 +104,7 @@ apiClient.interceptors.response.use(
 
         // Handle other errors
         let errorMessage = 'An unexpected error occurred';
+        let validationErrors = null;
 
         if (error.response) {
             // Server responded with error status
@@ -104,6 +113,13 @@ apiClient.interceptors.response.use(
             switch (status) {
                 case 400:
                     errorMessage = data?.message || 'Bad request. Please check your input.';
+                    // FIXED: Handle validation errors from your backend format
+                    if (data?.errors && Array.isArray(data.errors)) {
+                        validationErrors = data.errors;
+                        // Create a more user-friendly message for validation errors
+                        const fieldErrors = data.errors.map(err => err.message).join(', ');
+                        errorMessage = `Validation failed: ${fieldErrors}`;
+                    }
                     break;
                 case 401:
                     errorMessage = 'You are not authorized to perform this action.';
@@ -114,8 +130,14 @@ apiClient.interceptors.response.use(
                 case 404:
                     errorMessage = 'The requested resource was not found.';
                     break;
+                case 409:
+                    errorMessage = data?.message || 'Conflict: Resource already exists.';
+                    break;
                 case 422:
                     errorMessage = data?.message || 'Validation failed. Please check your input.';
+                    if (data?.errors && Array.isArray(data.errors)) {
+                        validationErrors = data.errors;
+                    }
                     break;
                 case 429:
                     errorMessage = 'Too many requests. Please try again later.';
@@ -130,15 +152,19 @@ apiClient.interceptors.response.use(
                     errorMessage = data?.message || `Server error (${status})`;
             }
 
-            // Add validation errors if available
-            if (data?.errors && Array.isArray(data.errors)) {
-                error.validationErrors = data.errors;
+            // Add validation errors to the error object
+            if (validationErrors) {
+                error.validationErrors = validationErrors;
             }
         } else if (error.request) {
             // Network error
             errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.code === 'ECONNABORTED') {
+            // Timeout error
+            errorMessage = 'Request timeout. Please try again.';
         }
 
+        // Add user-friendly message to error
         error.userMessage = errorMessage;
         return Promise.reject(error);
     }
@@ -152,15 +178,24 @@ export const createFormData = (data, fileField = 'file') => {
         if (key === fileField && data[key] instanceof File) {
             formData.append(key, data[key]);
         } else if (data[key] !== null && data[key] !== undefined) {
-            formData.append(key, typeof data[key] === 'object' ? JSON.stringify(data[key]) : data[key]);
+            // Handle arrays and objects properly
+            if (Array.isArray(data[key])) {
+                data[key].forEach((item, index) => {
+                    formData.append(`${key}[${index}]`, item);
+                });
+            } else if (typeof data[key] === 'object' && !(data[key] instanceof File)) {
+                formData.append(key, JSON.stringify(data[key]));
+            } else {
+                formData.append(key, data[key]);
+            }
         }
     });
 
     return formData;
 };
 
-// Helper function for file uploads
-export const uploadFile = async (url, file, additionalData = {}) => {
+// Helper function for file uploads with progress tracking
+export const uploadFile = async (url, file, additionalData = {}, onProgress = null) => {
     const formData = createFormData({ ...additionalData, file });
 
     return apiClient.post(url, formData, {
@@ -168,9 +203,19 @@ export const uploadFile = async (url, file, additionalData = {}) => {
             'Content-Type': 'multipart/form-data',
         },
         onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            // You can use this for progress bars
-            console.log(`Upload Progress: ${percentCompleted}%`);
+            if (progressEvent.lengthComputable) {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+
+                // Call progress callback if provided
+                if (onProgress && typeof onProgress === 'function') {
+                    onProgress(percentCompleted);
+                }
+
+                // Log progress in development
+                if (import.meta.env.DEV) {
+                    console.log(`Upload Progress: ${percentCompleted}%`);
+                }
+            }
         },
     });
 };
@@ -182,15 +227,32 @@ export const downloadFile = async (url, filename) => {
             responseType: 'blob',
         });
 
+        // Get filename from response headers if not provided
+        const disposition = response.headers['content-disposition'];
+        let downloadFilename = filename;
+
+        if (!downloadFilename && disposition) {
+            const filenameMatch = disposition.match(/filename="(.+)"/);
+            if (filenameMatch) {
+                downloadFilename = filenameMatch[1];
+            }
+        }
+
         // Create blob link to download
         const blob = new Blob([response.data]);
         const link = document.createElement('a');
         link.href = window.URL.createObjectURL(blob);
-        link.download = filename || 'download';
+        link.download = downloadFilename || 'download';
+
+        // Trigger download
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
 
         // Clean up
         window.URL.revokeObjectURL(link.href);
+
+        return response;
     } catch (error) {
         console.error('Download failed:', error);
         throw error;
@@ -200,13 +262,21 @@ export const downloadFile = async (url, filename) => {
 // Helper function to check if user is authenticated
 export const isAuthenticated = () => {
     const token = localStorage.getItem(AUTH_CONSTANTS.TOKEN_KEY);
-    return !!token;
+    const user = getCurrentUser();
+    return !!(token && user);
 };
 
 // Helper function to get current user data
 export const getCurrentUser = () => {
-    const userData = localStorage.getItem(AUTH_CONSTANTS.USER_KEY);
-    return userData ? JSON.parse(userData) : null;
+    try {
+        const userData = localStorage.getItem(AUTH_CONSTANTS.USER_KEY);
+        return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+        console.error('Error parsing user data from localStorage:', error);
+        // Clear corrupted data
+        localStorage.removeItem(AUTH_CONSTANTS.USER_KEY);
+        return null;
+    }
 };
 
 // Helper function to clear auth data
@@ -215,5 +285,47 @@ export const clearAuthData = () => {
     localStorage.removeItem(AUTH_CONSTANTS.REFRESH_TOKEN_KEY);
     localStorage.removeItem(AUTH_CONSTANTS.USER_KEY);
 };
+
+// Helper function to get auth token
+export const getAuthToken = () => {
+    return localStorage.getItem(AUTH_CONSTANTS.TOKEN_KEY);
+};
+
+// Initialize auth token on app start
+export const initializeAuth = () => {
+    const token = getAuthToken();
+    if (token) {
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
+};
+
+// FIXED: Add retry mechanism for failed requests
+export const retryRequest = async (requestConfig, maxRetries = 3, delay = 1000) => {
+    let lastError;
+
+    for (let i = 0; i <= maxRetries; i++) {
+        try {
+            return await apiClient(requestConfig);
+        } catch (error) {
+            lastError = error;
+
+            // Don't retry on certain status codes
+            if (error.response?.status === 400 || error.response?.status === 401 ||
+                error.response?.status === 403 || error.response?.status === 404) {
+                throw error;
+            }
+
+            // Wait before retrying (exponential backoff)
+            if (i < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+            }
+        }
+    }
+
+    throw lastError;
+};
+
+// Call initialization immediately
+initializeAuth();
 
 export default apiClient;

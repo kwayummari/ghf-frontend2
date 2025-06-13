@@ -86,6 +86,31 @@ export const getUserMenus = createAsyncThunk(
     }
 );
 
+// NEW: Initialize auth state on app startup
+export const initializeAuth = createAsyncThunk(
+    'auth/initialize',
+    async (_, { rejectWithValue }) => {
+        try {
+            // Initialize auth service
+            authService.initializeAuth();
+
+            // Check if user is authenticated
+            if (authService.isAuthenticated()) {
+                // Get fresh user data
+                const user = await authService.getProfile();
+                const menus = await authService.getUserMenus();
+
+                return { user, menus };
+            }
+
+            return null;
+        } catch (error) {
+            console.error('Auth initialization error:', error);
+            return rejectWithValue(error.userMessage || error.message);
+        }
+    }
+);
+
 // Initial state
 const initialState = {
     user: authService.getCurrentUser(),
@@ -98,6 +123,7 @@ const initialState = {
     profileLoading: false,
     passwordChangeLoading: false,
     menuLoading: false,
+    initialized: false, // NEW: Track if auth has been initialized
 };
 
 // Auth slice
@@ -113,14 +139,47 @@ const authSlice = createSlice({
             state.isAuthenticated = false;
             state.userMenus = [];
             state.error = null;
+            state.initialized = false;
         },
         setUser: (state, action) => {
             state.user = action.payload;
             state.isAuthenticated = !!action.payload;
         },
+        // NEW: Set initialized state
+        setInitialized: (state, action) => {
+            state.initialized = action.payload;
+        },
     },
     extraReducers: (builder) => {
         builder
+            // Initialize auth cases
+            .addCase(initializeAuth.pending, (state) => {
+                state.loading = true;
+                state.initialized = false;
+            })
+            .addCase(initializeAuth.fulfilled, (state, action) => {
+                state.loading = false;
+                state.initialized = true;
+
+                if (action.payload) {
+                    state.user = action.payload.user;
+                    state.userMenus = action.payload.menus;
+                    state.isAuthenticated = true;
+                } else {
+                    state.user = null;
+                    state.userMenus = [];
+                    state.isAuthenticated = false;
+                }
+            })
+            .addCase(initializeAuth.rejected, (state, action) => {
+                state.loading = false;
+                state.initialized = true;
+                state.user = null;
+                state.isAuthenticated = false;
+                state.userMenus = [];
+                state.error = action.payload;
+            })
+
             // Login cases
             .addCase(loginUser.pending, (state) => {
                 state.loginLoading = true;
@@ -131,6 +190,7 @@ const authSlice = createSlice({
                 state.user = action.payload.user;
                 state.isAuthenticated = true;
                 state.error = null;
+                state.initialized = true;
             })
             .addCase(loginUser.rejected, (state, action) => {
                 state.loginLoading = false;
@@ -163,6 +223,7 @@ const authSlice = createSlice({
                 state.isAuthenticated = false;
                 state.userMenus = [];
                 state.error = null;
+                state.initialized = true;
             })
             .addCase(logoutUser.rejected, (state, action) => {
                 state.loading = false;
@@ -236,7 +297,7 @@ const authSlice = createSlice({
 });
 
 // Export actions
-export const { clearError, clearAuth, setUser } = authSlice.actions;
+export const { clearError, clearAuth, setUser, setInitialized } = authSlice.actions;
 
 // Selectors
 export const selectAuth = (state) => state.auth;
@@ -250,6 +311,7 @@ export const selectRegisterLoading = (state) => state.auth.registerLoading;
 export const selectProfileLoading = (state) => state.auth.profileLoading;
 export const selectPasswordChangeLoading = (state) => state.auth.passwordChangeLoading;
 export const selectMenuLoading = (state) => state.auth.menuLoading;
+export const selectAuthInitialized = (state) => state.auth.initialized; // NEW selector
 
 // Helper selectors for permissions and roles
 export const selectUserRoles = (state) => {

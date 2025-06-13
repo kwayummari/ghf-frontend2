@@ -14,13 +14,18 @@ class AuthService {
             const response = await apiClient.post(API_ENDPOINTS.LOGIN, credentials);
             const { data } = response.data;
 
-            // Store tokens and user data
-            if (data.access_token) {
-                localStorage.setItem(AUTH_CONSTANTS.TOKEN_KEY, data.access_token);
+            // Store tokens and user data - FIXED: Check for both token and access_token
+            const accessToken = data.token || data.access_token;
+            const refreshToken = data.refreshToken || data.refresh_token;
+
+            if (accessToken) {
+                localStorage.setItem(AUTH_CONSTANTS.TOKEN_KEY, accessToken);
+                // Update axios default header immediately
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
             }
 
-            if (data.refresh_token) {
-                localStorage.setItem(AUTH_CONSTANTS.REFRESH_TOKEN_KEY, data.refresh_token);
+            if (refreshToken) {
+                localStorage.setItem(AUTH_CONSTANTS.REFRESH_TOKEN_KEY, refreshToken);
             }
 
             if (data.user) {
@@ -55,6 +60,9 @@ class AuthService {
      */
     async logout() {
         try {
+            // Clear axios header
+            delete apiClient.defaults.headers.common['Authorization'];
+
             // Clear local storage
             clearAuthData();
 
@@ -66,6 +74,7 @@ class AuthService {
         } catch (error) {
             console.error('Logout error:', error);
             // Clear data anyway
+            delete apiClient.defaults.headers.common['Authorization'];
             clearAuthData();
             window.location.href = AUTH_CONSTANTS.LOGOUT_REDIRECT;
         }
@@ -101,9 +110,8 @@ class AuthService {
     async changePassword(passwordData) {
         try {
             const response = await apiClient.post(API_ENDPOINTS.CHANGE_PASSWORD, {
-                current_password: passwordData.currentPassword,
-                new_password: passwordData.newPassword,
-                confirm_password: passwordData.confirmPassword,
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword,
             });
 
             return response.data;
@@ -164,24 +172,29 @@ class AuthService {
             }
 
             const response = await apiClient.post(API_ENDPOINTS.REFRESH_TOKEN, {
-                refresh_token: refreshToken,
+                refreshToken: refreshToken,
             });
 
             const { data } = response.data;
 
-            // Update tokens
-            if (data.access_token) {
-                localStorage.setItem(AUTH_CONSTANTS.TOKEN_KEY, data.access_token);
+            // Update tokens - FIXED: Check for both token formats
+            const accessToken = data.token || data.access_token;
+            const newRefreshToken = data.refreshToken || data.refresh_token;
+
+            if (accessToken) {
+                localStorage.setItem(AUTH_CONSTANTS.TOKEN_KEY, accessToken);
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
             }
 
-            if (data.refresh_token) {
-                localStorage.setItem(AUTH_CONSTANTS.REFRESH_TOKEN_KEY, data.refresh_token);
+            if (newRefreshToken) {
+                localStorage.setItem(AUTH_CONSTANTS.REFRESH_TOKEN_KEY, newRefreshToken);
             }
 
             return data;
         } catch (error) {
             console.error('Token refresh error:', error);
             // Clear invalid tokens
+            delete apiClient.defaults.headers.common['Authorization'];
             clearAuthData();
             throw error;
         }
@@ -203,6 +216,17 @@ class AuthService {
      */
     getCurrentUser() {
         return getCurrentUser();
+    }
+
+    /**
+     * Initialize authentication state (call on app startup)
+     */
+    initializeAuth() {
+        const token = localStorage.getItem(AUTH_CONSTANTS.TOKEN_KEY);
+        if (token) {
+            // Set the authorization header for existing token
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
     }
 
     /**

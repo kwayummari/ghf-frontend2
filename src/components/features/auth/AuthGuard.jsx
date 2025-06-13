@@ -6,6 +6,7 @@ import {
   selectIsAuthenticated,
   selectUser,
   selectProfileLoading,
+  selectAuthInitialized,
   getUserProfile,
   getUserMenus,
 } from "../../../store/slices/authSlice";
@@ -37,18 +38,24 @@ export const AuthGuard = ({ children }) => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const user = useSelector(selectUser);
   const profileLoading = useSelector(selectProfileLoading);
+  const initialized = useSelector(selectAuthInitialized);
   const location = useLocation();
 
   useEffect(() => {
-    // If authenticated but no user data, fetch profile
-    if (isAuthenticated && !user) {
+    // If authenticated but no user data, fetch profile and menus
+    if (isAuthenticated && !user && initialized) {
       dispatch(getUserProfile());
       dispatch(getUserMenus());
     }
-  }, [dispatch, isAuthenticated, user]);
+  }, [dispatch, isAuthenticated, user, initialized]);
 
-  // Show loading while checking authentication
-  if (profileLoading) {
+  // Wait for initialization to complete
+  if (!initialized) {
+    return <AuthLoading />;
+  }
+
+  // Show loading while fetching profile
+  if (isAuthenticated && profileLoading) {
     return <AuthLoading />;
   }
 
@@ -77,7 +84,7 @@ export const RoleGuard = ({
     ? allowedRoles.every((role) => authService.hasRole(role))
     : allowedRoles.some((role) => authService.hasRole(role));
 
-  if (!hasRequiredRole) {
+  if (allowedRoles.length > 0 && !hasRequiredRole) {
     return <Navigate to={ROUTES.UNAUTHORIZED} replace />;
   }
 
@@ -105,7 +112,7 @@ export const PermissionGuard = ({
         authService.hasPermission(permission)
       );
 
-  if (!hasRequiredPermission) {
+  if (requiredPermissions.length > 0 && !hasRequiredPermission) {
     return <Navigate to={ROUTES.UNAUTHORIZED} replace />;
   }
 
