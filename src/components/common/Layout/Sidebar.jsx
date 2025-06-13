@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useSelector } from "react-redux";
+import React, { useState, useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
@@ -12,6 +12,7 @@ import {
   Divider,
   Tooltip,
   Avatar,
+  CircularProgress,
 } from "@mui/material";
 import {
   ExpandLess,
@@ -33,7 +34,13 @@ import {
   SecurityOutlined,
   MenuOutlined,
 } from "@mui/icons-material";
-import { selectUserMenus, selectUser } from "../../../store/slices/authSlice";
+import {
+  selectUserMenus,
+  selectUser,
+  selectMenuLoading,
+  selectIsAuthenticated,
+  getUserMenus,
+} from "../../../store/slices/authSlice";
 
 // Icon mapping for menu items
 const iconMap = {
@@ -56,11 +63,27 @@ const iconMap = {
 };
 
 const Sidebar = ({ collapsed, onItemClick }) => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const userMenus = useSelector(selectUserMenus);
   const user = useSelector(selectUser);
+  const menuLoading = useSelector(selectMenuLoading);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
   const [expandedMenus, setExpandedMenus] = useState({});
+
+  // Fetch menus if user is authenticated but no menus are loaded
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      user &&
+      (!userMenus || userMenus.length === 0) &&
+      !menuLoading
+    ) {
+      console.log("Sidebar: User authenticated but no menus, fetching...");
+      dispatch(getUserMenus());
+    }
+  }, [dispatch, isAuthenticated, user, userMenus, menuLoading]);
 
   const handleMenuClick = (menu) => {
     if (menu.children && menu.children.length > 0) {
@@ -250,8 +273,33 @@ const Sidebar = ({ collapsed, onItemClick }) => {
     },
   ];
 
-  const menusToRender =
-    userMenus && userMenus.length > 0 ? userMenus : defaultMenus;
+  // Show loading state while menus are being fetched
+  const renderMenuSection = () => {
+    if (menuLoading) {
+      return (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            py: 3,
+          }}
+        >
+          <CircularProgress size={24} />
+          {!collapsed && (
+            <Typography variant="body2" sx={{ ml: 2 }} color="text.secondary">
+              Loading menus...
+            </Typography>
+          )}
+        </Box>
+      );
+    }
+
+    const menusToRender =
+      userMenus && userMenus.length > 0 ? userMenus : defaultMenus;
+
+    return menusToRender.map((menu) => renderMenuItem(menu));
+  };
 
   return (
     <Box
@@ -302,7 +350,7 @@ const Sidebar = ({ collapsed, onItemClick }) => {
       </Box>
 
       {/* User Profile Section */}
-      {!collapsed && (
+      {!collapsed && user && (
         <Box
           sx={{
             p: 2,
@@ -362,7 +410,7 @@ const Sidebar = ({ collapsed, onItemClick }) => {
             },
           }}
         >
-          {menusToRender.map((menu) => renderMenuItem(menu))}
+          {renderMenuSection()}
         </List>
       </Box>
 

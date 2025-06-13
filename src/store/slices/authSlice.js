@@ -4,9 +4,24 @@ import authService from '../../services/auth/authService';
 // Async thunks
 export const loginUser = createAsyncThunk(
     'auth/login',
-    async (credentials, { rejectWithValue }) => {
+    async (credentials, { rejectWithValue, dispatch }) => {
         try {
             const response = await authService.login(credentials);
+
+            // After successful login, fetch user menus
+            if (response.user) {
+                try {
+                    console.log('Login successful, fetching user menus...');
+                    const menus = await authService.getUserMenus();
+                    console.log('Menus fetched:', menus);
+                    return { ...response, menus };
+                } catch (menuError) {
+                    console.error('Failed to fetch menus after login:', menuError);
+                    // Don't fail login if menu fetch fails
+                    return { ...response, menus: [] };
+                }
+            }
+
             return response;
         } catch (error) {
             return rejectWithValue(error.userMessage || error.message);
@@ -78,31 +93,57 @@ export const getUserMenus = createAsyncThunk(
     'auth/getUserMenus',
     async (_, { rejectWithValue }) => {
         try {
+            console.log('getUserMenus action called');
             const response = await authService.getUserMenus();
+            console.log('getUserMenus response:', response);
             return response;
         } catch (error) {
+            console.error('getUserMenus error:', error);
             return rejectWithValue(error.userMessage || error.message);
         }
     }
 );
 
-// NEW: Initialize auth state on app startup
+// Initialize auth state on app startup
 export const initializeAuth = createAsyncThunk(
     'auth/initialize',
     async (_, { rejectWithValue }) => {
         try {
+            console.log('Initializing auth...');
+
             // Initialize auth service
             authService.initializeAuth();
 
             // Check if user is authenticated
             if (authService.isAuthenticated()) {
-                // Get fresh user data
-                const user = await authService.getProfile();
-                const menus = await authService.getUserMenus();
+                console.log('User is authenticated, fetching profile and menus...');
 
-                return { user, menus };
+                try {
+                    // Get fresh user data
+                    const user = await authService.getProfile();
+                    console.log('Profile fetched:', user);
+
+                    // Get user menus
+                    const menus = await authService.getUserMenus();
+                    console.log('Menus fetched during init:', menus);
+
+                    return { user, menus };
+                } catch (error) {
+                    console.error('Error fetching user data during initialization:', error);
+
+                    // If profile fetch fails, user might need to login again
+                    if (error.response?.status === 401) {
+                        authService.logout();
+                        return null;
+                    }
+
+                    // Return with empty menus if only menu fetch fails
+                    const user = authService.getCurrentUser();
+                    return { user, menus: [] };
+                }
             }
 
+            console.log('User is not authenticated');
             return null;
         } catch (error) {
             console.error('Auth initialization error:', error);
@@ -123,7 +164,7 @@ const initialState = {
     profileLoading: false,
     passwordChangeLoading: false,
     menuLoading: false,
-    initialized: false, // NEW: Track if auth has been initialized
+    initialized: false,
 };
 
 // Auth slice
@@ -145,9 +186,12 @@ const authSlice = createSlice({
             state.user = action.payload;
             state.isAuthenticated = !!action.payload;
         },
-        // NEW: Set initialized state
         setInitialized: (state, action) => {
             state.initialized = action.payload;
+        },
+        // New action to manually set menus
+        setUserMenus: (state, action) => {
+            state.userMenus = action.payload || [];
         },
     },
     extraReducers: (builder) => {
@@ -163,7 +207,7 @@ const authSlice = createSlice({
 
                 if (action.payload) {
                     state.user = action.payload.user;
-                    state.userMenus = action.payload.menus;
+                    state.userMenus = action.payload.menus || [];
                     state.isAuthenticated = true;
                 } else {
                     state.user = null;
@@ -188,6 +232,7 @@ const authSlice = createSlice({
             .addCase(loginUser.fulfilled, (state, action) => {
                 state.loginLoading = false;
                 state.user = action.payload.user;
+                state.userMenus = action.payload.menus || [];
                 state.isAuthenticated = true;
                 state.error = null;
                 state.initialized = true;
@@ -196,6 +241,7 @@ const authSlice = createSlice({
                 state.loginLoading = false;
                 state.user = null;
                 state.isAuthenticated = false;
+                state.userMenus = [];
                 state.error = action.payload;
             })
 
@@ -286,18 +332,19 @@ const authSlice = createSlice({
             })
             .addCase(getUserMenus.fulfilled, (state, action) => {
                 state.menuLoading = false;
-                state.userMenus = action.payload;
+                state.userMenus = action.payload || [];
                 state.error = null;
             })
             .addCase(getUserMenus.rejected, (state, action) => {
                 state.menuLoading = false;
                 state.error = action.payload;
+                // Don't clear menus on error, keep existing ones
             });
     },
 });
 
 // Export actions
-export const { clearError, clearAuth, setUser, setInitialized } = authSlice.actions;
+export const { clearError, clearAuth, setUser, setInitialized, setUserMenus } = authSlice.actions;
 
 // Selectors
 export const selectAuth = (state) => state.auth;
@@ -311,7 +358,7 @@ export const selectRegisterLoading = (state) => state.auth.registerLoading;
 export const selectProfileLoading = (state) => state.auth.profileLoading;
 export const selectPasswordChangeLoading = (state) => state.auth.passwordChangeLoading;
 export const selectMenuLoading = (state) => state.auth.menuLoading;
-export const selectAuthInitialized = (state) => state.auth.initialized; // NEW selector
+export const selectAuthInitialized = (state) => state.auth.initialized;
 
 // Helper selectors for permissions and roles
 export const selectUserRoles = (state) => {

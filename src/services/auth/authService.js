@@ -104,7 +104,6 @@ class AuthService {
      * @param {Object} passwordData - Password change data
      * @param {string} passwordData.currentPassword - Current password
      * @param {string} passwordData.newPassword - New password
-     * @param {string} passwordData.confirmPassword - Confirm new password
      * @returns {Promise<Object>} - Response data
      */
     async changePassword(passwordData) {
@@ -285,10 +284,33 @@ class AuthService {
      */
     async getUserMenus() {
         try {
+            // FIXED: Ensure user is authenticated and token is set
+            if (!this.isAuthenticated()) {
+                console.warn('User is not authenticated, cannot fetch menus');
+                return [];
+            }
+
+            // Make sure the token is in the headers
+            const token = localStorage.getItem(AUTH_CONSTANTS.TOKEN_KEY);
+            if (token && !apiClient.defaults.headers.common['Authorization']) {
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            }
+
+            console.log('Fetching user menus...');
             const response = await apiClient.get(API_ENDPOINTS.USER_MENUS);
+
+            console.log('Menu response:', response.data);
             return response.data.data || [];
         } catch (error) {
             console.error('Get user menus error:', error);
+
+            // If it's an auth error, clear tokens and redirect
+            if (error.response?.status === 401) {
+                console.log('Authentication failed while fetching menus, clearing auth data');
+                this.logout();
+                return [];
+            }
+
             return [];
         }
     }
