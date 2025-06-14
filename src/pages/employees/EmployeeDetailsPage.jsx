@@ -19,7 +19,8 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  ListItemButton,
+  Alert,
+  Skeleton,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -32,11 +33,15 @@ import {
   School as SchoolIcon,
   AccountBalance as BankIcon,
   Assignment as AssignmentIcon,
-  EventNote as EventNoteIcon,
-  AccessTime as AccessTimeIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../components/features/auth/AuthGuard";
 import { ROUTES, ROLES } from "../../constants";
+import { employeesAPI } from "../../services/api/employees.api";
+import useNotification from "../../hooks/common/useNotification";
+import useConfirmDialog from "../../hooks/common/useConfirmDialog";
+import { LoadingSpinner } from "../../components/common/Loading";
+import { ErrorMessage } from "../../components/common/Error";
+import { ConfirmDialog } from "../../components/common/Modals";
 import EmployeeForm from "../../components/features/employees/EmployeeForm";
 
 const EmployeeDetailsPage = () => {
@@ -44,61 +49,54 @@ const EmployeeDetailsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { hasAnyRole, hasRole } = useAuth();
+  const { showSuccess, showError } = useNotification();
+  const { isOpen, config, openDialog, closeDialog, handleConfirm } =
+    useConfirmDialog();
+
+  // State management
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [anchorEl, setAnchorEl] = useState(null);
 
   const isEditMode = location.pathname.includes("/edit");
 
+  // Fetch employee data on component mount
   useEffect(() => {
     const fetchEmployee = async () => {
+      if (!id) {
+        setError("Employee ID is required");
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setError(null);
 
-      // Sample employee data
-      const sampleEmployee = {
-        id: parseInt(id),
-        first_name: "John",
-        middle_name: "Michael",
-        sur_name: "Doe",
-        email: "john.doe@ghf.org",
-        phone: "+255 123 456 789",
-        gender: "M",
-        date_of_birth: "1990-05-15",
-        marital_status: "Married",
-        address: "123 Msimbazi Street, Ilala, Dar es Salaam",
-        department: "IT Department",
-        position: "Software Developer",
-        salary: 1500000,
-        hire_date: "2023-01-15",
-        status: "Active",
-        supervisor: "Jane Manager",
-        education_level: "Degree",
-        institution: "University of Dar es Salaam",
-        graduation_year: 2015,
-        nida: "19900515-12345-67890-12",
-        bima: "BIMA123456789",
-        nssf: "NSSF987654321",
-        helsb: "HESLB456789123",
-        bank_name: "CRDB Bank",
-        account_number: "0150123456789",
-        emergency_contact_name: "Jane Doe",
-        emergency_contact_phone: "+255 987 654 321",
-        emergency_contact_relationship: "Spouse",
-        next_of_kin_name: "Robert Doe",
-        next_of_kin_phone: "+255 555 123 456",
-        next_of_kin_relationship: "Parent",
-      };
+      try {
+        const response = await employeesAPI.getById(id);
 
-      setEmployee(sampleEmployee);
-      setLoading(false);
+        console.log('this is response', response.status);
+
+        if (response.status = 200 && response.data) {
+          setEmployee(response.data);
+        } else {
+          setError("Employee not found");
+        }
+      } catch (err) {
+        console.error("Error fetching employee:", err);
+        setError(err.userMessage || "Failed to fetch employee details");
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchEmployee();
   }, [id]);
 
+  // Handle menu actions
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -113,22 +111,43 @@ const EmployeeDetailsPage = () => {
   };
 
   const handleDelete = () => {
-    console.log("Delete employee:", id);
-    // Implement delete functionality
     handleMenuClose();
+
+    openDialog({
+      title: "Delete Employee",
+      message: `Are you sure you want to delete ${employee?.first_name} ${employee?.sur_name}? This action cannot be undone.`,
+      variant: "error",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setDeleteLoading(true);
+
+        try {
+          await employeesAPI.delete(id);
+          showSuccess("Employee deleted successfully");
+          navigate(ROUTES.EMPLOYEES);
+        } catch (err) {
+          console.error("Error deleting employee:", err);
+          showError(err.userMessage || "Failed to delete employee");
+        } finally {
+          setDeleteLoading(false);
+        }
+      },
+    });
   };
 
+  // Utility functions
   const getInitials = (firstName, surname) => {
     return `${firstName?.charAt(0) || ""}${surname?.charAt(0) || ""}`.toUpperCase();
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case "Active":
+    switch (status?.toLowerCase()) {
+      case "active":
         return "success";
-      case "Inactive":
+      case "inactive":
         return "error";
-      case "On Leave":
+      case "on leave":
         return "warning";
       default:
         return "default";
@@ -136,6 +155,7 @@ const EmployeeDetailsPage = () => {
   };
 
   const formatCurrency = (amount) => {
+    if (!amount) return "Not provided";
     return new Intl.NumberFormat("en-TZ", {
       style: "currency",
       currency: "TZS",
@@ -143,39 +163,97 @@ const EmployeeDetailsPage = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-GB");
+    if (!dateString) return "Not provided";
+    try {
+      return new Date(dateString).toLocaleDateString("en-GB");
+    } catch {
+      return "Invalid date";
+    }
   };
 
+  const getFullName = () => {
+    if (!employee) return "";
+    const { first_name, middle_name, sur_name } = employee;
+    return `${first_name || ""} ${middle_name || ""} ${sur_name || ""}`.trim();
+  };
+
+  // Loading state
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "50vh",
-        }}
-      >
-        <Typography>Loading...</Typography>
+      <Box sx={{ p: 3 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 3 }}>
+              <Skeleton variant="circular" width={80} height={80} />
+              <Box>
+                <Skeleton variant="text" width={200} height={40} />
+                <Skeleton variant="text" width={150} height={30} />
+                <Skeleton variant="text" width={100} height={20} />
+              </Box>
+            </Box>
+          </Grid>
+          <Grid item xs={12}>
+            <Skeleton variant="rectangular" height={400} />
+          </Grid>
+        </Grid>
       </Box>
     );
   }
 
-  if (!employee) {
+  // Error state
+  if (error) {
     return (
-      <Box sx={{ textAlign: "center", py: 4 }}>
-        <Typography variant="h6">Employee not found</Typography>
-        <Button onClick={() => navigate(ROUTES.EMPLOYEES)} sx={{ mt: 2 }}>
+      <Box sx={{ p: 3 }}>
+        <ErrorMessage
+          error={error}
+          title="Failed to load employee"
+          showRefresh
+          onRefresh={() => window.location.reload()}
+        />
+        <Button
+          onClick={() => navigate(ROUTES.EMPLOYEES)}
+          sx={{ mt: 2 }}
+          variant="outlined"
+        >
           Back to Employees
         </Button>
       </Box>
     );
   }
 
-  if (isEditMode) {
-    return <EmployeeForm editMode={true} initialData={employee} />;
+  // Employee not found
+  if (!employee) {
+    return (
+      <Box sx={{ textAlign: "center", py: 4 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Employee not found
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          The employee you're looking for doesn't exist or has been removed.
+        </Typography>
+        <Button onClick={() => navigate(ROUTES.EMPLOYEES)} variant="contained">
+          Back to Employees
+        </Button>
+      </Box>
+    );
   }
 
+  // Edit mode
+  if (isEditMode) {
+    return (
+      <EmployeeForm
+        editMode={true}
+        initialData={employee}
+        onSuccess={(updatedEmployee) => {
+          setEmployee(updatedEmployee);
+          showSuccess("Employee updated successfully");
+          navigate(`${ROUTES.EMPLOYEES}/${id}`);
+        }}
+      />
+    );
+  }
+
+  // Tab panels configuration
   const tabPanels = [
     {
       label: "Personal Info",
@@ -187,19 +265,28 @@ const EmployeeDetailsPage = () => {
                 <ListItemIcon>
                   <EmailIcon />
                 </ListItemIcon>
-                <ListItemText primary="Email" secondary={employee.email} />
+                <ListItemText
+                  primary="Email"
+                  secondary={employee.email || "Not provided"}
+                />
               </ListItem>
               <ListItem>
                 <ListItemIcon>
                   <PhoneIcon />
                 </ListItemIcon>
-                <ListItemText primary="Phone" secondary={employee.phone} />
+                <ListItemText
+                  primary="Phone"
+                  secondary={employee.phone || "Not provided"}
+                />
               </ListItem>
               <ListItem>
                 <ListItemIcon>
                   <LocationIcon />
                 </ListItemIcon>
-                <ListItemText primary="Address" secondary={employee.address} />
+                <ListItemText
+                  primary="Address"
+                  secondary={employee.address || "Not provided"}
+                />
               </ListItem>
             </List>
           </Grid>
@@ -214,13 +301,19 @@ const EmployeeDetailsPage = () => {
               <ListItem>
                 <ListItemText
                   primary="Gender"
-                  secondary={employee.gender === "M" ? "Male" : "Female"}
+                  secondary={
+                    employee.gender === "M"
+                      ? "Male"
+                      : employee.gender === "F"
+                        ? "Female"
+                        : "Not specified"
+                  }
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Marital Status"
-                  secondary={employee.marital_status}
+                  secondary={employee.marital_status || "Not provided"}
                 />
               </ListItem>
             </List>
@@ -240,7 +333,11 @@ const EmployeeDetailsPage = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Department"
-                  secondary={employee.department}
+                  secondary={
+                    employee.department?.name ||
+                    employee.department ||
+                    "Not assigned"
+                  }
                 />
               </ListItem>
               <ListItem>
@@ -249,13 +346,17 @@ const EmployeeDetailsPage = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Position"
-                  secondary={employee.position}
+                  secondary={employee.position || "Not assigned"}
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Supervisor"
-                  secondary={employee.supervisor}
+                  secondary={
+                    employee.supervisor?.name ||
+                    employee.supervisor ||
+                    "Not assigned"
+                  }
                 />
               </ListItem>
             </List>
@@ -279,7 +380,7 @@ const EmployeeDetailsPage = () => {
                   primary="Status"
                   secondary={
                     <Chip
-                      label={employee.status}
+                      label={employee.status || "Active"}
                       color={getStatusColor(employee.status)}
                       size="small"
                     />
@@ -306,19 +407,19 @@ const EmployeeDetailsPage = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Education Level"
-                  secondary={employee.education_level}
+                  secondary={employee.education_level || "Not provided"}
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Institution"
-                  secondary={employee.institution}
+                  secondary={employee.institution || "Not provided"}
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Graduation Year"
-                  secondary={employee.graduation_year}
+                  secondary={employee.graduation_year || "Not provided"}
                 />
               </ListItem>
             </List>
@@ -329,16 +430,28 @@ const EmployeeDetailsPage = () => {
             </Typography>
             <List>
               <ListItem>
-                <ListItemText primary="NIDA" secondary={employee.nida} />
+                <ListItemText
+                  primary="NIDA"
+                  secondary={employee.nida || "Not provided"}
+                />
               </ListItem>
               <ListItem>
-                <ListItemText primary="BIMA" secondary={employee.bima} />
+                <ListItemText
+                  primary="BIMA"
+                  secondary={employee.bima || "Not provided"}
+                />
               </ListItem>
               <ListItem>
-                <ListItemText primary="NSSF" secondary={employee.nssf} />
+                <ListItemText
+                  primary="NSSF"
+                  secondary={employee.nssf || "Not provided"}
+                />
               </ListItem>
               <ListItem>
-                <ListItemText primary="HESLB" secondary={employee.helsb} />
+                <ListItemText
+                  primary="HESLB"
+                  secondary={employee.helsb || "Not provided"}
+                />
               </ListItem>
             </List>
           </Grid>
@@ -357,19 +470,21 @@ const EmployeeDetailsPage = () => {
               <ListItem>
                 <ListItemText
                   primary="Name"
-                  secondary={employee.emergency_contact_name}
+                  secondary={employee.emergency_contact_name || "Not provided"}
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Phone"
-                  secondary={employee.emergency_contact_phone}
+                  secondary={employee.emergency_contact_phone || "Not provided"}
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Relationship"
-                  secondary={employee.emergency_contact_relationship}
+                  secondary={
+                    employee.emergency_contact_relationship || "Not provided"
+                  }
                 />
               </ListItem>
             </List>
@@ -389,13 +504,15 @@ const EmployeeDetailsPage = () => {
                   <ListItem>
                     <ListItemText
                       primary="Phone"
-                      secondary={employee.next_of_kin_phone}
+                      secondary={employee.next_of_kin_phone || "Not provided"}
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText
                       primary="Relationship"
-                      secondary={employee.next_of_kin_relationship}
+                      secondary={
+                        employee.next_of_kin_relationship || "Not provided"
+                      }
                     />
                   </ListItem>
                 </List>
@@ -411,12 +528,15 @@ const EmployeeDetailsPage = () => {
                 <ListItemIcon>
                   <BankIcon />
                 </ListItemIcon>
-                <ListItemText primary="Bank" secondary={employee.bank_name} />
+                <ListItemText
+                  primary="Bank"
+                  secondary={employee.bank_name || "Not provided"}
+                />
               </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Account Number"
-                  secondary={employee.account_number}
+                  secondary={employee.account_number || "Not provided"}
                 />
               </ListItem>
             </List>
@@ -451,19 +571,23 @@ const EmployeeDetailsPage = () => {
 
           <Box>
             <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
-              {`${employee.first_name} ${employee.middle_name || ""} ${employee.sur_name}`.trim()}
+              {getFullName()}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              {employee.position}
+              {employee.position || "No position assigned"}
             </Typography>
             <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
               <Chip
-                label={employee.department}
+                label={
+                  employee.department?.name ||
+                  employee.department ||
+                  "No department"
+                }
                 color="primary"
                 variant="outlined"
               />
               <Chip
-                label={employee.status}
+                label={employee.status || "Active"}
                 color={getStatusColor(employee.status)}
                 size="small"
               />
@@ -477,11 +601,12 @@ const EmployeeDetailsPage = () => {
               variant="contained"
               startIcon={<EditIcon />}
               onClick={handleEdit}
+              disabled={deleteLoading}
             >
               Edit
             </Button>
 
-            <IconButton onClick={handleMenuOpen}>
+            <IconButton onClick={handleMenuOpen} disabled={deleteLoading}>
               <MoreVertIcon />
             </IconButton>
           </Box>
@@ -519,7 +644,11 @@ const EmployeeDetailsPage = () => {
         </MenuItem>
 
         {hasRole(ROLES.ADMIN) && (
-          <MenuItem onClick={handleDelete} sx={{ color: "error.main" }}>
+          <MenuItem
+            onClick={handleDelete}
+            sx={{ color: "error.main" }}
+            disabled={deleteLoading}
+          >
             <ListItemIcon>
               <DeleteIcon fontSize="small" color="error" />
             </ListItemIcon>
@@ -527,6 +656,15 @@ const EmployeeDetailsPage = () => {
           </MenuItem>
         )}
       </Menu>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={isOpen}
+        onClose={closeDialog}
+        onConfirm={handleConfirm}
+        loading={deleteLoading}
+        {...config}
+      />
     </Box>
   );
 };
