@@ -20,8 +20,12 @@ import {
   PendingOutlined,
 } from "@mui/icons-material";
 import { selectUser } from "../../store/slices/authSlice";
+import { employeesAPI, departmentsAPI } from "../../services/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../components/features/auth/AuthGuard";
 import { ROUTES } from "../../constants";
+import { LoadingSpinner } from "./../../components/common/Loading"
+import { ErrorMessage } from "./../../components/common/Error";
 
 // Stats Card Component
 const StatsCard = ({
@@ -183,19 +187,9 @@ const DashboardPage = () => {
     } = useQuery({
       queryKey: [
         "employees",
-        page,
-        pageSize,
-        searchTerm,
-        departmentFilter,
-        statusFilter,
       ],
       queryFn: () =>
         employeesAPI.getAll({
-          page: page + 1, // API uses 1-based pagination
-          limit: pageSize,
-          search: searchTerm || undefined,
-          department: departmentFilter || undefined,
-          status: statusFilter || undefined,
         }),
       keepPreviousData: true,
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -216,7 +210,7 @@ const DashboardPage = () => {
   };
 
   const totalEmployees =
-    employeesResponse?.data?.total || employeesResponse?.total || 0;
+    employeesResponse?.data?.data.length || employeesResponse?.total || 0;
 
   // Sample data - replace with real data from APIs
   const statsData = {
@@ -271,6 +265,30 @@ const DashboardPage = () => {
         console.log("Action not defined:", actionType);
     }
   };
+
+  const employees = Array.isArray(employeesResponse?.data?.data)
+    ? employeesResponse.data.data.map((emp) => ({
+        ...emp,
+        id: emp.id, // <-- or whatever unique ID field you're using
+      }))
+    : [];
+
+  if (employeesLoading && employees.length === 0) {
+      return <LoadingSpinner message="Loading employees..." />;
+  }
+  
+  if (employeesError) {
+      return (
+        <Box sx={{ p: 3 }}>
+          <ErrorMessage
+            error={employeesError}
+            title="Failed to load employees"
+            showRefresh
+            onRefresh={refetchEmployees}
+          />
+        </Box>
+      );
+    }
 
   return (
     <Box>
