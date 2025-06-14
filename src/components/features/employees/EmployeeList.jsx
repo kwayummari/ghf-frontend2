@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Box,
   Card,
@@ -15,6 +16,8 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
+  Alert,
+  Skeleton,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -26,92 +29,89 @@ import {
   Visibility as ViewIcon,
   Delete as DeleteIcon,
   GetApp as ExportIcon,
-} from "@mui/icons-material";
+  Refresh as RefreshIcon,
+} from "@mui/material";
 import { useAuth } from "../auth/AuthGuard";
+import { useNotification, useConfirmDialog } from "../../../hooks/common";
+import { employeesAPI, departmentsAPI } from "../../../services/api";
 import { ROUTES, ROLES } from "../../../constants";
+import { LoadingSpinner, ErrorMessage } from "../../common/Error";
 
 const EmployeeList = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { hasRole, hasAnyRole } = useAuth();
-  const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { showSuccess, showError } = useNotification();
+  const { openDialog } = useConfirmDialog();
+
+  // Local state for filters and UI
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
 
-  // Sample data - replace with API call
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      setLoading(true);
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Fetch employees with React Query
+  const {
+    data: employeesResponse,
+    isLoading: employeesLoading,
+    error: employeesError,
+    refetch: refetchEmployees,
+  } = useQuery({
+    queryKey: [
+      "employees",
+      page,
+      pageSize,
+      searchTerm,
+      departmentFilter,
+      statusFilter,
+    ],
+    queryFn: () =>
+      employeesAPI.getAll({
+        page: page + 1, // API uses 1-based pagination
+        limit: pageSize,
+        search: searchTerm || undefined,
+        department: departmentFilter || undefined,
+        status: statusFilter || undefined,
+      }),
+    keepPreviousData: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-      const sampleEmployees = [
-        {
-          id: 1,
-          first_name: "John",
-          sur_name: "Doe",
-          email: "john.doe@ghf.org",
-          department: "IT",
-          position: "Software Developer",
-          status: "Active",
-          hire_date: "2023-01-15",
-          phone: "+255 123 456 789",
-        },
-        {
-          id: 2,
-          first_name: "Jane",
-          sur_name: "Smith",
-          email: "jane.smith@ghf.org",
-          department: "HR",
-          position: "HR Manager",
-          status: "Active",
-          hire_date: "2022-08-20",
-          phone: "+255 987 654 321",
-        },
-        {
-          id: 3,
-          first_name: "David",
-          sur_name: "Wilson",
-          email: "david.wilson@ghf.org",
-          department: "Finance",
-          position: "Accountant",
-          status: "Active",
-          hire_date: "2023-03-10",
-          phone: "+255 555 123 456",
-        },
-        {
-          id: 4,
-          first_name: "Sarah",
-          sur_name: "Johnson",
-          email: "sarah.johnson@ghf.org",
-          department: "Operations",
-          position: "Project Manager",
-          status: "On Leave",
-          hire_date: "2022-11-05",
-          phone: "+255 777 888 999",
-        },
-        {
-          id: 5,
-          first_name: "Michael",
-          sur_name: "Brown",
-          email: "michael.brown@ghf.org",
-          department: "IT",
-          position: "System Administrator",
-          status: "Inactive",
-          hire_date: "2021-06-12",
-          phone: "+255 333 444 555",
-        },
-      ];
+  // Fetch departments for filter dropdown
+  const { data: departmentsResponse, isLoading: departmentsLoading } = useQuery(
+    {
+      queryKey: ["departments"],
+      queryFn: () => departmentsAPI.getAll(),
+      staleTime: 10 * 60 * 1000, // 10 minutes
+    }
+  );
 
-      setEmployees(sampleEmployees);
-      setLoading(false);
-    };
+  // Delete employee mutation
+  const deleteEmployeeMutation = useMutation({
+    mutationFn: (employeeId) => employeesAPI.delete(employeeId),
+    onSuccess: () => {
+      showSuccess("Employee deleted successfully");
+      queryClient.invalidateQueries(["employees"]);
+      handleMenuClose();
+    },
+    onError: (error) => {
+      showError(error.userMessage || "Failed to delete employee");
+    },
+  });
 
-    fetchEmployees();
-  }, []);
+  // Extract data from API responses
+  const employees =
+    employeesResponse?.data?.employees || employeesResponse?.data || [];
+  const totalEmployees =
+    employeesResponse?.data?.total || employeesResponse?.total || 0;
+  const departments =
+    departmentsResponse?.data?.departments || departmentsResponse?.data || [];
+
+  // Available status options (you can also fetch these from API)
+  const availableStatuses = ["Active", "Inactive", "On Leave", "Suspended"];
 
   const handleMenuOpen = (event, employee) => {
     setAnchorEl(event.currentTarget);
@@ -138,11 +138,79 @@ const EmployeeList = () => {
   };
 
   const handleDeleteEmployee = () => {
-    if (selectedEmployee) {
-      console.log("Delete employee:", selectedEmployee.id);
-      // Implement delete functionality
-    }
+    if (!selectedEmployee) return;
+
+    openDialog({
+      title: "Delete Employee",
+      message: `Are you sure you want to delete ${selectedEmployee.first_name} ${selectedEmployee.sur_name}? This action cannot be undone.`,
+      variant: "error",
+      confirmText: "Delete",
+      onConfirm: () => {
+        deleteEmployeeMutation.mutate(selectedEmployee.id);
+      },
+    });
+
     handleMenuClose();
+  };
+
+  const handleExportEmployees = async () => {
+    try {
+      // You can implement export functionality here
+      // For example, fetch all employees and convert to CSV
+      const allEmployees = await employeesAPI.getAll({
+        limit: 1000, // Get all employees
+        search: searchTerm || undefined,
+        department: departmentFilter || undefined,
+        status: statusFilter || undefined,
+      });
+
+      // Convert to CSV and download
+      const csvContent = convertToCSV(
+        allEmployees.data.employees || allEmployees.data
+      );
+      downloadCSV(csvContent, "employees.csv");
+
+      showSuccess("Employees exported successfully");
+    } catch (error) {
+      showError("Failed to export employees");
+    }
+  };
+
+  const convertToCSV = (data) => {
+    const headers = [
+      "Name",
+      "Email",
+      "Department",
+      "Position",
+      "Status",
+      "Hire Date",
+      "Phone",
+    ];
+    const csvRows = [
+      headers.join(","),
+      ...data.map((emp) =>
+        [
+          `"${emp.first_name} ${emp.sur_name}"`,
+          emp.email,
+          emp.department,
+          emp.position,
+          emp.status,
+          emp.hire_date,
+          emp.phone,
+        ].join(",")
+      ),
+    ];
+    return csvRows.join("\n");
+  };
+
+  const downloadCSV = (content, filename) => {
+    const blob = new Blob([content], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   const getInitials = (firstName, surname) => {
@@ -157,6 +225,8 @@ const EmployeeList = () => {
         return "error";
       case "On Leave":
         return "warning";
+      case "Suspended":
+        return "error";
       default:
         return "default";
     }
@@ -175,7 +245,7 @@ const EmployeeList = () => {
           </Avatar>
           <Box>
             <Typography variant="subtitle2" sx={{ fontWeight: "medium" }}>
-              {`${params.row.first_name} ${params.row.sur_name}`}
+              {`${params.row.first_name || ""} ${params.row.sur_name || ""}`.trim()}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {params.row.email}
@@ -188,11 +258,13 @@ const EmployeeList = () => {
       field: "department",
       headerName: "Department",
       width: 130,
+      valueGetter: (params) => params.row.department || "Not Assigned",
     },
     {
       field: "position",
       headerName: "Position",
       width: 180,
+      valueGetter: (params) => params.row.position || "Not Assigned",
     },
     {
       field: "status",
@@ -200,7 +272,7 @@ const EmployeeList = () => {
       width: 120,
       renderCell: (params) => (
         <Chip
-          label={params.value}
+          label={params.value || "Unknown"}
           color={getStatusColor(params.value)}
           size="small"
         />
@@ -210,12 +282,14 @@ const EmployeeList = () => {
       field: "hire_date",
       headerName: "Hire Date",
       width: 120,
-      renderCell: (params) => new Date(params.value).toLocaleDateString(),
+      renderCell: (params) =>
+        params.value ? new Date(params.value).toLocaleDateString() : "N/A",
     },
     {
       field: "phone",
       headerName: "Phone",
       width: 150,
+      valueGetter: (params) => params.row.phone || "Not Provided",
     },
     {
       field: "actions",
@@ -233,21 +307,24 @@ const EmployeeList = () => {
     },
   ];
 
-  const filteredEmployees = employees.filter((employee) => {
-    const matchesSearch =
-      employee.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.sur_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.email.toLowerCase().includes(searchTerm.toLowerCase());
+  // Loading state
+  if (employeesLoading && employees.length === 0) {
+    return <LoadingSpinner message="Loading employees..." />;
+  }
 
-    const matchesDepartment =
-      !departmentFilter || employee.department === departmentFilter;
-    const matchesStatus = !statusFilter || employee.status === statusFilter;
-
-    return matchesSearch && matchesDepartment && matchesStatus;
-  });
-
-  const departments = [...new Set(employees.map((emp) => emp.department))];
-  const statuses = [...new Set(employees.map((emp) => emp.status))];
+  // Error state
+  if (employeesError) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <ErrorMessage
+          error={employeesError}
+          title="Failed to load employees"
+          showRefresh
+          onRefresh={refetchEmployees}
+        />
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -265,19 +342,25 @@ const EmployeeList = () => {
             Employees
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Manage your organization's employees
+            Manage your organization's employees ({totalEmployees} total)
           </Typography>
         </Box>
 
-        {hasAnyRole([ROLES.ADMIN, ROLES.HR_MANAGER]) && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate(ROUTES.EMPLOYEE_CREATE)}
-          >
-            Add Employee
-          </Button>
-        )}
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <IconButton onClick={refetchEmployees} disabled={employeesLoading}>
+            <RefreshIcon />
+          </IconButton>
+
+          {hasAnyRole([ROLES.ADMIN, ROLES.HR_MANAGER]) && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate(ROUTES.EMPLOYEE_CREATE)}
+            >
+              Add Employee
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {/* Filters */}
@@ -296,6 +379,7 @@ const EmployeeList = () => {
                 ),
               }}
               sx={{ minWidth: 250 }}
+              size="small"
             />
 
             <TextField
@@ -304,11 +388,16 @@ const EmployeeList = () => {
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
               sx={{ minWidth: 150 }}
+              size="small"
+              disabled={departmentsLoading}
             >
               <MenuItem value="">All Departments</MenuItem>
               {departments.map((dept) => (
-                <MenuItem key={dept} value={dept}>
-                  {dept}
+                <MenuItem
+                  key={dept.id}
+                  value={dept.name || dept.department_name}
+                >
+                  {dept.name || dept.department_name}
                 </MenuItem>
               ))}
             </TextField>
@@ -319,9 +408,10 @@ const EmployeeList = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               sx={{ minWidth: 120 }}
+              size="small"
             >
               <MenuItem value="">All Status</MenuItem>
-              {statuses.map((status) => (
+              {availableStatuses.map((status) => (
                 <MenuItem key={status} value={status}>
                   {status}
                 </MenuItem>
@@ -331,7 +421,8 @@ const EmployeeList = () => {
             <Button
               variant="outlined"
               startIcon={<ExportIcon />}
-              onClick={() => console.log("Export employees")}
+              onClick={handleExportEmployees}
+              disabled={employees.length === 0}
             >
               Export
             </Button>
@@ -343,10 +434,15 @@ const EmployeeList = () => {
       <Card>
         <Box sx={{ height: 600 }}>
           <DataGrid
-            rows={filteredEmployees}
+            rows={employees}
             columns={columns}
-            loading={loading}
-            pageSize={10}
+            loading={employeesLoading}
+            rowCount={totalEmployees}
+            page={page}
+            pageSize={pageSize}
+            paginationMode="server"
+            onPageChange={(newPage) => setPage(newPage)}
+            onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
             rowsPerPageOptions={[5, 10, 25, 50]}
             disableSelectionOnClick
             checkboxSelection={hasAnyRole([ROLES.ADMIN, ROLES.HR_MANAGER])}
@@ -355,6 +451,22 @@ const EmployeeList = () => {
               "& .MuiDataGrid-cell:focus": {
                 outline: "none",
               },
+            }}
+            components={{
+              NoRowsOverlay: () => (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    No employees found
+                  </Typography>
+                </Box>
+              ),
             }}
           />
         </Box>
@@ -385,7 +497,11 @@ const EmployeeList = () => {
         )}
 
         {hasRole(ROLES.ADMIN) && (
-          <MenuItem onClick={handleDeleteEmployee} sx={{ color: "error.main" }}>
+          <MenuItem
+            onClick={handleDeleteEmployee}
+            sx={{ color: "error.main" }}
+            disabled={deleteEmployeeMutation.isLoading}
+          >
             <ListItemIcon>
               <DeleteIcon fontSize="small" color="error" />
             </ListItemIcon>
