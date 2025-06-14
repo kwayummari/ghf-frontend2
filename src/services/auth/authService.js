@@ -296,10 +296,8 @@ class AuthService {
                 apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             }
 
-            console.log('Fetching user menus...');
             const response = await apiClient.get(API_ENDPOINTS.USER_MENUS);
 
-            console.log('Menu response:', response.data);
             return response.data.data || [];
         } catch (error) {
             console.error('Get user menus error:', error);

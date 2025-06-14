@@ -175,6 +175,32 @@ const DashboardPage = () => {
   const user = useSelector(selectUser);
   const { isAdmin, isHR, isManager } = useAuth();
 
+  const {
+      data: employeesResponse,
+      isLoading: employeesLoading,
+      error: employeesError,
+      refetch: refetchEmployees,
+    } = useQuery({
+      queryKey: [
+        "employees",
+        page,
+        pageSize,
+        searchTerm,
+        departmentFilter,
+        statusFilter,
+      ],
+      queryFn: () =>
+        employeesAPI.getAll({
+          page: page + 1, // API uses 1-based pagination
+          limit: pageSize,
+          search: searchTerm || undefined,
+          department: departmentFilter || undefined,
+          status: statusFilter || undefined,
+        }),
+      keepPreviousData: true,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+
   const getUserGreeting = () => {
     const hour = new Date().getHours();
     let greeting = "Good morning";
@@ -189,9 +215,12 @@ const DashboardPage = () => {
     return `${greeting}, ${firstName}!`;
   };
 
+  const totalEmployees =
+    employeesResponse?.data?.total || employeesResponse?.total || 0;
+
   // Sample data - replace with real data from APIs
   const statsData = {
-    totalEmployees: 156,
+    totalEmployees: totalEmployees,
     activeLeaves: 8,
     pendingApprovals: 5,
     attendanceRate: "94%",

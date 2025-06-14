@@ -30,12 +30,13 @@ import {
   Delete as DeleteIcon,
   GetApp as ExportIcon,
   Refresh as RefreshIcon,
-} from "@mui/material";
+} from "@mui/icons-material";
 import { useAuth } from "../auth/AuthGuard";
 import { useNotification, useConfirmDialog } from "../../../hooks/common";
 import { employeesAPI, departmentsAPI } from "../../../services/api";
 import { ROUTES, ROLES } from "../../../constants";
-import { LoadingSpinner, ErrorMessage } from "../../common/Error";
+import { ErrorMessage } from "../../common/Error";
+import { LoadingSpinner } from "../../common/Loading"
 
 const EmployeeList = () => {
   const navigate = useNavigate();
@@ -79,7 +80,6 @@ const EmployeeList = () => {
     keepPreviousData: true,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
-
   // Fetch departments for filter dropdown
   const { data: departmentsResponse, isLoading: departmentsLoading } = useQuery(
     {
@@ -103,12 +103,19 @@ const EmployeeList = () => {
   });
 
   // Extract data from API responses
-  const employees =
-    employeesResponse?.data?.employees || employeesResponse?.data || [];
+  const employees = Array.isArray(employeesResponse?.data?.data)
+    ? employeesResponse.data.data.map((emp) => ({
+        ...emp,
+        id: emp.id, // <-- or whatever unique ID field you're using
+      }))
+    : [];
+
   const totalEmployees =
     employeesResponse?.data?.total || employeesResponse?.total || 0;
-  const departments =
-    departmentsResponse?.data?.departments || departmentsResponse?.data || [];
+  
+    const departments = Array.isArray(departmentsResponse?.data)
+      ? departmentsResponse.data
+      : [];
 
   // Available status options (you can also fetch these from API)
   const availableStatuses = ["Active", "Inactive", "On Leave", "Suspended"];

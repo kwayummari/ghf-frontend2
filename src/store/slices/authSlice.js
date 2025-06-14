@@ -11,9 +11,7 @@ export const loginUser = createAsyncThunk(
             // After successful login, fetch user menus
             if (response.user) {
                 try {
-                    console.log('Login successful, fetching user menus...');
                     const menus = await authService.getUserMenus();
-                    console.log('Menus fetched:', menus);
                     return { ...response, menus };
                 } catch (menuError) {
                     console.error('Failed to fetch menus after login:', menuError);
@@ -93,9 +91,7 @@ export const getUserMenus = createAsyncThunk(
     'auth/getUserMenus',
     async (_, { rejectWithValue }) => {
         try {
-            console.log('getUserMenus action called');
             const response = await authService.getUserMenus();
-            console.log('getUserMenus response:', response);
             return response;
         } catch (error) {
             console.error('getUserMenus error:', error);
@@ -109,23 +105,18 @@ export const initializeAuth = createAsyncThunk(
     'auth/initialize',
     async (_, { rejectWithValue }) => {
         try {
-            console.log('Initializing auth...');
-
             // Initialize auth service
             authService.initializeAuth();
 
             // Check if user is authenticated
             if (authService.isAuthenticated()) {
-                console.log('User is authenticated, fetching profile and menus...');
 
                 try {
                     // Get fresh user data
                     const user = await authService.getProfile();
-                    console.log('Profile fetched:', user);
 
                     // Get user menus
                     const menus = await authService.getUserMenus();
-                    console.log('Menus fetched during init:', menus);
 
                     return { user, menus };
                 } catch (error) {
@@ -143,7 +134,6 @@ export const initializeAuth = createAsyncThunk(
                 }
             }
 
-            console.log('User is not authenticated');
             return null;
         } catch (error) {
             console.error('Auth initialization error:', error);
