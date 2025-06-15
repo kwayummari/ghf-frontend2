@@ -82,6 +82,8 @@ const EmployeeDetailsPage = () => {
       try {
         const response = await employeesAPI.getById(id)
 
+        console.log(response);
+
         if (response.status === 200 && response.data) {
           setEmployee(response.data.data);
         } else {
@@ -333,15 +335,14 @@ const EmployeeDetailsPage = () => {
                   secondary={formatDate(employee.updated_at)}
                 />
               </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Roles"
-                  secondary={
-                    employee.roles?.map((role) => role.name).join(", ") ||
-                    "No roles assigned"
-                  }
-                />
-              </ListItem>
+              <ListItemText
+                primary="Roles"
+                secondary={
+                  Array.isArray(employee.roles) && employee.roles.length > 0
+                    ? employee.roles.map((role) => role.name).join(", ")
+                    : "No roles assigned"
+                }
+              />
             </List>
           </Grid>
         </Grid>
