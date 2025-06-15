@@ -160,8 +160,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     );
   };
 
-  console.log(initialData);
-
   // Initialize form data with proper structure
   const getInitialFormData = () => {
     if (editMode && initialData) {
@@ -345,7 +343,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
 
       let response;
       if (editMode && initialData?.id) {
-        console.log("This is api data",apiData);
         response = await employeesAPI.update(initialData.id, apiData);
         showSuccess("Employee updated successfully");
       } else {

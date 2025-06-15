@@ -82,8 +82,6 @@ const EmployeeDetailsPage = () => {
       try {
         const response = await employeesAPI.getById(id)
 
-        console.log(response);
-
         if (response.status === 200 && response.data) {
           setEmployee(response.data.data);
         } else {
