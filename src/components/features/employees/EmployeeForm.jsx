@@ -160,6 +160,8 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     );
   };
 
+  console.log(initialData);
+
   // Initialize form data with proper structure
   const getInitialFormData = () => {
     if (editMode && initialData) {

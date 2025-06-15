@@ -1,18 +1,18 @@
 import React from "react";
 import { Grid, TextField, MenuItem, Typography, Box } from "@mui/material";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 
 const BasicInfoForm = ({ formik }) => {
   const genderOptions = [
-    { value: "M", label: "Male" },
-    { value: "F", label: "Female" },
+    { value: "Male", label: "Male" },
+    { value: "Female", label: "Female" },
+    { value: "Other", label: "Other" },
   ];
 
-  const maritalStatusOptions = [
-    { value: "Single", label: "Single" },
-    { value: "Married", label: "Married" },
-    { value: "Divorced", label: "Divorced" },
-    { value: "Widowed", label: "Widowed" },
+  const statusOptions = [
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+    { value: "on leave", label: "On Leave" },
+    { value: "terminated", label: "Terminated" },
   ];
 
   return (
@@ -28,7 +28,7 @@ const BasicInfoForm = ({ formik }) => {
             fullWidth
             name="first_name"
             label="First Name"
-            value={formik.values.first_name}
+            value={formik.values.first_name || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={
@@ -44,7 +44,7 @@ const BasicInfoForm = ({ formik }) => {
             fullWidth
             name="middle_name"
             label="Middle Name"
-            value={formik.values.middle_name}
+            value={formik.values.middle_name || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={
@@ -59,7 +59,7 @@ const BasicInfoForm = ({ formik }) => {
             fullWidth
             name="sur_name"
             label="Surname"
-            value={formik.values.sur_name}
+            value={formik.values.sur_name || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={formik.touched.sur_name && Boolean(formik.errors.sur_name)}
@@ -75,7 +75,7 @@ const BasicInfoForm = ({ formik }) => {
             name="email"
             label="Email Address"
             type="email"
-            value={formik.values.email}
+            value={formik.values.email || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={formik.touched.email && Boolean(formik.errors.email)}
@@ -87,26 +87,30 @@ const BasicInfoForm = ({ formik }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            name="phone"
+            name="phone_number"
             label="Phone Number"
-            value={formik.values.phone}
+            value={formik.values.phone_number || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            error={formik.touched.phone && Boolean(formik.errors.phone)}
-            helperText={formik.touched.phone && formik.errors.phone}
+            error={
+              formik.touched.phone_number && Boolean(formik.errors.phone_number)
+            }
+            helperText={
+              formik.touched.phone_number && formik.errors.phone_number
+            }
             placeholder="+255 XXX XXX XXX"
             required
           />
         </Grid>
 
         {/* Personal Details */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6}>
           <TextField
             fullWidth
             select
             name="gender"
             label="Gender"
-            value={formik.values.gender}
+            value={formik.values.gender || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={formik.touched.gender && Boolean(formik.errors.gender)}
@@ -121,46 +125,20 @@ const BasicInfoForm = ({ formik }) => {
           </TextField>
         </Grid>
 
-        <Grid item xs={12} md={4}>
-          <DatePicker
-            label="Date of Birth"
-            value={formik.values.date_of_birth}
-            onChange={(value) => formik.setFieldValue("date_of_birth", value)}
-            slotProps={{
-              textField: {
-                fullWidth: true,
-                name: "date_of_birth",
-                onBlur: formik.handleBlur,
-                error:
-                  formik.touched.date_of_birth &&
-                  Boolean(formik.errors.date_of_birth),
-                helperText:
-                  formik.touched.date_of_birth && formik.errors.date_of_birth,
-                required: true,
-              },
-            }}
-            maxDate={new Date()}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6}>
           <TextField
             fullWidth
             select
-            name="marital_status"
-            label="Marital Status"
-            value={formik.values.marital_status}
+            name="status"
+            label="Account Status"
+            value={formik.values.status || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
-            error={
-              formik.touched.marital_status &&
-              Boolean(formik.errors.marital_status)
-            }
-            helperText={
-              formik.touched.marital_status && formik.errors.marital_status
-            }
+            error={formik.touched.status && Boolean(formik.errors.status)}
+            helperText={formik.touched.status && formik.errors.status}
+            required
           >
-            {maritalStatusOptions.map((option) => (
+            {statusOptions.map((option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
               </MenuItem>
