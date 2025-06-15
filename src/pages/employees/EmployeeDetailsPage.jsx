@@ -33,6 +33,10 @@ import {
   School as SchoolIcon,
   AccountBalance as BankIcon,
   Assignment as AssignmentIcon,
+  Person as PersonIcon,
+  ContactPhone as ContactPhoneIcon,
+  Bloodtype,
+  Fingerprint,
 } from "@mui/icons-material";
 import { useAuth } from "../../components/features/auth/AuthGuard";
 import { ROUTES, ROLES } from "../../constants";
@@ -76,12 +80,10 @@ const EmployeeDetailsPage = () => {
       setError(null);
 
       try {
-        const response = await employeesAPI.getById(id);
+        const response = await employeesAPI.getById(id)
 
-        console.log('this is response', response.status);
-
-        if (response.status = 200 && response.data) {
-          setEmployee(response.data);
+        if (response.status === 200 && response.data) {
+          setEmployee(response.data.data);
         } else {
           setError("Employee not found");
         }
@@ -256,10 +258,13 @@ const EmployeeDetailsPage = () => {
   // Tab panels configuration
   const tabPanels = [
     {
-      label: "Personal Info",
+      label: "Basic Info",
       content: (
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Contact Information
+            </Typography>
             <List>
               <ListItem>
                 <ListItemIcon>
@@ -276,106 +281,22 @@ const EmployeeDetailsPage = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Phone"
-                  secondary={employee.phone || "Not provided"}
+                  secondary={employee.phone_number || "Not provided"}
                 />
               </ListItem>
               <ListItem>
                 <ListItemIcon>
-                  <LocationIcon />
+                  <PersonIcon />
                 </ListItemIcon>
-                <ListItemText
-                  primary="Address"
-                  secondary={employee.address || "Not provided"}
-                />
-              </ListItem>
-            </List>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <List>
-              <ListItem>
-                <ListItemText
-                  primary="Date of Birth"
-                  secondary={formatDate(employee.date_of_birth)}
-                />
-              </ListItem>
-              <ListItem>
                 <ListItemText
                   primary="Gender"
-                  secondary={
-                    employee.gender === "M"
-                      ? "Male"
-                      : employee.gender === "F"
-                        ? "Female"
-                        : "Not specified"
-                  }
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Marital Status"
-                  secondary={employee.marital_status || "Not provided"}
-                />
-              </ListItem>
-            </List>
-          </Grid>
-        </Grid>
-      ),
-    },
-    {
-      label: "Employment",
-      content: (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <List>
-              <ListItem>
-                <ListItemIcon>
-                  <WorkIcon />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Department"
-                  secondary={
-                    employee.department?.name ||
-                    employee.department ||
-                    "Not assigned"
-                  }
+                  secondary={employee.gender || "Not provided"}
                 />
               </ListItem>
               <ListItem>
                 <ListItemIcon>
-                  <AssignmentIcon />
+                  <PersonIcon />
                 </ListItemIcon>
-                <ListItemText
-                  primary="Position"
-                  secondary={employee.position || "Not assigned"}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Supervisor"
-                  secondary={
-                    employee.supervisor?.name ||
-                    employee.supervisor ||
-                    "Not assigned"
-                  }
-                />
-              </ListItem>
-            </List>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <List>
-              <ListItem>
-                <ListItemText
-                  primary="Hire Date"
-                  secondary={formatDate(employee.hire_date)}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Salary"
-                  secondary={formatCurrency(employee.salary)}
-                />
-              </ListItem>
-              <ListItem>
                 <ListItemText
                   primary="Status"
                   secondary={
@@ -389,68 +310,167 @@ const EmployeeDetailsPage = () => {
               </ListItem>
             </List>
           </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Account Information
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText
+                  primary="Last Login"
+                  secondary={formatDate(employee.last_login)}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Account Created"
+                  secondary={formatDate(employee.created_at)}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Last Updated"
+                  secondary={formatDate(employee.updated_at)}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Roles"
+                  secondary={
+                    employee.roles?.map((role) => role.name).join(", ") ||
+                    "No roles assigned"
+                  }
+                />
+              </ListItem>
+            </List>
+          </Grid>
         </Grid>
       ),
     },
     {
-      label: "Education & IDs",
+      label: "Bio Data",
       content: (
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Education
+              Personal Details
             </Typography>
             <List>
+              <ListItem>
+                <ListItemText
+                  primary="Date of Birth"
+                  secondary={formatDate(employee.bioData?.dob)}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Marital Status"
+                  secondary={employee.bioData?.marital_status || "Not provided"}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Blood Group"
+                  secondary={employee.bioData?.blood_group || "Not provided"}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="National ID"
+                  secondary={employee.bioData?.national_id || "Not provided"}
+                />
+              </ListItem>
+            </List>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Biometric Information
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText
+                  primary="Fingerprint ID"
+                  secondary={employee.bioData?.fingerprint_id || "Not provided"}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Signature"
+                  secondary={
+                    employee.bioData?.signature ? "Available" : "Not provided"
+                  }
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Bio Data Created"
+                  secondary={formatDate(employee.bioData?.created_at)}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Bio Data Updated"
+                  secondary={formatDate(employee.bioData?.updated_at)}
+                />
+              </ListItem>
+            </List>
+          </Grid>
+        </Grid>
+      ),
+    },
+    {
+      label: "Personal Data",
+      content: (
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Personal Information
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemIcon>
+                  <LocationIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Location"
+                  secondary={
+                    employee.personalEmployeeData?.location || "Not provided"
+                  }
+                />
+              </ListItem>
               <ListItem>
                 <ListItemIcon>
                   <SchoolIcon />
                 </ListItemIcon>
                 <ListItemText
                   primary="Education Level"
-                  secondary={employee.education_level || "Not provided"}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Institution"
-                  secondary={employee.institution || "Not provided"}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Graduation Year"
-                  secondary={employee.graduation_year || "Not provided"}
+                  secondary={
+                    employee.personalEmployeeData?.education_level ||
+                    "Not provided"
+                  }
                 />
               </ListItem>
             </List>
           </Grid>
           <Grid item xs={12} md={6}>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Government IDs
+              Record Information
             </Typography>
             <List>
               <ListItem>
                 <ListItemText
-                  primary="NIDA"
-                  secondary={employee.nida || "Not provided"}
+                  primary="Personal Data Created"
+                  secondary={formatDate(
+                    employee.personalEmployeeData?.created_at
+                  )}
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
-                  primary="BIMA"
-                  secondary={employee.bima || "Not provided"}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="NSSF"
-                  secondary={employee.nssf || "Not provided"}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="HESLB"
-                  secondary={employee.helsb || "Not provided"}
+                  primary="Personal Data Updated"
+                  secondary={formatDate(
+                    employee.personalEmployeeData?.updated_at
+                  )}
                 />
               </ListItem>
             </List>
@@ -459,68 +479,143 @@ const EmployeeDetailsPage = () => {
       ),
     },
     {
-      label: "Contacts & Banking",
+      label: "Employment Data",
       content: (
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Emergency Contact
+              Job Information
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemIcon>
+                  <WorkIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Department"
+                  secondary={
+                    employee.basicEmployeeData?.department?.department_name ||
+                    "Not assigned"
+                  }
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemIcon>
+                  <AssignmentIcon />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Designation"
+                  secondary={
+                    employee.basicEmployeeData?.designation || "Not assigned"
+                  }
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Employment Type"
+                  secondary={
+                    employee.basicEmployeeData?.employment_type ||
+                    "Not provided"
+                  }
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Registration Number"
+                  secondary={
+                    employee.basicEmployeeData?.registration_number ||
+                    "Not provided"
+                  }
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Supervisor"
+                  secondary={
+                    employee.basicEmployeeData?.supervisor
+                      ? `${employee.basicEmployeeData.supervisor.first_name || ""} ${employee.basicEmployeeData.supervisor.middle_name || ""} ${employee.basicEmployeeData.supervisor.sur_name || ""}`.trim()
+                      : "Not assigned"
+                  }
+                />
+              </ListItem>
+            </List>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Employment Details
             </Typography>
             <List>
               <ListItem>
                 <ListItemText
-                  primary="Name"
-                  secondary={employee.emergency_contact_name || "Not provided"}
+                  primary="Date Joined"
+                  secondary={formatDate(
+                    employee.basicEmployeeData?.date_joined
+                  )}
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
-                  primary="Phone"
-                  secondary={employee.emergency_contact_phone || "Not provided"}
+                  primary="Salary"
+                  secondary={formatCurrency(employee.basicEmployeeData?.salary)}
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
-                  primary="Relationship"
+                  primary="Employment Status"
                   secondary={
-                    employee.emergency_contact_relationship || "Not provided"
+                    <Chip
+                      label={employee.basicEmployeeData?.status || "Active"}
+                      color={getStatusColor(employee.basicEmployeeData?.status)}
+                      size="small"
+                    />
+                  }
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Signature"
+                  secondary={
+                    employee.basicEmployeeData?.signature
+                      ? "Available"
+                      : "Not provided"
                   }
                 />
               </ListItem>
             </List>
 
-            {employee.next_of_kin_name && (
-              <>
-                <Typography variant="h6" sx={{ mb: 2, mt: 3 }}>
-                  Next of Kin
-                </Typography>
-                <List>
-                  <ListItem>
-                    <ListItemText
-                      primary="Name"
-                      secondary={employee.next_of_kin_name}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText
-                      primary="Phone"
-                      secondary={employee.next_of_kin_phone || "Not provided"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText
-                      primary="Relationship"
-                      secondary={
-                        employee.next_of_kin_relationship || "Not provided"
-                      }
-                    />
-                  </ListItem>
-                </List>
-              </>
-            )}
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2, mt: 3 }}>
+              Government IDs
+            </Typography>
+            <List>
+              <ListItem>
+                <ListItemText
+                  primary="NIDA"
+                  secondary={employee.basicEmployeeData?.nida || "Not provided"}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="NSSF"
+                  secondary={employee.basicEmployeeData?.nssf || "Not provided"}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="BIMA"
+                  secondary={employee.basicEmployeeData?.bima || "Not provided"}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="HESLB"
+                  secondary={
+                    employee.basicEmployeeData?.helsb || "Not provided"
+                  }
+                />
+              </ListItem>
+            </List>
+
+            <Typography variant="h6" sx={{ mb: 2, mt: 3 }}>
               Banking Information
             </Typography>
             <List>
@@ -529,14 +624,18 @@ const EmployeeDetailsPage = () => {
                   <BankIcon />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Bank"
-                  secondary={employee.bank_name || "Not provided"}
+                  primary="Bank Name"
+                  secondary={
+                    employee.basicEmployeeData?.bank_name || "Not provided"
+                  }
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Account Number"
-                  secondary={employee.account_number || "Not provided"}
+                  secondary={
+                    employee.basicEmployeeData?.account_number || "Not provided"
+                  }
                 />
               </ListItem>
             </List>
@@ -574,13 +673,13 @@ const EmployeeDetailsPage = () => {
               {getFullName()}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              {employee.position || "No position assigned"}
+              {employee.basicEmployeeData?.designation ||
+                "No position assigned"}
             </Typography>
             <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
               <Chip
                 label={
-                  employee.department?.name ||
-                  employee.department ||
+                  employee.basicEmployeeData?.department?.department_name ||
                   "No department"
                 }
                 color="primary"
