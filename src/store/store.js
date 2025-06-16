@@ -1,12 +1,14 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './slices/authSlice';
 import attendanceReducer from './slices/attendanceSlice';
+import departmentReducer from './slices/departmentSlice';
 
 // Configure the Redux store
 export const store = configureStore({
     reducer: {
         auth: authReducer,
         attendance: attendanceReducer,
+        departments: departmentReducer,
         // Add other reducers here as we create them
         // employees: employeeReducer,
         // leaves: leaveReducer,
