@@ -1,20 +1,20 @@
 import React from "react";
-import { Box, Typography, Button } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import LeaveApproval from "../../components/features/leaves/LeaveApproval";
 
 const LeaveDetailsPage = () => {
-  const navigate = useNavigate();
-  return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 2 }}>
-        Leave Details
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 3 }}>
-        Detailed view of leave application will be implemented here.
-      </Typography>
-      <Button onClick={() => navigate(-1)}>Go Back</Button>
-    </Box>
-  );
+  const location = useLocation();
+
+  // Check if this is an approval route
+  const isApprovalRoute = location.pathname.includes("/approvals/");
+
+  if (isApprovalRoute) {
+    return <LeaveApproval />;
+  }
+
+  // For regular leave details, you could create a separate component
+  // For now, we'll use the approval component as it shows all details
+  return <LeaveApproval />;
 };
 
 export default LeaveDetailsPage;

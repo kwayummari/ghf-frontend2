@@ -149,7 +149,6 @@ const AppRoutes = () => {
             </AccessGuard>
           }
         />
-        <Route path={ROUTES.LEAVE_DETAILS} element={<LeaveDetailsPage />} />
         <Route
           path={ROUTES.LEAVE_APPROVALS}
           element={
@@ -158,6 +157,25 @@ const AppRoutes = () => {
             </ManagerGuard>
           }
         />
+        {/* SPECIFIC ROUTES BEFORE GENERAL ONES */}
+        <Route
+          path="/leaves/approvals/:id"
+          element={
+            <ManagerGuard>
+              <LeaveDetailsPage />
+            </ManagerGuard>
+          }
+        />
+        <Route
+          path="/leaves/:id/edit"
+          element={
+            <AccessGuard requiredPermissions={[PERMISSIONS.LEAVES_UPDATE]}>
+              <CreateLeavePage />
+            </AccessGuard>
+          }
+        />
+        {/* GENERAL ROUTE LAST */}
+        <Route path={ROUTES.LEAVE_DETAILS} element={<LeaveDetailsPage />} />
 
         {/* Attendance Management */}
         <Route path={ROUTES.ATTENDANCE} element={<AttendancePage />} />
