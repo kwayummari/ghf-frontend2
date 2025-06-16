@@ -87,7 +87,7 @@ const steps = [
   },
 ];
 
-// Validation schemas for each step
+// FIXED: Updated validation schemas to match your form structure
 const basicInfoSchema = Yup.object({
   first_name: Yup.string().required("First name is required"),
   middle_name: Yup.string(),
@@ -105,14 +105,18 @@ const bioDataSchema = Yup.object({
     blood_group: Yup.string(),
     national_id: Yup.string(),
     fingerprint_id: Yup.string(),
+    signature: Yup.string(),
   }),
 });
 
+// FIXED: Updated personal data schema to match the actual form fields
 const personalDataSchema = Yup.object({
   personalEmployeeData: Yup.object({
     location: Yup.string().required("Location is required"),
     education_level: Yup.string().required("Education level is required"),
   }),
+  // FIXED: Updated field names to match PersonalInfoForm structure
+  address: Yup.string().required("Address is required"),
   emergency_contact_name: Yup.string().required(
     "Emergency contact name is required"
   ),
@@ -122,6 +126,10 @@ const personalDataSchema = Yup.object({
   emergency_contact_relationship: Yup.string().required(
     "Relationship is required"
   ),
+  // Made next of kin optional since it's marked as optional in the form
+  next_of_kin_name: Yup.string(),
+  next_of_kin_phone: Yup.string(),
+  next_of_kin_relationship: Yup.string(),
 });
 
 const employmentDataSchema = Yup.object({
@@ -151,14 +159,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Helper function to get nested value
-  const getNestedValue = (obj, path, defaultValue = "") => {
-    return (
-      path.split(".").reduce((current, key) => current?.[key], obj) ||
-      defaultValue
-    );
-  };
 
   // Initialize form data with proper structure
   const getInitialFormData = () => {
@@ -190,7 +190,10 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
             initialData.personalEmployeeData?.education_level || "",
         },
 
-        // Emergency contacts (root level - these might need to be added to your API)
+        // FIXED: Added address field that PersonalInfoForm expects
+        address: initialData.address || "",
+
+        // Emergency contacts (root level)
         emergency_contact_name: initialData.emergency_contact_name || "",
         emergency_contact_phone: initialData.emergency_contact_phone || "",
         emergency_contact_relationship:
@@ -216,7 +219,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           helsb: initialData.basicEmployeeData?.helsb || "",
           bank_name: initialData.basicEmployeeData?.bank_name || "",
           account_number: initialData.basicEmployeeData?.account_number || "",
-          signature: initialData.basicEmployeeData?.signature || "",
         },
       };
     }
@@ -248,6 +250,9 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         education_level: "",
       },
 
+      // FIXED: Added address field
+      address: "",
+
       // Emergency contacts
       emergency_contact_name: "",
       emergency_contact_phone: "",
@@ -272,7 +277,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         helsb: "",
         bank_name: "",
         account_number: "",
-        signature: "",
       },
     };
   };
@@ -299,6 +303,12 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     validationSchema: getValidationSchema(),
     enableReinitialize: true,
     onSubmit: async (values) => {
+      console.log("Form submission triggered for step:", activeStep);
+      console.log("Current form values:", values);
+      console.log("Form errors:", formik.errors);
+      console.log("Form touched:", formik.touched);
+      console.log("Form isValid:", formik.isValid);
+
       if (activeStep === steps.length - 1) {
         // Final submission
         await handleSubmit(values);
@@ -309,6 +319,60 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       }
     },
   });
+
+  // Update validation schema when step changes by recreating formik
+  useEffect(() => {
+    // Reset validation errors when step changes
+    formik.setErrors({});
+    formik.setTouched({});
+  }, [activeStep]);
+
+  // Validate current step only - FIXED: Support nested validation paths
+  const validateCurrentStep = async () => {
+    const currentSchema = getValidationSchema();
+    try {
+      await currentSchema.validate(formik.values, { abortEarly: false });
+      return true;
+    } catch (validationErrors) {
+      const errors = {};
+      const touched = {};
+
+      validationErrors.inner.forEach((error) => {
+        // Handle nested error paths properly
+        const path = error.path;
+        if (path.includes(".")) {
+          // Nested path like "personalEmployeeData.location"
+          const pathParts = path.split(".");
+          let errorRef = errors;
+          let touchedRef = touched;
+
+          // Build nested error structure
+          for (let i = 0; i < pathParts.length - 1; i++) {
+            const part = pathParts[i];
+            if (!errorRef[part]) errorRef[part] = {};
+            if (!touchedRef[part]) touchedRef[part] = {};
+            errorRef = errorRef[part];
+            touchedRef = touchedRef[part];
+          }
+
+          errorRef[pathParts[pathParts.length - 1]] = error.message;
+          touchedRef[pathParts[pathParts.length - 1]] = true;
+        } else {
+          // Simple path
+          errors[path] = error.message;
+          touched[path] = true;
+        }
+      });
+
+      console.log("Validation errors:", errors);
+      console.log("Touched fields:", touched);
+
+      formik.setErrors(errors);
+      formik.setTouched(touched);
+
+      return false;
+    }
+  };
 
   const handleSubmit = async (finalData) => {
     setLoading(true);
@@ -325,6 +389,9 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         phone_number: finalData.phone_number,
         gender: finalData.gender,
         status: finalData.status,
+
+        // FIXED: Added address field
+        address: finalData.address,
 
         // Emergency contacts (root level)
         emergency_contact_name: finalData.emergency_contact_name,
@@ -367,8 +434,26 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     }
   };
 
-  const handleNext = () => {
-    formik.handleSubmit();
+  const handleNext = async () => {
+    console.log("Next button clicked for step:", activeStep);
+    console.log("Current form values:", formik.values);
+
+    // Validate current step
+    const isStepValid = await validateCurrentStep();
+    console.log("Step validation result:", isStepValid);
+
+    if (isStepValid) {
+      if (activeStep === steps.length - 1) {
+        // Final submission
+        await handleSubmit(formik.values);
+      } else {
+        // Move to next step
+        setFormData(formik.values);
+        setActiveStep((prev) => prev + 1);
+      }
+    } else {
+      console.log("Form has validation errors, not proceeding");
+    }
   };
 
   const handleBack = () => {
@@ -416,6 +501,25 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         </Alert>
       )}
 
+      {/* ADDED: Debug information (remove this in production) */}
+      {/* {process.env.NODE_ENV === "development" && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            <strong>Debug Info - Step {activeStep}:</strong>
+            <br />
+            Form Valid: {formik.isValid ? "Yes" : "No"}
+            <br />
+            Errors:{" "}
+            {Object.keys(formik.errors).length > 0
+              ? JSON.stringify(formik.errors, null, 2)
+              : "None"}
+            <br />
+            Values:{" "}
+            {JSON.stringify(formik.values.personalEmployeeData, null, 2)}
+          </Typography>
+        </Alert>
+      )} */}
+
       <Card>
         <CardContent sx={{ p: 4 }}>
           {/* Stepper */}
@@ -458,7 +562,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
               variant="contained"
               onClick={handleNext}
               loading={loading && activeStep === steps.length - 1}
-              disabled={!formik.isValid || loading}
+              disabled={loading}
             >
               {activeStep === steps.length - 1
                 ? editMode

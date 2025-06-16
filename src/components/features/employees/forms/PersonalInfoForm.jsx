@@ -19,11 +19,91 @@ const PersonalInfoForm = ({ formik }) => {
     { value: "Other", label: "Other" },
   ];
 
+  // ADDED: Education level options
+  const educationLevels = [
+    { value: "Primary", label: "Primary Education" },
+    { value: "Secondary", label: "Secondary Education" },
+    { value: "Certificate", label: "Certificate" },
+    { value: "Diploma", label: "Diploma" },
+    { value: "Degree", label: "Bachelor's Degree" },
+    { value: "Masters", label: "Master's Degree" },
+    { value: "PhD", label: "PhD/Doctorate" },
+  ];
+
   return (
     <Box>
       <Typography variant="h6" sx={{ mb: 3, fontWeight: "medium" }}>
         Personal Information
       </Typography>
+
+      {/* Location & Education */}
+      <Typography
+        variant="subtitle1"
+        sx={{ mb: 2, fontWeight: "medium", color: "primary.main" }}
+      >
+        Location & Education
+      </Typography>
+
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            name="personalEmployeeData.location"
+            label="Location/City"
+            value={formik.values.personalEmployeeData?.location || ""}
+            onChange={(e) =>
+              formik.setFieldValue(
+                "personalEmployeeData.location",
+                e.target.value
+              )
+            }
+            onBlur={formik.handleBlur}
+            error={
+              formik.touched.personalEmployeeData?.location &&
+              Boolean(formik.errors.personalEmployeeData?.location)
+            }
+            helperText={
+              formik.touched.personalEmployeeData?.location &&
+              formik.errors.personalEmployeeData?.location
+            }
+            placeholder="e.g., Dar es Salaam, Dodoma"
+            required
+          />
+        </Grid>
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            select
+            name="personalEmployeeData.education_level"
+            label="Education Level"
+            value={formik.values.personalEmployeeData?.education_level || ""}
+            onChange={(e) =>
+              formik.setFieldValue(
+                "personalEmployeeData.education_level",
+                e.target.value
+              )
+            }
+            onBlur={formik.handleBlur}
+            error={
+              formik.touched.personalEmployeeData?.education_level &&
+              Boolean(formik.errors.personalEmployeeData?.education_level)
+            }
+            helperText={
+              formik.touched.personalEmployeeData?.education_level &&
+              formik.errors.personalEmployeeData?.education_level
+            }
+            required
+          >
+            {educationLevels.map((level) => (
+              <MenuItem key={level.value} value={level.value}>
+                {level.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+      </Grid>
+
+      <Divider sx={{ mb: 3 }} />
 
       {/* Address Information */}
       <Typography
@@ -41,7 +121,7 @@ const PersonalInfoForm = ({ formik }) => {
             label="Residential Address"
             multiline
             rows={3}
-            value={formik.values.address}
+            value={formik.values.address || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={formik.touched.address && Boolean(formik.errors.address)}
@@ -68,7 +148,7 @@ const PersonalInfoForm = ({ formik }) => {
             fullWidth
             name="emergency_contact_name"
             label="Emergency Contact Name"
-            value={formik.values.emergency_contact_name}
+            value={formik.values.emergency_contact_name || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={
@@ -79,6 +159,7 @@ const PersonalInfoForm = ({ formik }) => {
               formik.touched.emergency_contact_name &&
               formik.errors.emergency_contact_name
             }
+            placeholder="Full name of emergency contact"
             required
           />
         </Grid>
@@ -88,7 +169,7 @@ const PersonalInfoForm = ({ formik }) => {
             fullWidth
             name="emergency_contact_phone"
             label="Emergency Contact Phone"
-            value={formik.values.emergency_contact_phone}
+            value={formik.values.emergency_contact_phone || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={
@@ -110,7 +191,7 @@ const PersonalInfoForm = ({ formik }) => {
             select
             name="emergency_contact_relationship"
             label="Relationship"
-            value={formik.values.emergency_contact_relationship}
+            value={formik.values.emergency_contact_relationship || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={
@@ -148,7 +229,7 @@ const PersonalInfoForm = ({ formik }) => {
             fullWidth
             name="next_of_kin_name"
             label="Next of Kin Name"
-            value={formik.values.next_of_kin_name}
+            value={formik.values.next_of_kin_name || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={
@@ -158,6 +239,7 @@ const PersonalInfoForm = ({ formik }) => {
             helperText={
               formik.touched.next_of_kin_name && formik.errors.next_of_kin_name
             }
+            placeholder="Full name (optional)"
           />
         </Grid>
 
@@ -166,7 +248,7 @@ const PersonalInfoForm = ({ formik }) => {
             fullWidth
             name="next_of_kin_phone"
             label="Next of Kin Phone"
-            value={formik.values.next_of_kin_phone}
+            value={formik.values.next_of_kin_phone || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={
@@ -187,7 +269,7 @@ const PersonalInfoForm = ({ formik }) => {
             select
             name="next_of_kin_relationship"
             label="Relationship"
-            value={formik.values.next_of_kin_relationship}
+            value={formik.values.next_of_kin_relationship || ""}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={
@@ -199,6 +281,9 @@ const PersonalInfoForm = ({ formik }) => {
               formik.errors.next_of_kin_relationship
             }
           >
+            <MenuItem value="">
+              <em>Select relationship</em>
+            </MenuItem>
             {relationshipOptions.map((option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
@@ -207,6 +292,29 @@ const PersonalInfoForm = ({ formik }) => {
           </TextField>
         </Grid>
       </Grid>
+
+      {/* Information Note */}
+      <Box
+        sx={{
+          mt: 3,
+          p: 2,
+          bgcolor: "info.light",
+          color: "#ffffff",
+          borderRadius: 1,
+        }}
+      >
+        <Typography variant="body2" color="#ffffff">
+          <strong>Information Guidelines:</strong>
+          <br />
+          • Location should be the city/region where the employee resides
+          <br />
+          • Education level helps determine job qualifications and training
+          needs
+          <br />
+          • Emergency contact information is critical for workplace safety
+          <br />• Next of kin information is optional but recommended
+        </Typography>
+      </Box>
     </Box>
   );
 };
