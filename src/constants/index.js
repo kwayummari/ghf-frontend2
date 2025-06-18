@@ -25,6 +25,8 @@ export const API_ENDPOINTS = {
     LEAVE_BY_ID: (id) => `/leaves/${id}`,
     LEAVE_TYPES: '/leaves/types',
     LEAVE_STATUS: (id) => `/leaves/${id}/status`,
+    LEAVE_APPROVALS: '/leaves/approvals',
+    MY_LEAVES: '/leaves/my',
 
     // Attendance
     ATTENDANCE: '/attendance',
@@ -55,6 +57,111 @@ export const API_ENDPOINTS = {
     MENU_BY_ID: (id) => `/menus/${id}`,
     USER_MENUS: '/menus/user',
     ROLE_MENU_ACCESS: (roleId, menuId) => `/menus/roles/${roleId}/menus/${menuId}/access`,
+
+    // **NEW ENDPOINTS - Payroll Management**
+    PAYROLL: '/payroll',
+    PAYROLL_BY_ID: (id) => `/payroll/${id}`,
+    PAYROLL_PROCESS: '/payroll/process',
+    PAYROLL_APPROVE: (id) => `/payroll/${id}/approve`,
+    PAYROLL_EMPLOYEE: (userId) => `/payroll/employee/${userId}`,
+    PAYROLL_PERIOD: (year, month) => `/payroll/period/${year}/${month}`,
+    SALARY_COMPONENTS: '/payroll/salary-components',
+    SALARY_COMPONENT_BY_USER: (userId) => `/payroll/salary-components/user/${userId}`,
+    PAYROLL_REPORTS: '/payroll/reports',
+    PAYSLIPS: '/payroll/payslips',
+    PAYSLIP_BY_ID: (id) => `/payroll/payslips/${id}`,
+
+    // **NEW ENDPOINTS - Performance Management**
+    PERFORMANCE: '/performance',
+    APPRAISALS: '/performance/appraisals',
+    APPRAISAL_BY_ID: (id) => `/performance/appraisals/${id}`,
+    OBJECTIVES: '/performance/objectives',
+    OBJECTIVE_BY_ID: (id) => `/performance/objectives/${id}`,
+    OBJECTIVES_BY_USER: (userId) => `/performance/objectives/user/${userId}`,
+    OBJECTIVES_BY_FISCAL_YEAR: (fiscalYearId) => `/performance/objectives/fiscal-year/${fiscalYearId}`,
+
+    // **NEW ENDPOINTS - Meeting Management**
+    MEETINGS: '/meetings',
+    MEETING_BY_ID: (id) => `/meetings/${id}`,
+    MEETING_TASKS: '/meetings/tasks',
+    MEETING_TASK_BY_ID: (id) => `/meetings/tasks/${id}`,
+    MEETING_MINUTES: (meetingId) => `/meetings/${meetingId}/minutes`,
+    ASSIGN_TASK: '/meetings/tasks/assign',
+
+    // **NEW ENDPOINTS - Travel & Advances**
+    TRAVEL_REQUESTS: '/travel/requests',
+    TRAVEL_REQUEST_BY_ID: (id) => `/travel/requests/${id}`,
+    TRAVEL_ADVANCES: '/travel/advances',
+    TRAVEL_ADVANCE_BY_ID: (id) => `/travel/advances/${id}`,
+    EXPENSE_REPORTS: '/travel/expense-reports',
+    EXPENSE_REPORT_BY_ID: (id) => `/travel/expense-reports/${id}`,
+    FLAT_RATES: '/travel/flat-rates',
+    TRAVEL_APPROVE: (id) => `/travel/requests/${id}/approve`,
+    TRAVEL_RETIRE: (id) => `/travel/advances/${id}/retire`,
+
+    // **NEW ENDPOINTS - Petty Cash Management**
+    PETTY_CASH: '/petty-cash',
+    PETTY_CASH_BOOK: '/petty-cash/book',
+    PETTY_CASH_BOOK_BY_ID: (id) => `/petty-cash/book/${id}`,
+    PETTY_CASH_EXPENSES: '/petty-cash/expenses',
+    PETTY_CASH_EXPENSE_BY_ID: (id) => `/petty-cash/expenses/${id}`,
+    REPLENISHMENT_REQUESTS: '/petty-cash/replenishment',
+    REPLENISHMENT_REQUEST_BY_ID: (id) => `/petty-cash/replenishment/${id}`,
+    REPLENISHMENT_APPROVE: (id) => `/petty-cash/replenishment/${id}/approve`,
+
+    // **NEW ENDPOINTS - Procurement & Suppliers**
+    SUPPLIERS: '/procurement/suppliers',
+    SUPPLIER_BY_ID: (id) => `/procurement/suppliers/${id}`,
+    QUOTATIONS: '/procurement/quotations',
+    QUOTATION_BY_ID: (id) => `/procurement/quotations/${id}`,
+    PURCHASE_ORDERS: '/procurement/purchase-orders',
+    PURCHASE_ORDER_BY_ID: (id) => `/procurement/purchase-orders/${id}`,
+    PURCHASE_REQUESTS: '/procurement/requests',
+    PURCHASE_REQUEST_BY_ID: (id) => `/procurement/requests/${id}`,
+    QUOTATION_COMPARE: '/procurement/quotations/compare',
+    PURCHASE_REQUEST_APPROVE: (id) => `/procurement/requests/${id}/approve`,
+    GENERATE_LPO: (id) => `/procurement/purchase-orders/${id}/lpo`,
+
+    // **NEW ENDPOINTS - Enhanced Budget Management**
+    BUDGETS: '/finance/budgets',
+    BUDGET_BY_ID: (id) => `/finance/budgets/${id}`,
+    BUDGET_PLANNING: '/finance/budgets/planning',
+    BUDGET_MONITORING: '/finance/budgets/monitoring',
+    BUDGET_VARIANCE: '/finance/budgets/variance',
+    BUDGET_ALLOCATION: '/finance/budgets/allocation',
+    BUDGET_EXPENSES: '/finance/budgets/expenses',
+    BUDGET_EXPENSE_BY_ID: (id) => `/finance/budgets/expenses/${id}`,
+    FISCAL_YEARS: '/finance/fiscal-years',
+    QUARTERS: '/finance/quarters',
+
+    // **NEW ENDPOINTS - Enhanced Asset Management**
+    ASSETS: '/finance/assets',
+    ASSET_BY_ID: (id) => `/finance/assets/${id}`,
+    ASSET_REGISTER: '/finance/assets/register',
+    ASSET_DEPRECIATION: '/finance/assets/depreciation',
+    ASSET_MAINTENANCE: '/finance/assets/maintenance',
+    ASSET_MAINTENANCE_BY_ID: (id) => `/finance/assets/maintenance/${id}`,
+    ASSET_DISPOSAL: (id) => `/finance/assets/${id}/dispose`,
+
+    // **Enhanced Reports**
+    REPORTS: '/reports',
+    REPORTS_HR: '/reports/hr',
+    REPORTS_FINANCE: '/reports/finance',
+    REPORTS_PAYROLL: '/reports/payroll',
+    REPORTS_ATTENDANCE: '/reports/attendance',
+    REPORTS_PROCUREMENT: '/reports/procurement',
+    REPORTS_BUDGET: '/reports/budget',
+    REPORTS_ASSETS: '/reports/assets',
+
+    // **System Settings**
+    SETTINGS: '/settings',
+    LEAVE_TYPE_SETTINGS: '/settings/leave-types',
+    HOLIDAY_SETTINGS: '/settings/holidays',
+    SALARY_SCALE_SETTINGS: '/settings/salary-scale',
+    SYSTEM_LOGS: '/settings/logs',
+    SYSTEM_BACKUP: '/settings/backup',
+    EMAIL_TEMPLATES: '/settings/email-templates',
+    NOTIFICATION_SETTINGS: '/settings/notifications',
 };
 
 // Authentication Constants
