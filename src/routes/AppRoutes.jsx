@@ -15,7 +15,7 @@ import AuthGuard, {
   ManagerGuard,
 } from "../components/features/auth/AuthGuard";
 
-// Page Components
+// Existing Page Components
 import LoginPage from "../pages/auth/LoginPage";
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
@@ -38,12 +38,69 @@ import RequisitionsPage from "../pages/finance/RequisitionsPage";
 import DocumentsPage from "../pages/documents/DocumentsPage";
 import ReportsPage from "../pages/reports/ReportsPage";
 import SettingsPage from "../pages/settings/SettingsPage";
-import RolesPage from "../pages/settings/RolesPage";
+import RoleManagementPage from "../pages/settings/RoleManagementPage";
 import MenusPage from "../pages/settings/MenusPage";
 import UsersPage from "../pages/settings/UsersPage";
 import ProfilePage from "../pages/profile/ProfilePage";
 import NotFoundPage from "../pages/error/NotFoundPage";
 import UnauthorizedPage from "../pages/error/UnauthorizedPage";
+
+// **NEW PAGE COMPONENTS**
+// Payroll Management
+import PayrollPage from "../pages/finance/PayrollPage";
+import PayrollDetailsPage from "../pages/finance/PayrollDetailsPage";
+import PayrollProcessPage from "../pages/finance/PayrollProcessPage";
+import SalaryComponentsPage from "../pages/finance/SalaryComponentsPage";
+
+// Asset Management
+import AssetRegisterPage from "../pages/finance/AssetRegisterPage";
+import AssetDetailsPage from "../pages/finance/AssetDetailsPage";
+import AssetMaintenancePage from "../pages/finance/AssetMaintenancePage";
+import AssetDepreciationPage from "../pages/finance/AssetDepreciationPage";
+
+// Budget Management
+import BudgetPlanningPage from "../pages/finance/BudgetPlanningPage";
+import BudgetMonitoringPage from "../pages/finance/BudgetMonitoringPage";
+import BudgetVariancePage from "../pages/finance/BudgetVariancePage";
+
+// Travel & Advances
+import TravelRequestsPage from "../pages/finance/TravelRequestsPage";
+import TravelAdvancesPage from "../pages/finance/TravelAdvancesPage";
+import ExpenseReportsPage from "../pages/finance/ExpenseReportsPage";
+
+// Petty Cash Management
+import PettyCashPage from "../pages/finance/PettyCashPage";
+import PettyCashExpensesPage from "../pages/finance/PettyCashExpensesPage";
+import ReplenishmentPage from "../pages/finance/ReplenishmentPage";
+
+// Procurement
+import SuppliersPage from "../pages/procurement/SuppliersPage";
+import SupplierDetailsPage from "../pages/procurement/SupplierDetailsPage";
+import QuotationsPage from "../pages/procurement/QuotationsPage";
+import PurchaseOrdersPage from "../pages/procurement/PurchaseOrdersPage";
+import PurchaseRequestsPage from "../pages/procurement/PurchaseRequestsPage";
+
+// Performance Management
+import PerformanceAppraisalsPage from "../pages/procurement/PerformanceAppraisalsPage";
+import ObjectivesPage from "../pages/performance/ObjectivesPage";
+
+// Meeting Management
+import MeetingsPage from "../pages/meetings/MeetingsPage";
+import MeetingDetailsPage from "../pages/meetings/MeetingDetailsPage";
+import MeetingTasksPage from "../pages/meetings/MeetingTasksPage";
+
+// Enhanced Reports
+import HRReportsPage from "../pages/reports/HRReportsPage";
+import FinanceReportsPage from "../pages/reports/FinanceReportsPage";
+import PayrollReportsPage from "../pages/reports/PayrollReportsPage";
+import AttendanceReportsEnhancedPage from "../pages/reports/AttendanceReportsPage";
+import ProcurementReportsPage from "../pages/reports/ProcurementReportsPage";
+
+// Enhanced Settings
+import FiscalYearSettingsPage from "../pages/settings/FiscalYearSettingsPage";
+import SalaryScaleSettingsPage from "../pages/settings/SalaryScaleSettingsPage";
+import LeaveTypeSettingsPage from "../pages/settings/LeaveTypeSettingsPage";
+import HolidaySettingsPage from "../pages/settings/HolidaySettingsPage";
 
 const AppRoutes = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -83,227 +140,494 @@ const AppRoutes = () => {
       >
         {/* Dashboard */}
         <Route index element={<Navigate to={ROUTES.DASHBOARD} replace />} />
-        <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
+        <Route path="dashboard" element={<DashboardPage />} />
 
-        {/* Employee Management */}
+        {/* Employees Management */}
         <Route
-          path={ROUTES.EMPLOYEES}
+          path="employees"
           element={
-            <AccessGuard
-              allowedRoles={[
-                ROLES.ADMIN,
-                ROLES.HR_MANAGER,
-                ROLES.DEPARTMENT_HEAD,
-              ]}
-              requiredPermissions={[PERMISSIONS.HR_READ]}
-            >
+            <PermissionGuard permissions={[PERMISSIONS.USERS_READ]}>
               <EmployeesPage />
-            </AccessGuard>
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.EMPLOYEE_CREATE}
+          path="employees/create"
           element={
-            <AccessGuard
-              allowedRoles={[ROLES.ADMIN, ROLES.HR_MANAGER]}
-              requiredPermissions={[PERMISSIONS.HR_CREATE]}
-            >
+            <PermissionGuard permissions={[PERMISSIONS.USERS_CREATE]}>
               <CreateEmployeePage />
-            </AccessGuard>
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.EMPLOYEE_DETAILS}
+          path="employees/:id"
           element={
-            <AccessGuard
-              allowedRoles={[
-                ROLES.ADMIN,
-                ROLES.HR_MANAGER,
-                ROLES.DEPARTMENT_HEAD,
-              ]}
-              requiredPermissions={[PERMISSIONS.HR_READ]}
-            >
+            <PermissionGuard permissions={[PERMISSIONS.USERS_READ]}>
               <EmployeeDetailsPage />
-            </AccessGuard>
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.EMPLOYEE_EDIT}
+          path="employees/:id/edit"
           element={
-            <AccessGuard
-              allowedRoles={[ROLES.ADMIN, ROLES.HR_MANAGER]}
-              requiredPermissions={[PERMISSIONS.HR_UPDATE]}
-            >
+            <PermissionGuard permissions={[PERMISSIONS.USERS_UPDATE]}>
               <EmployeeDetailsPage />
-            </AccessGuard>
+            </PermissionGuard>
           }
         />
 
         {/* Leave Management */}
-        <Route path={ROUTES.LEAVES} element={<LeavesPage />} />
         <Route
-          path={ROUTES.LEAVE_CREATE}
+          path="leaves"
           element={
-            <AccessGuard requiredPermissions={[PERMISSIONS.LEAVES_CREATE]}>
-              <CreateLeavePage />
-            </AccessGuard>
+            <PermissionGuard permissions={[PERMISSIONS.LEAVES_READ]}>
+              <LeavesPage />
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.LEAVE_APPROVALS}
+          path="leaves/create"
           element={
-            <ManagerGuard>
+            <PermissionGuard permissions={[PERMISSIONS.LEAVES_CREATE]}>
+              <CreateLeavePage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="leaves/approvals"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.LEAVES_UPDATE]}>
               <LeaveApprovalsPage />
-            </ManagerGuard>
+            </PermissionGuard>
           }
         />
-        {/* SPECIFIC ROUTES BEFORE GENERAL ONES */}
         <Route
-          path="/leaves/approvals/:id"
+          path="leaves/:id"
           element={
-            <ManagerGuard>
+            <PermissionGuard permissions={[PERMISSIONS.LEAVES_READ]}>
               <LeaveDetailsPage />
-            </ManagerGuard>
+            </PermissionGuard>
           }
         />
-        <Route
-          path="/leaves/:id/edit"
-          element={
-            <AccessGuard requiredPermissions={[PERMISSIONS.LEAVES_UPDATE]}>
-              <CreateLeavePage />
-            </AccessGuard>
-          }
-        />
-        {/* GENERAL ROUTE LAST */}
-        <Route path={ROUTES.LEAVE_DETAILS} element={<LeaveDetailsPage />} />
 
         {/* Attendance Management */}
-        <Route path={ROUTES.ATTENDANCE} element={<AttendancePage />} />
         <Route
-          path={ROUTES.ATTENDANCE_REPORTS}
+          path="attendance"
           element={
-            <ManagerGuard>
+            <PermissionGuard permissions={[PERMISSIONS.HR_READ]}>
+              <AttendancePage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="attendance/reports"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.HR_READ]}>
               <AttendanceReportsPage />
-            </ManagerGuard>
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.ATTENDANCE_SCHEDULE}
+          path="attendance/schedule"
           element={
-            <AdminGuard>
+            <PermissionGuard permissions={[PERMISSIONS.HR_UPDATE]}>
               <WorkSchedulePage />
-            </AdminGuard>
+            </PermissionGuard>
           }
         />
 
-        {/* Department Management */}
+        {/* Departments */}
         <Route
-          path={ROUTES.DEPARTMENTS}
+          path="departments"
           element={
-            <ManagerGuard>
+            <PermissionGuard permissions={[PERMISSIONS.USERS_READ]}>
               <DepartmentsPage />
-            </ManagerGuard>
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.DEPARTMENT_CREATE}
+          path="departments/:id"
           element={
-            <HRGuard>
-              <DepartmentsPage />
-            </HRGuard>
-          }
-        />
-        <Route
-          path={ROUTES.DEPARTMENT_DETAILS}
-          element={
-            <ManagerGuard>
+            <PermissionGuard permissions={[PERMISSIONS.USERS_READ]}>
               <DepartmentDetailsPage />
-            </ManagerGuard>
+            </PermissionGuard>
           }
         />
 
-        {/* Finance Management */}
+        {/* **FINANCE ROUTES** */}
         <Route
-          path={ROUTES.FINANCE}
+          path="finance"
           element={
-            <AccessGuard
-              allowedRoles={[ROLES.ADMIN, ROLES.FINANCE_MANAGER]}
-              requiredPermissions={[PERMISSIONS.FINANCE_READ]}
-            >
+            <PermissionGuard permissions={[PERMISSIONS.FINANCE_READ]}>
               <FinancePage />
-            </AccessGuard>
+            </PermissionGuard>
+          }
+        />
+
+        {/* Payroll Management */}
+        <Route
+          path="finance/payroll"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_PAYROLL]}>
+              <PayrollPage />
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.BUDGETS}
+          path="finance/payroll/process"
           element={
-            <AccessGuard
-              allowedRoles={[ROLES.ADMIN, ROLES.FINANCE_MANAGER]}
-              requiredPermissions={[PERMISSIONS.FINANCE_READ]}
-            >
+            <PermissionGuard permissions={[PERMISSIONS.PROCESS_PAYROLL]}>
+              <PayrollProcessPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/payroll/history"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_PAYROLL_HISTORY]}>
+              <PayrollPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/payroll/components"
+          element={
+            <PermissionGuard
+              permissions={[PERMISSIONS.VIEW_SALARY_COMPONENTS]}
+            ></PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/payroll/:id"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_PAYROLL]}>
+              <PayrollDetailsPage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* Budget Management */}
+        <Route
+          path="finance/budgets"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_BUDGET]}>
               <BudgetsPage />
-            </AccessGuard>
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.ASSETS}
+          path="finance/budgets/planning"
           element={
-            <AccessGuard
-              allowedRoles={[ROLES.ADMIN, ROLES.FINANCE_MANAGER]}
-              requiredPermissions={[PERMISSIONS.FINANCE_READ]}
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_BUDGET_PLANNING]}>
+              <BudgetPlanningPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/budgets/monitoring"
+          element={
+            <PermissionGuard
+              permissions={[PERMISSIONS.MONITOR_BUDGET_PERFORMANCE]}
             >
+              <BudgetMonitoringPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/budgets/variance"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_BUDGET_VARIANCE]}>
+              <BudgetVariancePage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* Asset Management */}
+        <Route
+          path="finance/assets"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.FINANCE_READ]}>
               <AssetsPage />
-            </AccessGuard>
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.REQUISITIONS}
+          path="finance/assets/register"
           element={
-            <AccessGuard requiredPermissions={[PERMISSIONS.FINANCE_READ]}>
-              <RequisitionsPage />
-            </AccessGuard>
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_ASSET_REGISTER]}>
+              <AssetRegisterPage />
+            </PermissionGuard>
           }
         />
-
-        {/* Document Management */}
-        <Route path={ROUTES.DOCUMENTS} element={<DocumentsPage />} />
-
-        {/* Reports */}
         <Route
-          path={ROUTES.REPORTS}
+          path="finance/assets/depreciation"
           element={
-            <AccessGuard
-              allowedRoles={[
-                ROLES.ADMIN,
-                ROLES.HR_MANAGER,
-                ROLES.DEPARTMENT_HEAD,
-              ]}
-              requiredPermissions={[PERMISSIONS.REPORTS_READ]}
+            <PermissionGuard
+              permissions={[PERMISSIONS.VIEW_ASSET_DEPRECIATION]}
             >
+              <AssetDepreciationPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/assets/maintenance"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_ASSET_MAINTENANCE]}>
+              <AssetMaintenancePage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/assets/:id"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_ASSET_REGISTER]}>
+              <AssetDetailsPage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* Travel & Advances */}
+        <Route
+          path="finance/travel/requests"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_TRAVEL_REQUESTS]}>
+              <TravelRequestsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/travel/advances"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_TRAVEL_ADVANCES]}>
+              <TravelAdvancesPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/travel/expenses"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_EXPENSE_REPORTS]}>
+              <ExpenseReportsPage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* Petty Cash Management */}
+        <Route
+          path="finance/petty-cash"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_PETTY_CASH]}>
+              <PettyCashPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/petty-cash/expenses"
+          element={
+            <PermissionGuard
+              permissions={[PERMISSIONS.CREATE_PETTY_CASH_ENTRY]}
+            >
+              <PettyCashExpensesPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/petty-cash/replenishment"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.REQUEST_REPLENISHMENT]}>
+              <ReplenishmentPage />
+            </PermissionGuard>
+          }
+        />
+
+        <Route
+          path="finance/requisitions"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.FINANCE_READ]}>
+              <RequisitionsPage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* **PROCUREMENT ROUTES** */}
+        <Route
+          path="procurement/suppliers"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_SUPPLIERS]}>
+              <SuppliersPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="procurement/suppliers/:id"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_SUPPLIERS]}>
+              <SupplierDetailsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="procurement/quotations"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_QUOTATIONS]}>
+              <QuotationsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="procurement/orders"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_PURCHASE_ORDERS]}>
+              <PurchaseOrdersPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="procurement/requests"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_PURCHASE_REQUESTS]}>
+              <PurchaseRequestsPage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* **PERFORMANCE MANAGEMENT ROUTES** */}
+        <Route
+          path="performance/appraisals"
+          element={
+            <PermissionGuard
+              permissions={[PERMISSIONS.VIEW_PERFORMANCE_APPRAISALS]}
+            >
+              <PerformanceAppraisalsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="performance/objectives"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_OBJECTIVES]}>
+              <ObjectivesPage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* **MEETING MANAGEMENT ROUTES** */}
+        <Route
+          path="meetings"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_MEETINGS]}>
+              <MeetingsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="meetings/create"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.CREATE_MEETINGS]}>
+              <MeetingDetailsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="meetings/tasks"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_MEETING_TASKS]}>
+              <MeetingTasksPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="meetings/:id"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_MEETINGS]}>
+              <MeetingDetailsPage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* Documents */}
+        <Route
+          path="documents"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.DOCUMENTS_READ]}>
+              <DocumentsPage />
+            </PermissionGuard>
+          }
+        />
+
+        {/* **ENHANCED REPORTS ROUTES** */}
+        <Route
+          path="reports"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.REPORTS_READ]}>
               <ReportsPage />
-            </AccessGuard>
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="reports/hr"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.REPORTS_READ]}>
+              <HRReportsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="reports/finance"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.REPORTS_READ]}>
+              <FinanceReportsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="reports/payroll"
+          element={
+            <PermissionGuard
+              permissions={[PERMISSIONS.GENERATE_PAYROLL_REPORTS]}
+            >
+              <PayrollReportsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="reports/attendance"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.REPORTS_READ]}>
+              <AttendanceReportsEnhancedPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="reports/procurement"
+          element={
+            <PermissionGuard
+              permissions={[PERMISSIONS.VIEW_PROCUREMENT_REPORTS]}
+            >
+              <ProcurementReportsPage />
+            </PermissionGuard>
           }
         />
 
         {/* Settings */}
         <Route
-          path={ROUTES.SETTINGS}
+          path="settings"
           element={
-            <AdminGuard>
+            <PermissionGuard permissions={[PERMISSIONS.SETTINGS_READ]}>
               <SettingsPage />
-            </AdminGuard>
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.ROLES_SETTINGS}
+          path="settings/roles"
           element={
-            <AdminGuard>
-              <RolesPage />
-            </AdminGuard>
+            <PermissionGuard permissions={[PERMISSIONS.MANAGE_ROLES]}>
+              <RoleManagementPage />
+            </PermissionGuard>
           }
         />
         <Route
-          path={ROUTES.MENUS_SETTINGS}
+          path="settings/menus"
           element={
             <AdminGuard>
               <MenusPage />
@@ -311,23 +635,58 @@ const AppRoutes = () => {
           }
         />
         <Route
-          path={ROUTES.USERS_SETTINGS}
+          path="settings/users"
           element={
-            <HRGuard>
+            <PermissionGuard permissions={[PERMISSIONS.MANAGE_USERS]}>
               <UsersPage />
-            </HRGuard>
+            </PermissionGuard>
+          }
+        />
+
+        {/* **ENHANCED SETTINGS ROUTES** */}
+        <Route
+          path="settings/fiscal-year"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.MANAGE_FISCAL_YEAR]}>
+              <FiscalYearSettingsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="settings/salary-scale"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.MANAGE_SALARY_SCALE]}>
+              <SalaryScaleSettingsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="settings/leave-types"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.MANAGE_LEAVE_TYPES]}>
+              <LeaveTypeSettingsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="settings/holidays"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.MANAGE_HOLIDAYS]}>
+              <HolidaySettingsPage />
+            </PermissionGuard>
           }
         />
 
         {/* Profile */}
-        <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
+        <Route path="profile" element={<ProfilePage />} />
 
         {/* Error Pages */}
-        <Route path={ROUTES.UNAUTHORIZED} element={<UnauthorizedPage />} />
+        <Route path="unauthorized" element={<UnauthorizedPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
 
-      {/* Catch all route */}
-      <Route path="*" element={<NotFoundPage />} />
+      {/* Fallback for unauthenticated users */}
+      <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
     </Routes>
   );
 };
