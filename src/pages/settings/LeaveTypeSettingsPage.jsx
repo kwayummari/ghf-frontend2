@@ -75,12 +75,12 @@ import {
   Assignment as RuleIcon,
 } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
-import { selectUser } from '../../../store/slices/authSlice';
-import { useAuth } from '../../../components/features/auth/AuthGuard';
-import { ROUTES, ROLES, PERMISSIONS } from '../../../constants';
-import useNotification from '../../../hooks/common/useNotification';
-import useConfirmDialog from '../../../hooks/common/useConfirmDialog';
-import { LoadingSpinner } from '../../../components/common/Loading';
+import { selectUser } from '../../store/slices/authSlice';
+import { useAuth } from '../../components/features/auth/AuthGuard';
+import { ROUTES, ROLES, PERMISSIONS } from '../../constants';
+import useNotification from '../../hooks/common/useNotification';
+import useConfirmDialog from '../../hooks/common/useConfirmDialog';
+import { LoadingSpinner } from '../../components/common/Loading';
 // import { leaveAPI } from '../../../services/api/leave.api';
 
 const LeaveTypeSettingsPage = () => {

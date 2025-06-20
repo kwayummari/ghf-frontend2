@@ -99,8 +99,8 @@ import MeetingTasksPage from "../pages/meetings/MeetingTasksPage";
 // Enhanced Settings
 import FiscalYearSettingsPage from "../pages/settings/FiscalYearSettingsPage";
 import SalaryScaleSettingsPage from "../pages/settings/SalaryScaleSettingsPage";
-// import LeaveTypeSettingsPage from "../pages/settings/LeaveTypeSettingsPage";
-// import HolidaySettingsPage from "../pages/settings/HolidaySettingsPage";
+import LeaveTypeSettingsPage from "../pages/settings/LeaveTypeSettingsPage";
+import HolidaySettingsPage from "../pages/settings/HolidaySettingsPage";
 
 const AppRoutes = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -660,7 +660,7 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        {/* <Route
+        <Route
           path="settings/leave-types"
           element={
             <PermissionGuard permissions={[PERMISSIONS.MANAGE_LEAVE_TYPES]}>
@@ -675,7 +675,7 @@ const AppRoutes = () => {
               <HolidaySettingsPage />
             </PermissionGuard>
           }
-        /> */}
+        />
 
         {/* Profile */}
         <Route path="profile" element={<ProfilePage />} />
