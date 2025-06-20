@@ -9,7 +9,13 @@ class RolesAPI {
      */
     async getAllRoles(params = {}) {
         try {
-            const response = await apiClient.get(API_ENDPOINTS.ROLES, { params });
+            const response = await apiClient.get(API_ENDPOINTS.ROLES, { params }, {
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                },
+            });
             return response.data;
         } catch (error) {
             console.error('Get all roles error:', error);
@@ -84,7 +90,13 @@ class RolesAPI {
      */
     async getAllPermissions() {
         try {
-            const response = await apiClient.get(API_ENDPOINTS.PERMISSIONS);
+            const response = await apiClient.get(API_ENDPOINTS.PERMISSIONS, {
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                },
+            });
             return response.data;
         } catch (error) {
             console.error('Get all permissions error:', error);

@@ -111,10 +111,17 @@ const RoleManagementPage = () => {
         // usersAPI.getAllUsers()
       ]);
 
-      console.log('roles',rolesResponse);
-      console.log('permissions',permissionsResponse);
+      console.log("roles", rolesResponse);
+      console.log("permissions", permissionsResponse);
+
       setRoles(rolesResponse.data || rolesResponse);
-      setPermissions(permissionsResponse.data || permissionsResponse);
+
+      // Fix: Use permissions.data.all instead of permissions.data.data
+      setPermissions(
+        permissionsResponse.data.all ||
+          permissionsResponse.data ||
+          permissionsResponse
+      );
 
       // For now, keep sample users data until users API is available
       const sampleUsers = [
