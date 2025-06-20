@@ -61,24 +61,24 @@ import {
   MonetizationOn as MoneyIcon,
   DateRange as DateIcon,
   Category as CategoryIcon,
-  Priority as PriorityIcon,
   Inventory as ItemIcon,
   Send as SubmitIcon,
   Save as SaveIcon,
   AttachFile as AttachIcon,
   Notifications as NotificationIcon,
 } from "@mui/icons-material";
+import PriorityHighIcon from "@mui/icons-material/PriorityHigh";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { format, differenceInDays } from "date-fns";
 import { useSelector } from "react-redux";
-import { selectUser } from "../../../store/slices/authSlice";
-import { useAuth } from "../../../components/features/auth/AuthGuard";
-import { ROUTES, ROLES, PERMISSIONS } from "../../../constants";
-import useNotification from "../../../hooks/common/useNotification";
-import useConfirmDialog from "../../../hooks/common/useConfirmDialog";
-import { LoadingSpinner } from "../../../components/common/Loading";
+import { selectUser } from "../../store/slices/authSlice";
+import { useAuth } from "../../components/features/auth/AuthGuard";
+import { ROUTES, ROLES, PERMISSIONS } from "../../constants";
+import useNotification from "../../hooks/common/useNotification";
+import useConfirmDialog from "../../hooks/common/useConfirmDialog";
+import { LoadingSpinner } from "../../components/common/Loading";
 // import { procurementAPI } from '../../../services/api/procurement.api';
 
 const RequisitionManagementPage = () => {
@@ -246,7 +246,7 @@ const RequisitionManagementPage = () => {
       value: mockRequisitions
         .filter((req) => req.priority === "urgent")
         .length.toString(),
-      icon: <PriorityIcon />,
+      icon: <PriorityHighIcon />,
       color: "error",
     },
   ];

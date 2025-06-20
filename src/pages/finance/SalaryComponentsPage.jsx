@@ -84,13 +84,13 @@ import {
   SwapHoriz as TransferIcon,
 } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
-import { selectUser } from '../../../store/slices/authSlice';
-import { useAuth } from '../../../components/features/auth/AuthGuard';
-import { ROUTES, ROLES, PERMISSIONS } from '../../../constants';
-import useNotification from '../../../hooks/common/useNotification';
-import useConfirmDialog from '../../../hooks/common/useConfirmDialog';
-import { LoadingSpinner } from '../../../components/common/Loading';
-// import { payrollAPI } from '../../../services/api/payroll.api';
+import { selectUser } from '../../store/slices/authSlice';
+import { useAuth } from '../../components/features/auth/AuthGuard';
+import { ROUTES, ROLES, PERMISSIONS } from '../../constants';
+import useNotification from '../../hooks/common/useNotification';
+import useConfirmDialog from '../../hooks/common/useConfirmDialog';
+import { LoadingSpinner } from '../../components/common/Loading';
+import { payrollAPI } from '../../services/api/payroll.api';
 
 const SalaryComponentsPage = () => {
   const navigate = useNavigate();

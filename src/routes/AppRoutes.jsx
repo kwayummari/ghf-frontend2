@@ -75,32 +75,32 @@ import ReplenishmentPage from "../pages/finance/ReplenishmentPage";
 
 // Procurement
 import SuppliersPage from "../pages/procurement/SuppliersPage";
-import SupplierDetailsPage from "../pages/procurement/SupplierDetailsPage";
+// import SupplierDetailsPage from "../pages/procurement/SupplierDetailsPage";
 import QuotationsPage from "../pages/procurement/QuotationsPage";
-import PurchaseOrdersPage from "../pages/procurement/PurchaseOrdersPage";
-import PurchaseRequestsPage from "../pages/procurement/PurchaseRequestsPage";
+// import PurchaseOrdersPage from "../pages/procurement/PurchaseOrdersPage";
+// import PurchaseRequestsPage from "../pages/procurement/PurchaseRequestsPage";
 
 // Performance Management
 import PerformanceAppraisalsPage from "../pages/procurement/PerformanceAppraisalsPage";
-import ObjectivesPage from "../pages/performance/ObjectivesPage";
+// import ObjectivesPage from "../pages/performance/ObjectivesPage";
 
 // Meeting Management
 import MeetingsPage from "../pages/meetings/MeetingsPage";
-import MeetingDetailsPage from "../pages/meetings/MeetingDetailsPage";
-import MeetingTasksPage from "../pages/meetings/MeetingTasksPage";
+// import MeetingDetailsPage from "../pages/meetings/MeetingDetailsPage";
+// import MeetingTasksPage from "../pages/meetings/MeetingTasksPage";
 
 // Enhanced Reports
-import HRReportsPage from "../pages/reports/HRReportsPage";
-import FinanceReportsPage from "../pages/reports/FinanceReportsPage";
-import PayrollReportsPage from "../pages/reports/PayrollReportsPage";
-import AttendanceReportsEnhancedPage from "../pages/reports/AttendanceReportsPage";
-import ProcurementReportsPage from "../pages/reports/ProcurementReportsPage";
+// import HRReportsPage from "../pages/reports/HRReportsPage";
+// import FinanceReportsPage from "../pages/reports/FinanceReportsPage";
+// import PayrollReportsPage from "../pages/reports/PayrollReportsPage";
+// import AttendanceReportsEnhancedPage from "../pages/reports/AttendanceReportsPage";
+// import ProcurementReportsPage from "../pages/reports/ProcurementReportsPage";
 
 // Enhanced Settings
-import FiscalYearSettingsPage from "../pages/settings/FiscalYearSettingsPage";
-import SalaryScaleSettingsPage from "../pages/settings/SalaryScaleSettingsPage";
-import LeaveTypeSettingsPage from "../pages/settings/LeaveTypeSettingsPage";
-import HolidaySettingsPage from "../pages/settings/HolidaySettingsPage";
+// import FiscalYearSettingsPage from "../pages/settings/FiscalYearSettingsPage";
+// import SalaryScaleSettingsPage from "../pages/settings/SalaryScaleSettingsPage";
+// import LeaveTypeSettingsPage from "../pages/settings/LeaveTypeSettingsPage";
+// import HolidaySettingsPage from "../pages/settings/HolidaySettingsPage";
 
 const AppRoutes = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -458,14 +458,14 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        <Route
+        {/* <Route
           path="procurement/suppliers/:id"
           element={
             <PermissionGuard permissions={[PERMISSIONS.VIEW_SUPPLIERS]}>
               <SupplierDetailsPage />
             </PermissionGuard>
           }
-        />
+        /> */}
         <Route
           path="procurement/quotations"
           element={
@@ -474,7 +474,7 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        <Route
+        {/* <Route
           path="procurement/orders"
           element={
             <PermissionGuard permissions={[PERMISSIONS.VIEW_PURCHASE_ORDERS]}>
@@ -489,7 +489,7 @@ const AppRoutes = () => {
               <PurchaseRequestsPage />
             </PermissionGuard>
           }
-        />
+        /> */}
 
         {/* **PERFORMANCE MANAGEMENT ROUTES** */}
         <Route
@@ -502,14 +502,14 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        <Route
+        {/* <Route
           path="performance/objectives"
           element={
             <PermissionGuard permissions={[PERMISSIONS.VIEW_OBJECTIVES]}>
               <ObjectivesPage />
             </PermissionGuard>
           }
-        />
+        /> */}
 
         {/* **MEETING MANAGEMENT ROUTES** */}
         <Route
@@ -520,7 +520,7 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        <Route
+        {/* <Route
           path="meetings/create"
           element={
             <PermissionGuard permissions={[PERMISSIONS.CREATE_MEETINGS]}>
@@ -535,15 +535,15 @@ const AppRoutes = () => {
               <MeetingTasksPage />
             </PermissionGuard>
           }
-        />
-        <Route
+        /> */}
+        {/* <Route
           path="meetings/:id"
           element={
             <PermissionGuard permissions={[PERMISSIONS.VIEW_MEETINGS]}>
               <MeetingDetailsPage />
             </PermissionGuard>
           }
-        />
+        /> */}
 
         {/* Documents */}
         <Route
@@ -564,7 +564,7 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        <Route
+        {/* <Route
           path="reports/hr"
           element={
             <PermissionGuard permissions={[PERMISSIONS.REPORTS_READ]}>
@@ -579,8 +579,8 @@ const AppRoutes = () => {
               <FinanceReportsPage />
             </PermissionGuard>
           }
-        />
-        <Route
+        /> */}
+        {/* <Route
           path="reports/payroll"
           element={
             <PermissionGuard
@@ -589,16 +589,16 @@ const AppRoutes = () => {
               <PayrollReportsPage />
             </PermissionGuard>
           }
-        />
-        <Route
+        /> */}
+        {/* <Route
           path="reports/attendance"
           element={
             <PermissionGuard permissions={[PERMISSIONS.REPORTS_READ]}>
               <AttendanceReportsEnhancedPage />
             </PermissionGuard>
           }
-        />
-        <Route
+        /> */}
+        {/* <Route
           path="reports/procurement"
           element={
             <PermissionGuard
@@ -607,7 +607,7 @@ const AppRoutes = () => {
               <ProcurementReportsPage />
             </PermissionGuard>
           }
-        />
+        /> */}
 
         {/* Settings */}
         <Route
@@ -644,15 +644,15 @@ const AppRoutes = () => {
         />
 
         {/* **ENHANCED SETTINGS ROUTES** */}
-        <Route
+        {/* <Route
           path="settings/fiscal-year"
           element={
             <PermissionGuard permissions={[PERMISSIONS.MANAGE_FISCAL_YEAR]}>
               <FiscalYearSettingsPage />
             </PermissionGuard>
           }
-        />
-        <Route
+        /> */}
+        {/* <Route
           path="settings/salary-scale"
           element={
             <PermissionGuard permissions={[PERMISSIONS.MANAGE_SALARY_SCALE]}>
@@ -675,7 +675,7 @@ const AppRoutes = () => {
               <HolidaySettingsPage />
             </PermissionGuard>
           }
-        />
+        /> */}
 
         {/* Profile */}
         <Route path="profile" element={<ProfilePage />} />

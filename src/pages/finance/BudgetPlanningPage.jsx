@@ -54,8 +54,8 @@ import {
   Warning as WarningIcon,
   ExpandMore as ExpandMoreIcon,
   GetApp as ExportIcon,
-  Copy as CopyIcon,
 } from "@mui/icons-material";
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -1005,7 +1005,7 @@ const BudgetPlanningPage = () => {
             }}
           >
             <ListItemIcon>
-              <CopyIcon fontSize="small" />
+              <ContentCopyIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Copy Budget</ListItemText>
           </MenuItem>

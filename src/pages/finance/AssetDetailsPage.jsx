@@ -35,13 +35,6 @@ import {
   ListItemAvatar,
   Badge,
   Tooltip,
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineConnector,
-  TimelineContent,
-  TimelineDot,
-  TimelineOppositeContent,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -49,6 +42,16 @@ import {
   ImageListItem,
   ImageListItemBar,
 } from "@mui/material";
+import {
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+  TimelineOppositeContent,
+} from "@mui/lab";
+
 import {
   ArrowBack as BackIcon,
   Edit as EditIcon,
@@ -86,13 +89,13 @@ import {
 } from "@mui/icons-material";
 import { format, differenceInYears, differenceInDays } from "date-fns";
 import { useSelector } from "react-redux";
-import { selectUser } from "../../../store/slices/authSlice";
-import { useAuth } from "../../../components/features/auth/AuthGuard";
-import { ROUTES, ROLES, PERMISSIONS } from "../../../constants";
-import useNotification from "../../../hooks/common/useNotification";
-import useConfirmDialog from "../../../hooks/common/useConfirmDialog";
-import { LoadingSpinner } from "../../../components/common/Loading";
-// import { assetAPI } from '../../../services/api/asset.api';
+import { selectUser } from "../../store/slices/authSlice";
+import { useAuth } from "../../components/features/auth/AuthGuard";
+import { ROUTES, ROLES, PERMISSIONS } from "../../constants";
+import useNotification from "../../hooks/common/useNotification";
+import useConfirmDialog from "../../hooks/common/useConfirmDialog";
+import { LoadingSpinner } from "../../components/common/Loading";
+// import { assetAPI } from '../../services/api/asset.api';
 
 const AssetDetailsPage = () => {
   const navigate = useNavigate();
