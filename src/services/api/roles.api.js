@@ -158,13 +158,24 @@ class RolesAPI {
      */
     async updateRoleMenuPermissions(roleId, permissions) {
         try {
-            const response = await apiClient.put(API_ENDPOINTS.ROLE_MENU_PERMISSIONS(roleId), permissions);
+            const response = await apiClient.put(
+                API_ENDPOINTS.ROLE_MENU_PERMISSIONS(roleId),
+                permissions,
+                {
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache',
+                        'Expires': '0',
+                    }
+                }
+            );
             return response.data;
         } catch (error) {
             console.error('Update role menu permissions error:', error);
             throw error;
         }
     }
+    
 }
 
 const rolesAPI = new RolesAPI();

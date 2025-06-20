@@ -37,6 +37,10 @@ import {
   Alert,
   Divider,
   Switch,
+  CircularProgress,
+  LinearProgress,
+  Tooltip,
+  Badge,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -56,6 +60,9 @@ import {
   Assignment as AssignIcon,
   Check as CheckIcon,
   Close as CloseIcon,
+  Refresh as RefreshIcon,
+  PersonAdd as PersonAddIcon,
+  Settings as SettingsIcon,
 } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 import { selectUser } from "../../store/slices/authSlice";
@@ -64,7 +71,8 @@ import { ROUTES, ROLES, PERMISSIONS } from "../../constants";
 import useNotification from "../../hooks/common/useNotification";
 import useConfirmDialog from "../../hooks/common/useConfirmDialog";
 import { LoadingSpinner } from "../../components/common/Loading";
-import rolesAPI from "../../services/api/roles.api"; // Import your API
+import rolesAPI from "../../services/api/roles.api";
+// import usersAPI from "../../services/api/users.api"; // Import when available
 
 const RoleManagementPage = () => {
   const navigate = useNavigate();
@@ -76,9 +84,11 @@ const RoleManagementPage = () => {
 
   // State management
   const [roles, setRoles] = useState([]);
+  const [menuSelectedItem, setMenuSelectedItem] = useState(null);
   const [permissions, setPermissions] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState(0);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -87,12 +97,14 @@ const RoleManagementPage = () => {
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
   const [assignRoleDialogOpen, setAssignRoleDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [newRole, setNewRole] = useState({
     role_name: "",
     description: "",
     is_default: false,
   });
   const [rolePermissions, setRolePermissions] = useState({});
+  const [selectedRolePermissions, setSelectedRolePermissions] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userRoles, setUserRoles] = useState([]);
 
@@ -103,65 +115,117 @@ const RoleManagementPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch roles, permissions, and users simultaneously
-      const [rolesResponse, permissionsResponse] = await Promise.all([
-        rolesAPI.getAllRoles(),
-        rolesAPI.getAllPermissions(),
-        // Add users API call when available
-        // usersAPI.getAllUsers()
+      await Promise.all([
+        fetchRoles(),
+        fetchPermissions(),
+        fetchUsers(),
       ]);
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      showError("Failed to load roles and permissions data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      console.log("roles", rolesResponse);
-      console.log("permissions", permissionsResponse);
+  const fetchRoles = async () => {
+    try {
+      const rolesResponse = await rolesAPI.getAllRoles();
+      console.log("Roles response:", rolesResponse);
+      
+      const rolesData = rolesResponse.data || rolesResponse;
+      setRoles(rolesData);
 
-      setRoles(rolesResponse.data || rolesResponse);
+      // Fetch permissions for each role
+      await fetchAllRolePermissions(rolesData);
+    } catch (error) {
+      console.error("Failed to fetch roles:", error);
+      throw error;
+    }
+  };
 
-      // Fix: Use permissions.data.all instead of permissions.data.data
-      setPermissions(
-        permissionsResponse.data.all ||
-          permissionsResponse.data ||
-          permissionsResponse
-      );
+  const fetchPermissions = async () => {
+    try {
+      const permissionsResponse = await rolesAPI.getAllPermissions();
+      console.log("Permissions response:", permissionsResponse);
+      
+      // Handle different response structures
+      const permissionsData = 
+        permissionsResponse.data?.all || 
+        permissionsResponse.data?.data || 
+        permissionsResponse.data || 
+        permissionsResponse;
+      
+      setPermissions(permissionsData);
+    } catch (error) {
+      console.error("Failed to fetch permissions:", error);
+      throw error;
+    }
+  };
 
-      // For now, keep sample users data until users API is available
+  const fetchUsers = async () => {
+    try {
+      // TODO: Replace with actual users API when available
+      // const usersResponse = await usersAPI.getAllUsers();
+      // const usersData = usersResponse.data || usersResponse;
+      
+      // For now, keep sample users data
       const sampleUsers = [
-        { id: 1, name: "John Admin", email: "admin@ghf.org", roles: ["Admin"] },
-        { id: 2, name: "Jane HR", email: "hr@ghf.org", roles: ["HR Manager"] },
+        { 
+          id: 1, 
+          name: "John Admin", 
+          email: "admin@ghf.org", 
+          roles: ["Admin"],
+          role_ids: [1] 
+        },
+        { 
+          id: 2, 
+          name: "Jane HR", 
+          email: "hr@ghf.org", 
+          roles: ["HR Manager"],
+          role_ids: [2] 
+        },
         {
           id: 3,
           name: "Mike Finance",
           email: "finance@ghf.org",
           roles: ["Finance Manager"],
+          role_ids: [3]
         },
         {
           id: 4,
           name: "Sarah Employee",
           email: "sarah@ghf.org",
           roles: ["Employee"],
+          role_ids: [4]
         },
       ];
       setUsers(sampleUsers);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      // Don't throw for users since it's mock data
+    }
+  };
 
-      // Fetch role permissions for each role
-      const rolePermsPromises = (rolesResponse.data || rolesResponse).map(
-        async (role) => {
-          try {
-            const roleMenuPerms = await rolesAPI.getRoleMenuPermissions(
-              role.id
-            );
-            return {
-              roleId: role.id,
-              permissions: roleMenuPerms.data || roleMenuPerms,
-            };
-          } catch (error) {
-            console.warn(
-              `Failed to fetch permissions for role ${role.id}:`,
-              error
-            );
-            return { roleId: role.id, permissions: [] };
-          }
+  const fetchAllRolePermissions = async (rolesData) => {
+    try {
+      const rolePermsPromises = rolesData.map(async (role) => {
+        try {
+          const roleMenuPerms = await rolesAPI.getRoleMenuPermissions(role.id);
+          console.log(`Permissions for role ${role.id}:`, roleMenuPerms);
+          
+          // Extract permission IDs from the response
+          const permissionIds = extractPermissionIds(roleMenuPerms.data || roleMenuPerms);
+          
+          return {
+            roleId: role.id,
+            permissions: permissionIds,
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch permissions for role ${role.id}:`, error);
+          return { roleId: role.id, permissions: [] };
         }
-      );
+      });
 
       const rolePermsResults = await Promise.all(rolePermsPromises);
       const rolePermsMapping = rolePermsResults.reduce(
@@ -173,11 +237,47 @@ const RoleManagementPage = () => {
       );
 
       setRolePermissions(rolePermsMapping);
+      
+      // Update roles with permissions count
+      setRoles(prevRoles => 
+        prevRoles.map(role => ({
+          ...role,
+          permissions_count: rolePermsMapping[role.id]?.length || 0
+        }))
+      );
     } catch (error) {
-      console.error("Failed to fetch data:", error);
-      showError("Failed to load roles and permissions data");
+      console.error("Failed to fetch role permissions:", error);
+    }
+  };
+
+  const extractPermissionIds = (permissionsData) => {
+    if (!permissionsData) return [];
+    
+    // Handle different response structures
+    if (Array.isArray(permissionsData)) {
+      return permissionsData.map(p => p.permission_id || p.id);
+    }
+    
+    if (permissionsData.permissions) {
+      return permissionsData.permissions.map(p => p.permission_id || p.id);
+    }
+    
+    if (permissionsData.menu_permissions) {
+      return permissionsData.menu_permissions.map(p => p.permission_id || p.id);
+    }
+    
+    return [];
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchData();
+      showSuccess("Data refreshed successfully");
+    } catch (error) {
+      showError("Failed to refresh data");
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -187,6 +287,7 @@ const RoleManagementPage = () => {
       return;
     }
 
+    setSaving(true);
     try {
       let response;
       if (editMode && selectedItem) {
@@ -204,73 +305,117 @@ const RoleManagementPage = () => {
         // Create new role
         response = await rolesAPI.createRole(newRole);
         const createdRole = response.data || response;
-        setRoles((prev) => [...prev, createdRole]);
+        setRoles((prev) => [...prev, { ...createdRole, permissions_count: 0 }]);
         showSuccess("Role created successfully");
       }
 
-      setNewRole({ role_name: "", description: "", is_default: false });
-      setRoleDialogOpen(false);
-      setEditMode(false);
-      setSelectedItem(null);
+      resetRoleDialog();
     } catch (error) {
       console.error("Role operation error:", error);
       const errorMessage =
         error.response?.data?.message ||
+        error.message ||
         (editMode ? "Failed to update role" : "Failed to create role");
       showError(errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleUpdateRolePermissions = async (roleId, permissionIds) => {
+  const handleManagePermissions = (role) => {
+    console.log("Managing permissions for role:", role); // Add for debugging
+    setSelectedItem(role);
+    const currentPermissions = rolePermissions[role.id] || [];
+    const cleanPermissions = currentPermissions.filter(
+      (id) => id !== undefined && id !== null
+    );
+    setSelectedRolePermissions(cleanPermissions);
+    setPermissionDialogOpen(true);
+  };
+
+  const handleUpdateRolePermissions = async () => {
+    console.log("handleUpdateRolePermissions called"); // Add this line
+    console.log("selectedItem:", selectedItem); // Add this line
+
+    if (!selectedItem) return;
+
+    setSaving(true);
     try {
+      const filteredPermissions = selectedRolePermissions.filter(
+        (id) => id !== undefined && id !== null
+      );
       const permissionsData = {
-        permissions: permissionIds,
-        menu_permissions: permissionIds, // Adjust based on your API structure
+        permissions: filteredPermissions,
+        menu_permissions: filteredPermissions,
+        permission_ids: filteredPermissions,
       };
 
-      await rolesAPI.updateRoleMenuPermissions(roleId, permissionsData);
+      console.log(
+        "Updating permissions for role:",
+        selectedItem.id,
+        permissionsData
+      );
 
+      const response = await rolesAPI.updateRoleMenuPermissions(
+        selectedItem.id,
+        permissionsData
+      );
+      console.log("Update response:", response);
+
+      // Update local state
       setRolePermissions((prev) => ({
         ...prev,
-        [roleId]: permissionIds,
+        [selectedItem.id]: selectedRolePermissions,
       }));
 
       // Update role permissions count
       setRoles((prev) =>
         prev.map((role) =>
-          role.id === roleId
-            ? { ...role, permissions_count: permissionIds.length }
+          role.id === selectedItem.id
+            ? { ...role, permissions_count: selectedRolePermissions.length }
             : role
         )
       );
 
+      setPermissionDialogOpen(false);
+      setSelectedItem(null);
       showSuccess("Role permissions updated successfully");
     } catch (error) {
       console.error("Update permissions error:", error);
       const errorMessage =
-        error.response?.data?.message || "Failed to update role permissions";
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to update role permissions";
       showError(errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleAssignRole = async (userId, roleIds) => {
+  const handleAssignRole = async () => {
+    if (!selectedUser) return;
+
+    setSaving(true);
     try {
       const assignmentData = {
-        user_id: userId,
-        role_ids: roleIds,
+        user_id: selectedUser.id,
+        role_ids: userRoles,
       };
 
+      console.log("Assigning roles:", assignmentData);
+      
       await rolesAPI.assignRole(assignmentData);
 
       // Update local state
       setUsers((prev) =>
         prev.map((user) =>
-          user.id === userId
+          user.id === selectedUser.id
             ? {
                 ...user,
                 roles: roles
-                  .filter((r) => roleIds.includes(r.id))
+                  .filter((r) => userRoles.includes(r.id))
                   .map((r) => r.role_name),
+                role_ids: userRoles,
               }
             : user
         )
@@ -281,8 +426,12 @@ const RoleManagementPage = () => {
     } catch (error) {
       console.error("Assign role error:", error);
       const errorMessage =
-        error.response?.data?.message || "Failed to assign roles";
+        error.response?.data?.message || 
+        error.message ||
+        "Failed to assign roles";
       showError(errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -311,11 +460,19 @@ const RoleManagementPage = () => {
         try {
           await rolesAPI.deleteRole(roleId);
           setRoles((prev) => prev.filter((r) => r.id !== roleId));
+          // Clean up role permissions
+          setRolePermissions((prev) => {
+            const newPerms = { ...prev };
+            delete newPerms[roleId];
+            return newPerms;
+          });
           showSuccess("Role deleted successfully");
         } catch (error) {
           console.error("Delete role error:", error);
           const errorMessage =
-            error.response?.data?.message || "Failed to delete role";
+            error.response?.data?.message || 
+            error.message ||
+            "Failed to delete role";
           showError(errorMessage);
         }
       },
@@ -324,12 +481,12 @@ const RoleManagementPage = () => {
 
   const handleMenuClick = (event, item, type) => {
     setAnchorEl(event.currentTarget);
-    setSelectedItem({ ...item, type });
+    setMenuSelectedItem({ ...item, type });
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setSelectedItem(null);
+    setMenuSelectedItem(null);
   };
 
   const resetRoleDialog = () => {
@@ -339,11 +496,51 @@ const RoleManagementPage = () => {
     setRoleDialogOpen(false);
   };
 
-  const groupedPermissions = permissions.reduce((acc, permission) => {
-    if (!acc[permission.module]) {
-      acc[permission.module] = [];
+  const handlePermissionChange = (permissionId, checked) => {
+    console.log("Permission change:", permissionId, checked); // Debug log
+    if (checked) {
+      setSelectedRolePermissions((prev) => {
+        const filtered = prev.filter((id) => id !== undefined && id !== null);
+        return [...filtered, permissionId];
+      });
+    } else {
+      setSelectedRolePermissions((prev) =>
+        prev.filter(
+          (id) => id !== permissionId && id !== undefined && id !== null
+        )
+      );
     }
-    acc[permission.module].push(permission);
+  };
+
+  const handleSelectAllPermissions = (modulePermissions, checked) => {
+    const modulePermissionIds = modulePermissions
+      .map((p) => p.id)
+      .filter((id) => id !== undefined);
+
+    if (checked) {
+      setSelectedRolePermissions((prev) => {
+        const filtered = prev.filter(
+          (id) =>
+            id !== undefined && id !== null && !modulePermissionIds.includes(id)
+        );
+        return [...filtered, ...modulePermissionIds];
+      });
+    } else {
+      setSelectedRolePermissions((prev) =>
+        prev.filter(
+          (id) =>
+            id !== undefined && id !== null && !modulePermissionIds.includes(id)
+        )
+      );
+    }
+  };
+
+  const groupedPermissions = permissions.reduce((acc, permission) => {
+    const module = permission.module || 'General';
+    if (!acc[module]) {
+      acc[module] = [];
+    }
+    acc[module].push(permission);
     return acc;
   }, {});
 
@@ -369,7 +566,7 @@ const RoleManagementPage = () => {
       width: 300,
       renderCell: (params) => (
         <Typography variant="body2" color="text.secondary">
-          {params.value}
+          {params.value || 'No description'}
         </Typography>
       ),
     },
@@ -386,7 +583,19 @@ const RoleManagementPage = () => {
       headerName: "Permissions",
       width: 120,
       renderCell: (params) => (
-        <Typography variant="body2">{params.value || 0}</Typography>
+        <Badge badgeContent={params.value || 0} color="primary">
+          <PermissionIcon color="action" />
+        </Badge>
+      ),
+    },
+    {
+      field: "created_at",
+      headerName: "Created",
+      width: 120,
+      renderCell: (params) => (
+        <Typography variant="body2">
+          {params.value ? new Date(params.value).toLocaleDateString() : '-'}
+        </Typography>
       ),
     },
     {
@@ -427,9 +636,9 @@ const RoleManagementPage = () => {
       width: 300,
       renderCell: (params) => (
         <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-          {params.value.map((role, index) => (
+          {params.value?.map((role, index) => (
             <Chip key={index} label={role} size="small" color="primary" />
-          ))}
+          )) || <Typography variant="body2" color="text.secondary">No roles assigned</Typography>}
         </Box>
       ),
     },
@@ -461,6 +670,10 @@ const RoleManagementPage = () => {
       user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
@@ -480,15 +693,30 @@ const RoleManagementPage = () => {
             Manage system roles, permissions, and user access control
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setRoleDialogOpen(true)}
-          disabled={loading}
-        >
-          Create Role
-        </Button>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={
+              refreshing ? <CircularProgress size={16} /> : <RefreshIcon />
+            }
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setRoleDialogOpen(true)}
+            disabled={loading}
+          >
+            Create Role
+          </Button>
+        </Box>
       </Box>
+
+      {/* Progress indicator for background operations */}
+      {(refreshing || saving) && <LinearProgress sx={{ mb: 2 }} />}
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -624,23 +852,20 @@ const RoleManagementPage = () => {
                 />
               </Box>
 
-              {loading ? (
-                <LoadingSpinner />
-              ) : (
-                <DataGrid
-                  rows={filteredRoles}
-                  columns={rolesColumns}
-                  pageSize={10}
-                  rowsPerPageOptions={[10, 25, 50]}
-                  disableSelectionOnClick
-                  autoHeight
-                  sx={{
-                    "& .MuiDataGrid-cell:focus": {
-                      outline: "none",
-                    },
-                  }}
-                />
-              )}
+              <DataGrid
+                rows={filteredRoles}
+                columns={rolesColumns}
+                pageSize={10}
+                rowsPerPageOptions={[10, 25, 50]}
+                disableSelectionOnClick
+                autoHeight
+                loading={loading}
+                sx={{
+                  "& .MuiDataGrid-cell:focus": {
+                    outline: "none",
+                  },
+                }}
+              />
             </>
           )}
 
@@ -683,12 +908,13 @@ const RoleManagementPage = () => {
                                     variant="body2"
                                     fontWeight="medium"
                                   >
-                                    {permission.permission_name}
+                                    {permission.permission_name ||
+                                      permission.name}
                                   </Typography>
                                 </TableCell>
                                 <TableCell>
                                   <Chip
-                                    label={permission.action}
+                                    label={permission.action || "read"}
                                     size="small"
                                     color={
                                       permission.action === "create"
@@ -706,7 +932,8 @@ const RoleManagementPage = () => {
                                     variant="body2"
                                     color="text.secondary"
                                   >
-                                    {permission.description}
+                                    {permission.description ||
+                                      "No description available"}
                                   </Typography>
                                 </TableCell>
                               </TableRow>
@@ -743,23 +970,20 @@ const RoleManagementPage = () => {
                 />
               </Box>
 
-              {loading ? (
-                <LoadingSpinner />
-              ) : (
-                <DataGrid
-                  rows={filteredUsers}
-                  columns={usersColumns}
-                  pageSize={10}
-                  rowsPerPageOptions={[10, 25, 50]}
-                  disableSelectionOnClick
-                  autoHeight
-                  sx={{
-                    "& .MuiDataGrid-cell:focus": {
-                      outline: "none",
-                    },
-                  }}
-                />
-              )}
+              <DataGrid
+                rows={filteredUsers}
+                columns={usersColumns}
+                pageSize={10}
+                rowsPerPageOptions={[10, 25, 50]}
+                disableSelectionOnClick
+                autoHeight
+                loading={loading}
+                sx={{
+                  "& .MuiDataGrid-cell:focus": {
+                    outline: "none",
+                  },
+                }}
+              />
             </>
           )}
         </CardContent>
@@ -771,11 +995,11 @@ const RoleManagementPage = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        {selectedItem?.type === "role" && (
+        {menuSelectedItem?.type === "role" && (
           <>
             <MenuItem
               onClick={() => {
-                setPermissionDialogOpen(true);
+                handleManagePermissions(menuSelectedItem);
                 handleMenuClose();
               }}
             >
@@ -786,7 +1010,7 @@ const RoleManagementPage = () => {
             </MenuItem>
             <MenuItem
               onClick={() => {
-                handleEditRole(selectedItem);
+                handleEditRole(menuSelectedItem);
                 handleMenuClose();
               }}
             >
@@ -795,10 +1019,10 @@ const RoleManagementPage = () => {
               </ListItemIcon>
               <ListItemText>Edit Role</ListItemText>
             </MenuItem>
-            {!selectedItem.is_default && (
+            {!menuSelectedItem.is_default && (
               <MenuItem
                 onClick={() => {
-                  handleDeleteRole(selectedItem.id);
+                  handleDeleteRole(menuSelectedItem.id);
                   handleMenuClose();
                 }}
                 sx={{ color: "error.main" }}
@@ -811,15 +1035,11 @@ const RoleManagementPage = () => {
             )}
           </>
         )}
-        {selectedItem?.type === "user" && (
+        {menuSelectedItem?.type === "user" && (
           <MenuItem
             onClick={() => {
-              setSelectedUser(selectedItem);
-              setUserRoles(
-                roles
-                  .filter((r) => selectedItem.roles.includes(r.role_name))
-                  .map((r) => r.id)
-              );
+              setSelectedUser(menuSelectedItem);
+              setUserRoles(menuSelectedItem.role_ids || []);
               setAssignRoleDialogOpen(true);
               handleMenuClose();
             }}
@@ -851,6 +1071,10 @@ const RoleManagementPage = () => {
               }
               sx={{ mb: 2 }}
               required
+              error={!newRole.role_name.trim()}
+              helperText={
+                !newRole.role_name.trim() ? "Role name is required" : ""
+              }
             />
             <TextField
               fullWidth
@@ -862,6 +1086,7 @@ const RoleManagementPage = () => {
                 setNewRole((prev) => ({ ...prev, description: e.target.value }))
               }
               sx={{ mb: 2 }}
+              placeholder="Enter role description..."
             />
             <FormControlLabel
               control={
@@ -875,14 +1100,27 @@ const RoleManagementPage = () => {
                   }
                 />
               }
-              label="Default Role (assigned to new users)"
+              label="Default Role (assigned to new users automatically)"
             />
+            {newRole.is_default && (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                Default roles are automatically assigned to new users when they
+                register.
+              </Alert>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={resetRoleDialog}>Cancel</Button>
-          <Button onClick={handleCreateRole} variant="contained">
-            {editMode ? "Update Role" : "Create Role"}
+          <Button onClick={resetRoleDialog} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreateRole}
+            variant="contained"
+            disabled={saving || !newRole.role_name.trim()}
+            startIcon={saving ? <CircularProgress size={16} /> : null}
+          >
+            {saving ? "Saving..." : editMode ? "Update Role" : "Create Role"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -890,83 +1128,210 @@ const RoleManagementPage = () => {
       {/* Manage Permissions Dialog */}
       <Dialog
         open={permissionDialogOpen}
-        onClose={() => setPermissionDialogOpen(false)}
-        maxWidth="md"
+        onClose={() => {
+          if (!saving) {
+            setPermissionDialogOpen(false);
+            // Don't clear selectedItem here
+          }
+        }}
+        maxWidth="lg"
         fullWidth
+        PaperProps={{
+          sx: { height: "80vh" },
+        }}
       >
         <DialogTitle>
-          Manage Permissions for {selectedItem?.role_name}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Typography variant="h6">
+              Manage Permissions for "
+              {selectedItem?.role_name || selectedItem?.name}"
+            </Typography>
+            <Chip
+              label={`${selectedRolePermissions.length} selected`}
+              color="primary"
+              size="small"
+            />
+          </Box>
         </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
-            {Object.entries(groupedPermissions).map(
-              ([module, modulePermissions]) => (
-                <Accordion key={module} sx={{ mb: 1 }}>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography variant="h6">{module} Permissions</Typography>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <FormGroup>
-                      {modulePermissions.map((permission) => (
-                        <FormControlLabel
-                          key={permission.id}
-                          control={
-                            <Checkbox
-                              checked={
-                                rolePermissions[selectedItem?.id]?.includes(
-                                  permission.id
-                                ) || false
+            {saving && <LinearProgress sx={{ mb: 2 }} />}
+
+            {Object.keys(groupedPermissions).length === 0 ? (
+              <Alert severity="warning">
+                No permissions available. Please ensure permissions are properly
+                loaded.
+              </Alert>
+            ) : (
+              Object.entries(groupedPermissions).map(
+                ([module, modulePermissions]) => {
+                  const modulePermissionIds = modulePermissions.map(
+                    (p) => p.id
+                  );
+                  const selectedModulePerms = selectedRolePermissions.filter(
+                    (id) => modulePermissionIds.includes(id)
+                  );
+                  const isAllSelected =
+                    selectedModulePerms.length === modulePermissions.length;
+                  const isPartiallySelected =
+                    selectedModulePerms.length > 0 && !isAllSelected;
+
+                  return (
+                    <Accordion key={module} sx={{ mb: 1 }} defaultExpanded>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                            width: "100%",
+                          }}
+                        >
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={isAllSelected}
+                                indeterminate={isPartiallySelected}
+                                onChange={(e) =>
+                                  handleSelectAllPermissions(
+                                    modulePermissions,
+                                    e.target.checked
+                                  )
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            }
+                            label=""
+                            sx={{ margin: 0 }}
+                          />
+                          <SecurityIcon color="primary" />
+                          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                            {module} Permissions
+                          </Typography>
+                          <Chip
+                            label={`${selectedModulePerms.length}/${modulePermissions.length}`}
+                            size="small"
+                            color={
+                              isAllSelected
+                                ? "success"
+                                : isPartiallySelected
+                                  ? "warning"
+                                  : "default"
+                            }
+                          />
+                        </Box>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <FormGroup>
+                          {modulePermissions.map((permission) => (
+                            <FormControlLabel
+                              key={permission.id}
+                              control={
+                                <Checkbox
+                                  checked={selectedRolePermissions.includes(
+                                    permission.id
+                                  )}
+                                  onChange={(e) =>
+                                    handlePermissionChange(
+                                      permission.id,
+                                      e.target.checked
+                                    )
+                                  }
+                                />
                               }
-                              onChange={(e) => {
-                                const currentPerms =
-                                  rolePermissions[selectedItem?.id] || [];
-                                const newPerms = e.target.checked
-                                  ? [...currentPerms, permission.id]
-                                  : currentPerms.filter(
-                                      (id) => id !== permission.id
-                                    );
-                                setRolePermissions((prev) => ({
-                                  ...prev,
-                                  [selectedItem?.id]: newPerms,
-                                }));
+                              label={
+                                <Box sx={{ ml: 1 }}>
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 1,
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="body2"
+                                      fontWeight="medium"
+                                    >
+                                      {permission.permission_name ||
+                                        permission.name}
+                                    </Typography>
+                                    <Chip
+                                      label={permission.action || "read"}
+                                      size="small"
+                                      variant="outlined"
+                                      color={
+                                        permission.action === "create"
+                                          ? "success"
+                                          : permission.action === "update"
+                                            ? "warning"
+                                            : permission.action === "delete"
+                                              ? "error"
+                                              : "info"
+                                      }
+                                    />
+                                  </Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    display="block"
+                                  >
+                                    {permission.description ||
+                                      "No description available"}
+                                  </Typography>
+                                </Box>
+                              }
+                              sx={{
+                                display: "block",
+                                mb: 1,
+                                "& .MuiFormControlLabel-label": {
+                                  width: "100%",
+                                },
                               }}
                             />
-                          }
-                          label={
-                            <Box>
-                              <Typography variant="body2" fontWeight="medium">
-                                {permission.permission_name}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {permission.description}
-                              </Typography>
-                            </Box>
-                          }
-                        />
-                      ))}
-                    </FormGroup>
-                  </AccordionDetails>
-                </Accordion>
+                          ))}
+                        </FormGroup>
+                      </AccordionDetails>
+                    </Accordion>
+                  );
+                }
               )
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPermissionDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => {
-              handleUpdateRolePermissions(
-                selectedItem?.id,
+              setPermissionDialogOpen(false);
+              setSelectedItem(null); // Clear only when canceling
+            }}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              // Reset to original permissions
+              setSelectedRolePermissions(
                 rolePermissions[selectedItem?.id] || []
               );
-              setPermissionDialogOpen(false);
             }}
-            variant="contained"
+            disabled={saving}
           >
-            Save Permissions
+            Reset
+          </Button>
+          <Button
+            onClick={handleUpdateRolePermissions}
+            variant="contained"
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
+          >
+            {saving ? "Saving..." : "Save Permissions"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -974,13 +1339,25 @@ const RoleManagementPage = () => {
       {/* Assign Roles Dialog */}
       <Dialog
         open={assignRoleDialogOpen}
-        onClose={() => setAssignRoleDialogOpen(false)}
+        onClose={() => !saving && setAssignRoleDialogOpen(false)}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Assign Roles to {selectedUser?.name}</DialogTitle>
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <PersonAddIcon />
+            Assign Roles to {selectedUser?.name}
+          </Box>
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
+            {saving && <LinearProgress sx={{ mb: 2 }} />}
+
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Select the roles you want to assign to this user. Changes will be
+              applied immediately.
+            </Alert>
+
             <FormGroup>
               {roles.map((role) => (
                 <FormControlLabel
@@ -1001,29 +1378,83 @@ const RoleManagementPage = () => {
                   }
                   label={
                     <Box>
-                      <Typography variant="body2" fontWeight="medium">
-                        {role.role_name}
-                      </Typography>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        <Typography variant="body2" fontWeight="medium">
+                          {role.role_name}
+                        </Typography>
+                        {role.is_default && (
+                          <Chip label="Default" size="small" color="info" />
+                        )}
+                      </Box>
                       <Typography variant="caption" color="text.secondary">
-                        {role.description}
+                        {role.description || "No description available"}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                      >
+                        {role.permissions_count || 0} permissions
                       </Typography>
                     </Box>
                   }
+                  sx={{
+                    display: "block",
+                    mb: 2,
+                    p: 1,
+                    border: 1,
+                    borderColor: "divider",
+                    borderRadius: 1,
+                    "&:hover": {
+                      bgcolor: "action.hover",
+                    },
+                  }}
                 />
               ))}
             </FormGroup>
+
+            {userRoles.length === 0 && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                No roles selected. User will have minimal access permissions.
+              </Alert>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAssignRoleDialogOpen(false)}>Cancel</Button>
           <Button
-            onClick={() => handleAssignRole(selectedUser?.id, userRoles)}
-            variant="contained"
+            onClick={() => setAssignRoleDialogOpen(false)}
+            disabled={saving}
           >
-            Assign Roles
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAssignRole}
+            variant="contained"
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={16} /> : <AssignIcon />}
+          >
+            {saving ? "Assigning..." : "Assign Roles"}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      {isOpen && (
+        <Dialog open={isOpen} onClose={closeDialog}>
+          <DialogTitle>{config.title}</DialogTitle>
+          <DialogContent>
+            <Typography>{config.message}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeDialog}>Cancel</Button>
+            <Button onClick={handleConfirm} color="error" variant="contained">
+              Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };
