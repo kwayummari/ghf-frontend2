@@ -75,7 +75,7 @@ import ReplenishmentPage from "../pages/finance/ReplenishmentPage";
 
 // Procurement
 import SuppliersPage from "../pages/procurement/SuppliersPage";
-// import SupplierDetailsPage from "../pages/procurement/SupplierDetailsPage";
+import SupplierDetailsPage from "../pages/procurement/SupplierDetailsPage";
 import QuotationsPage from "../pages/procurement/QuotationsPage";
 // import PurchaseOrdersPage from "../pages/procurement/PurchaseOrdersPage";
 // import PurchaseRequestsPage from "../pages/procurement/PurchaseRequestsPage";
@@ -458,14 +458,14 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        {/* <Route
+        <Route
           path="procurement/suppliers/:id"
           element={
             <PermissionGuard permissions={[PERMISSIONS.VIEW_SUPPLIERS]}>
               <SupplierDetailsPage />
             </PermissionGuard>
           }
-        /> */}
+        />
         <Route
           path="procurement/quotations"
           element={
