@@ -97,8 +97,8 @@ import MeetingTasksPage from "../pages/meetings/MeetingTasksPage";
 // import ProcurementReportsPage from "../pages/reports/ProcurementReportsPage";
 
 // Enhanced Settings
-// import FiscalYearSettingsPage from "../pages/settings/FiscalYearSettingsPage";
-// import SalaryScaleSettingsPage from "../pages/settings/SalaryScaleSettingsPage";
+import FiscalYearSettingsPage from "../pages/settings/FiscalYearSettingsPage";
+import SalaryScaleSettingsPage from "../pages/settings/SalaryScaleSettingsPage";
 // import LeaveTypeSettingsPage from "../pages/settings/LeaveTypeSettingsPage";
 // import HolidaySettingsPage from "../pages/settings/HolidaySettingsPage";
 
@@ -644,15 +644,15 @@ const AppRoutes = () => {
         />
 
         {/* **ENHANCED SETTINGS ROUTES** */}
-        {/* <Route
+        <Route
           path="settings/fiscal-year"
           element={
             <PermissionGuard permissions={[PERMISSIONS.MANAGE_FISCAL_YEAR]}>
               <FiscalYearSettingsPage />
             </PermissionGuard>
           }
-        /> */}
-        {/* <Route
+        />
+        <Route
           path="settings/salary-scale"
           element={
             <PermissionGuard permissions={[PERMISSIONS.MANAGE_SALARY_SCALE]}>
@@ -660,7 +660,7 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        <Route
+        {/* <Route
           path="settings/leave-types"
           element={
             <PermissionGuard permissions={[PERMISSIONS.MANAGE_LEAVE_TYPES]}>

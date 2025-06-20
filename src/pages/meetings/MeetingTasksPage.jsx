@@ -59,10 +59,10 @@ import {
   CheckCircle as CompletedIcon,
   Schedule as PendingIcon,
   Warning as OverdueIcon,
-  Priority as PriorityIcon,
+  PriorityHigh as PriorityIcon,
   Person as PersonIcon,
   DateRange as DateIcon,
-  Meeting as MeetingIcon,
+  Event as EventIcon,
   Category as CategoryIcon,
   Comment as CommentIcon,
   PlayArrow as StartIcon,
@@ -73,7 +73,7 @@ import {
   Sort as SortIcon,
   Timeline as TimelineIcon,
   Analytics as AnalyticsIcon,
-} from '@mui/icons-material';
+} from "@mui/icons-material";
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -1099,7 +1099,7 @@ const MeetingTasksPage = () => {
             onClick={() => navigate(`/meetings/${selectedTask?.meeting_id}`)}
           >
             <ListItemIcon>
-              <MeetingIcon fontSize="small" />
+              <EventIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>View Meeting</ListItemText>
           </MenuItem>
@@ -1565,7 +1565,7 @@ const MeetingTasksPage = () => {
             <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
             <Button
               variant="outlined"
-              startIcon={<MeetingIcon />}
+              startIcon={<EventIcon />}
               onClick={() => {
                 setViewDialogOpen(false);
                 navigate(`/meetings/${selectedTask?.meeting_id}`);
