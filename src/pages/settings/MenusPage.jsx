@@ -42,6 +42,7 @@ import {
   FormControlLabel,
   Checkbox,
   Switch,
+  CircularProgress,
 } from '@mui/material';
 import { TreeView, TreeItem } from "@mui/lab";
 import { DataGrid } from '@mui/x-data-grid';
@@ -79,6 +80,8 @@ import {
   Star as StarIcon,
   Public as PublicIcon,
   Lock as LockIcon,
+  Refresh as RefreshIcon,
+  Save as SaveIcon,
 } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../../store/slices/authSlice';
@@ -87,14 +90,14 @@ import { ROUTES, ROLES, PERMISSIONS } from '../../constants';
 import useNotification from '../../hooks/common/useNotification';
 import useConfirmDialog from '../../hooks/common/useConfirmDialog';
 import { LoadingSpinner } from '../../components/common/Loading';
-// import { menusAPI } from '../../../services/api/menus.api';
-// import { rolesAPI } from '../../../services/api/roles.api';
+import menusAPI from '../../services/api/menus.api';
+import rolesAPI from '../../services/api/roles.api';
 
 const MenusPage = () => {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
   const { hasPermission, hasAnyRole } = useAuth();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showWarning } = useNotification();
   const { isOpen, config, openDialog, closeDialog, handleConfirm } =
     useConfirmDialog();
 
@@ -103,6 +106,8 @@ const MenusPage = () => {
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -116,6 +121,7 @@ const MenusPage = () => {
   const [expandedNodes, setExpandedNodes] = useState([]);
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [selectedPermissions, setSelectedPermissions] = useState([]);
+  const [menuPermissions, setMenuPermissions] = useState({});
 
   // Form state
   const [formData, setFormData] = useState({
@@ -133,158 +139,6 @@ const MenusPage = () => {
     css_class: "",
     requires_auth: true,
   });
-
-  // Mock data for development
-  const mockMenus = [
-    {
-      id: 1,
-      menu_name: "dashboard",
-      menu_label: "Dashboard",
-      menu_icon: "DashboardOutlined",
-      menu_url: "/dashboard",
-      parent_id: null,
-      menu_order: 1,
-      is_active: true,
-      menu_type: "page",
-      level: 0,
-      has_children: false,
-      roles_count: 5,
-      permissions_count: 2,
-      created_at: "2024-01-15",
-      updated_at: "2024-06-20",
-    },
-    {
-      id: 2,
-      menu_name: "employees",
-      menu_label: "Employees",
-      menu_icon: "PeopleOutlined",
-      menu_url: null,
-      parent_id: null,
-      menu_order: 2,
-      is_active: true,
-      menu_type: "folder",
-      level: 0,
-      has_children: true,
-      roles_count: 3,
-      permissions_count: 4,
-      created_at: "2024-01-15",
-      updated_at: "2024-06-20",
-    },
-    {
-      id: 3,
-      menu_name: "employees_list",
-      menu_label: "Employee List",
-      menu_icon: "PeopleOutlined",
-      menu_url: "/employees",
-      parent_id: 2,
-      menu_order: 1,
-      is_active: true,
-      menu_type: "page",
-      level: 1,
-      has_children: false,
-      roles_count: 3,
-      permissions_count: 2,
-      created_at: "2024-01-15",
-      updated_at: "2024-06-20",
-    },
-    {
-      id: 4,
-      menu_name: "employees_create",
-      menu_label: "Add Employee",
-      menu_icon: "PersonAddOutlined",
-      menu_url: "/employees/create",
-      parent_id: 2,
-      menu_order: 2,
-      is_active: true,
-      menu_type: "page",
-      level: 1,
-      has_children: false,
-      roles_count: 2,
-      permissions_count: 1,
-      created_at: "2024-01-15",
-      updated_at: "2024-06-20",
-    },
-    {
-      id: 16,
-      menu_name: "finance",
-      menu_label: "Finance",
-      menu_icon: "AccountBalanceOutlined",
-      menu_url: null,
-      parent_id: null,
-      menu_order: 5,
-      is_active: true,
-      menu_type: "folder",
-      level: 0,
-      has_children: true,
-      roles_count: 4,
-      permissions_count: 8,
-      created_at: "2024-01-15",
-      updated_at: "2024-06-20",
-    },
-    {
-      id: 50,
-      menu_name: "budget_planning",
-      menu_label: "Budget Planning",
-      menu_icon: "AssessmentOutlined",
-      menu_url: "/finance/budgets/planning",
-      parent_id: 16,
-      menu_order: 1,
-      is_active: true,
-      menu_type: "page",
-      level: 1,
-      has_children: false,
-      roles_count: 2,
-      permissions_count: 3,
-      created_at: "2024-06-18",
-      updated_at: "2024-06-20",
-    },
-    {
-      id: 51,
-      menu_name: "budget_monitoring",
-      menu_label: "Budget Monitoring",
-      menu_icon: "MonitorOutlined",
-      menu_url: "/finance/budgets/monitoring",
-      parent_id: 16,
-      menu_order: 2,
-      is_active: true,
-      menu_type: "page",
-      level: 1,
-      has_children: false,
-      roles_count: 3,
-      permissions_count: 2,
-      created_at: "2024-06-18",
-      updated_at: "2024-06-20",
-    },
-  ];
-
-  const mockRoles = [
-    { id: 1, role_name: "Super Admin", description: "Full system access" },
-    {
-      id: 2,
-      role_name: "HR Manager",
-      description: "Human resources management",
-    },
-    {
-      id: 3,
-      role_name: "Finance Manager",
-      description: "Financial operations",
-    },
-    { id: 4, role_name: "Employee", description: "Basic employee access" },
-    {
-      id: 5,
-      role_name: "Department Head",
-      description: "Department management",
-    },
-  ];
-
-  const mockPermissions = [
-    { id: 1, name: "View Dashboard", category: "Dashboard" },
-    { id: 2, name: "View Employees", category: "HR" },
-    { id: 3, name: "Manage Employees", category: "HR" },
-    { id: 4, name: "View Budget", category: "Finance" },
-    { id: 5, name: "Manage Budget", category: "Finance" },
-    { id: 6, name: "View Reports", category: "Reports" },
-  ];
 
   // Menu types
   const menuTypes = [
@@ -334,42 +188,6 @@ const MenusPage = () => {
     "AdminPanelSettingsOutlined",
   ];
 
-  // Summary cards data
-  const summaryCards = [
-    {
-      title: "Total Menus",
-      value: mockMenus.length.toString(),
-      subtitle: "Active menu items",
-      icon: <MenuIcon />,
-      color: "primary",
-    },
-    {
-      title: "Parent Menus",
-      value: mockMenus
-        .filter((menu) => menu.parent_id === null)
-        .length.toString(),
-      subtitle: "Top-level navigation",
-      icon: <FolderIcon />,
-      color: "success",
-    },
-    {
-      title: "Active Pages",
-      value: mockMenus
-        .filter((menu) => menu.is_active && menu.menu_type === "page")
-        .length.toString(),
-      subtitle: "Accessible pages",
-      icon: <PageIcon />,
-      color: "info",
-    },
-    {
-      title: "Total Roles",
-      value: mockRoles.length.toString(),
-      subtitle: "System roles",
-      icon: <SecurityIcon />,
-      color: "warning",
-    },
-  ];
-
   // Build hierarchical menu tree
   const buildMenuTree = (menus, parentId = null) => {
     return menus
@@ -381,7 +199,39 @@ const MenusPage = () => {
       }));
   };
 
-  const menuTree = buildMenuTree(mockMenus);
+  // Summary cards data (calculated from actual data)
+  const summaryCards = [
+    {
+      title: "Total Menus",
+      value: menus.length.toString(),
+      subtitle: "Active menu items",
+      icon: <MenuIcon />,
+      color: "primary",
+    },
+    {
+      title: "Parent Menus",
+      value: menus.filter((menu) => menu.parent_id === null).length.toString(),
+      subtitle: "Top-level navigation",
+      icon: <FolderIcon />,
+      color: "success",
+    },
+    {
+      title: "Active Pages",
+      value: menus
+        .filter((menu) => menu.is_active && menu.menu_type === "page")
+        .length.toString(),
+      subtitle: "Accessible pages",
+      icon: <PageIcon />,
+      color: "info",
+    },
+    {
+      title: "Total Roles",
+      value: roles.length.toString(),
+      subtitle: "System roles",
+      icon: <SecurityIcon />,
+      color: "warning",
+    },
+  ];
 
   // DataGrid columns
   const columns = [
@@ -391,7 +241,7 @@ const MenusPage = () => {
       width: 250,
       renderCell: (params) => (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Box sx={{ width: params.row.level * 20 }} />
+          <Box sx={{ width: (params.row.level || 0) * 20 }} />
           {params.row.menu_type === "folder" ? (
             <FolderIcon color="primary" />
           ) : params.row.menu_type === "page" ? (
@@ -451,10 +301,10 @@ const MenusPage = () => {
       renderCell: (params) => (
         <Box>
           <Typography variant="caption" display="block">
-            {params.row.roles_count} Roles
+            {params.row.roles?.length || 0} Roles
           </Typography>
           <Typography variant="caption" display="block" color="text.secondary">
-            {params.row.permissions_count} Permissions
+            {params.row.permissions?.length || 0} Permissions
           </Typography>
         </Box>
       ),
@@ -479,7 +329,7 @@ const MenusPage = () => {
       width: 130,
       renderCell: (params) => (
         <Typography variant="body2">
-          {new Date(params.value).toLocaleDateString()}
+          {params.value ? new Date(params.value).toLocaleDateString() : "-"}
         </Typography>
       ),
     },
@@ -502,69 +352,172 @@ const MenusPage = () => {
     },
   ];
 
-  // Load menus data
+  // Load data on component mount
   useEffect(() => {
-    fetchMenus();
-    fetchRoles();
-    fetchPermissions();
+    loadInitialData();
   }, []);
+
+  const loadInitialData = async () => {
+    await Promise.all([
+      fetchMenus(),
+      fetchRoles(),
+      fetchPermissions(),
+      fetchPermissionMatrix(),
+    ]);
+  };
 
   const fetchMenus = async () => {
     try {
       setLoading(true);
-      // Replace with actual API call
-      // const response = await menusAPI.getAllMenus({ include_hierarchy: true });
-      // setMenus(response.data || []);
-      setMenus(mockMenus);
+      const response = await menusAPI.getAllMenus({
+        include_permissions: true,
+        include_roles: true,
+        include_hierarchy: true,
+        include_children: true, // Add this for tree structure
+      });
+
+      if (response.success) {
+        // Handle both flat and hierarchical responses
+        const menuData = response.data?.hierarchy || response.data || [];
+        setMenus(Array.isArray(menuData) ? menuData : []);
+      } else {
+        throw new Error(response.message || "Failed to fetch menus");
+      }
     } catch (error) {
-      showError("Failed to fetch menus");
+      console.error("Error fetching menus:", error);
+      showError(error.userMessage || "Failed to fetch menus");
+      setMenus([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
   };
 
+  // Add this function for menu reordering
+  const handleMenuReorder = async (menuId, newOrder, newParentId = null) => {
+    try {
+      const response = await menusAPI.updateMenuOrder(menuId, {
+        menu_order: newOrder,
+        parent_id: newParentId,
+      });
+
+      if (response.success) {
+        showSuccess("Menu order updated successfully");
+        await fetchMenus(); // Refresh the tree
+      } else {
+        throw new Error(response.message || "Failed to update menu order");
+      }
+    } catch (error) {
+      console.error("Error updating menu order:", error);
+      showError("Failed to update menu order");
+    }
+  };
+
   const fetchRoles = async () => {
     try {
-      // const response = await rolesAPI.getAllRoles();
-      // setRoles(response.data || []);
-      setRoles(mockRoles);
+      const response = await rolesAPI.getAllRoles();
+      if (response.success) {
+        setRoles(response.data || []);
+      } else {
+        throw new Error(response.message || "Failed to fetch roles");
+      }
     } catch (error) {
-      showError("Failed to fetch roles");
+      console.error("Error fetching roles:", error);
+      showError(error.userMessage || "Failed to fetch roles");
     }
   };
 
   const fetchPermissions = async () => {
     try {
-      // const response = await rolesAPI.getAllPermissions();
-      // setPermissions(response.data || []);
-      setPermissions(mockPermissions);
+      const response = await rolesAPI.getAllPermissions();
+      if (response.success) {
+        // Add safety check to ensure it's an array
+        setPermissions(Array.isArray(response.data) ? response.data : []);
+      } else {
+        throw new Error(response.message || "Failed to fetch permissions");
+      }
     } catch (error) {
-      showError("Failed to fetch permissions");
+      console.error("Error fetching permissions:", error);
+      showError(error.userMessage || "Failed to fetch permissions");
+      // Set empty array on error
+      setPermissions([]);
+    }
+  };
+
+  // Add this function after fetchPermissions
+  const fetchPermissionMatrix = async () => {
+    try {
+      const response = await menusAPI.getMenuPermissionMatrix();
+      if (response.success) {
+        setMenuPermissions(response.data || {});
+      } else {
+        throw new Error(
+          response.message || "Failed to fetch permission matrix"
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching permission matrix:", error);
+      showError("Failed to load permission matrix");
+    }
+  };
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadInitialData();
+      showSuccess("Data refreshed successfully");
+    } catch (error) {
+      showError("Failed to refresh data");
+    } finally {
+      setRefreshing(false);
     }
   };
 
   // Handle form submission
   const handleSubmit = async () => {
     try {
+      setSaving(true);
+
+      // Validate required fields
+      if (!formData.menu_name.trim()) {
+        showWarning("Menu name is required");
+        return;
+      }
+      if (!formData.menu_label.trim()) {
+        showWarning("Menu label is required");
+        return;
+      }
+
       const menuData = {
         ...formData,
         role_ids: selectedRoles,
         permission_ids: selectedPermissions,
       };
 
+      let response;
       if (editingMenu) {
-        // await menusAPI.updateMenu(editingMenu.id, menuData);
-        showSuccess("Menu updated successfully");
+        response = await menusAPI.updateMenu(editingMenu.id, menuData);
       } else {
-        // await menusAPI.createMenu(menuData);
-        showSuccess("Menu created successfully");
+        response = await menusAPI.createMenu(menuData);
       }
 
-      setDialogOpen(false);
-      resetForm();
-      fetchMenus();
+      if (response.success) {
+        showSuccess(
+          editingMenu
+            ? "Menu updated successfully"
+            : "Menu created successfully"
+        );
+        setDialogOpen(false);
+        resetForm();
+        await fetchMenus(); // Refresh menu list
+      } else {
+        throw new Error(response.message || "Failed to save menu");
+      }
     } catch (error) {
-      showError("Failed to save menu");
+      console.error("Error saving menu:", error);
+      showError(error.userMessage || "Failed to save menu");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -591,7 +544,14 @@ const MenusPage = () => {
 
   // Handle edit
   const handleEdit = (menu) => {
-    setFormData({ ...menu });
+    setFormData({
+      ...menu,
+      parent_id: menu.parent_id || null,
+    });
+    setSelectedRoles(menu.roles?.map((role) => role.id) || []);
+    setSelectedPermissions(
+      menu.permissions?.map((permission) => permission.id) || []
+    );
     setEditingMenu(menu);
     setDialogOpen(true);
     setAnchorEl(null);
@@ -604,11 +564,16 @@ const MenusPage = () => {
       message: `Are you sure you want to delete menu "${menu.menu_label}"? This action cannot be undone.`,
       onConfirm: async () => {
         try {
-          // await menusAPI.deleteMenu(menu.id);
-          showSuccess("Menu deleted successfully");
-          fetchMenus();
+          const response = await menusAPI.deleteMenu(menu.id);
+          if (response.success) {
+            showSuccess("Menu deleted successfully");
+            await fetchMenus(); // Refresh menu list
+          } else {
+            throw new Error(response.message || "Failed to delete menu");
+          }
         } catch (error) {
-          showError("Failed to delete menu");
+          console.error("Error deleting menu:", error);
+          showError(error.userMessage || "Failed to delete menu");
         }
       },
     });
@@ -616,24 +581,85 @@ const MenusPage = () => {
   };
 
   // Handle permissions management
-  const handleManagePermissions = (menu) => {
-    setSelectedMenu(menu);
-    setPermissionDialogOpen(true);
+  const handleManagePermissions = async (menu) => {
+    try {
+      // Fetch current menu permissions
+      const response = await rolesAPI.getRoleMenuPermissions(menu.id);
+      if (response.success) {
+        setMenuPermissions(response.data || {});
+      }
+      setSelectedMenu(menu);
+      setPermissionDialogOpen(true);
+    } catch (error) {
+      console.error("Error fetching menu permissions:", error);
+      showError("Failed to load menu permissions");
+    }
     setAnchorEl(null);
   };
 
   // Toggle menu status
   const handleToggleStatus = async (menu) => {
     try {
-      // await menusAPI.updateMenu(menu.id, { is_active: !menu.is_active });
-      showSuccess(
-        `Menu ${!menu.is_active ? "activated" : "deactivated"} successfully`
-      );
-      fetchMenus();
+      const response = await menusAPI.updateMenu(menu.id, {
+        is_active: !menu.is_active,
+      });
+
+      if (response.success) {
+        showSuccess(
+          `Menu ${!menu.is_active ? "activated" : "deactivated"} successfully`
+        );
+        await fetchMenus(); // Refresh menu list
+      } else {
+        throw new Error(response.message || "Failed to update menu status");
+      }
     } catch (error) {
-      showError("Failed to update menu status");
+      console.error("Error updating menu status:", error);
+      showError(error.userMessage || "Failed to update menu status");
     }
     setAnchorEl(null);
+  };
+
+  // Handle role-menu access update
+  const handleRoleMenuAccessUpdate = async (roleId, menuId, hasAccess) => {
+    try {
+      const response = await menusAPI.updateRoleMenuAccess(roleId, menuId, {
+        has_access: hasAccess,
+      });
+
+      if (response.success) {
+        // Update local state
+        setMenuPermissions((prev) => ({
+          ...prev,
+          [`${roleId}-${menuId}`]: hasAccess,
+        }));
+      } else {
+        throw new Error(response.message || "Failed to update access");
+      }
+    } catch (error) {
+      console.error("Error updating role menu access:", error);
+      showError("Failed to update menu access");
+    }
+  };
+
+  // Save permission changes
+  const handleSavePermissions = async () => {
+    try {
+      const response = await rolesAPI.updateRoleMenuPermissions(
+        selectedMenu.id,
+        menuPermissions
+      );
+
+      if (response.success) {
+        showSuccess("Menu permissions updated successfully");
+        setPermissionDialogOpen(false);
+        await fetchMenus(); // Refresh to get updated data
+      } else {
+        throw new Error(response.message || "Failed to update permissions");
+      }
+    } catch (error) {
+      console.error("Error saving permissions:", error);
+      showError("Failed to save menu permissions");
+    }
   };
 
   // Filter menus
@@ -696,9 +722,26 @@ const MenusPage = () => {
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 1 }}>
-          Menu Management
-        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 1,
+          }}
+        >
+          <Typography variant="h4">Menu Management</Typography>
+          <Button
+            variant="outlined"
+            startIcon={
+              refreshing ? <CircularProgress size={16} /> : <RefreshIcon />
+            }
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+        </Box>
         <Typography variant="body1" color="text.secondary">
           Manage navigation menus, permissions, and access control
         </Typography>
@@ -802,11 +845,28 @@ const MenusPage = () => {
                       Add Menu
                     </Button>
                   )}
+                  // Find this button and replace its onClick:
                   <Button
                     variant="outlined"
                     startIcon={<SortIcon />}
-                    onClick={() => {
-                      /* Sort menus */
+                    onClick={async () => {
+                      try {
+                        // Simple reorder by menu_order
+                        const sortedMenus = [...menus].sort(
+                          (a, b) => a.menu_order - b.menu_order
+                        );
+
+                        // Update order numbers
+                        for (let i = 0; i < sortedMenus.length; i++) {
+                          if (sortedMenus[i].menu_order !== i + 1) {
+                            await handleMenuReorder(sortedMenus[i].id, i + 1);
+                          }
+                        }
+
+                        showSuccess("Menus reordered successfully");
+                      } catch (error) {
+                        showError("Failed to reorder menus");
+                      }
                     }}
                   >
                     Reorder
@@ -868,7 +928,10 @@ const MenusPage = () => {
                 expanded={expandedNodes}
                 onNodeToggle={(event, nodeIds) => setExpandedNodes(nodeIds)}
               >
-                {menuTree.map((node) => renderTreeItem(node))}
+                {Array.isArray(filteredMenus) &&
+                  buildMenuTree(filteredMenus).map((node) =>
+                    renderTreeItem(node)
+                  )}
               </TreeView>
             </Box>
           )}
@@ -884,7 +947,7 @@ const MenusPage = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell>Menu</TableCell>
-                      {mockRoles.map((role) => (
+                      {roles.map((role) => (
                         <TableCell key={role.id} align="center">
                           {role.role_name}
                         </TableCell>
@@ -912,13 +975,50 @@ const MenusPage = () => {
                             </Typography>
                           </Box>
                         </TableCell>
-                        {mockRoles.map((role) => (
+                        {roles.map((role) => (
                           <TableCell key={role.id} align="center">
                             <Checkbox
                               size="small"
-                              defaultChecked={Math.random() > 0.5} // Mock permissions
-                              onChange={() => {
-                                /* Handle permission change */
+                              checked={
+                                menuPermissions[`${role.id}-${menu.id}`] ||
+                                false
+                              }
+                              onChange={async (e) => {
+                                try {
+                                  const response =
+                                    await menusAPI.updateRoleMenuAccess(
+                                      role.id,
+                                      menu.id,
+                                      {
+                                        has_access: e.target.checked,
+                                      }
+                                    );
+
+                                  if (response.success) {
+                                    // Update local state
+                                    setMenuPermissions((prev) => ({
+                                      ...prev,
+                                      [`${role.id}-${menu.id}`]:
+                                        e.target.checked,
+                                    }));
+                                    showSuccess(
+                                      `Access ${e.target.checked ? "granted" : "removed"} successfully`
+                                    );
+                                  } else {
+                                    throw new Error(
+                                      response.message ||
+                                        "Failed to update access"
+                                    );
+                                  }
+                                } catch (error) {
+                                  console.error(
+                                    "Error updating menu access:",
+                                    error
+                                  );
+                                  showError("Failed to update menu access");
+                                  // Revert checkbox state on error
+                                  e.target.checked = !e.target.checked;
+                                }
                               }}
                             />
                           </TableCell>
@@ -1020,6 +1120,7 @@ const MenusPage = () => {
                 placeholder="e.g., dashboard, employees_list"
                 helperText="Unique identifier for the menu (lowercase, underscore separated)"
                 required
+                error={!formData.menu_name.trim()}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -1033,6 +1134,7 @@ const MenusPage = () => {
                 placeholder="e.g., Dashboard, Employee List"
                 helperText="Display name shown in navigation"
                 required
+                error={!formData.menu_label.trim()}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -1356,9 +1458,16 @@ const MenusPage = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained">
-            {editingMenu ? "Update Menu" : "Create Menu"}
+          <Button onClick={() => setDialogOpen(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
+          >
+            {saving ? "Saving..." : editingMenu ? "Update Menu" : "Create Menu"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1433,8 +1542,10 @@ const MenusPage = () => {
                     Level
                   </Typography>
                   <Typography variant="body1" sx={{ mb: 2 }}>
-                    {selectedMenu.level}{" "}
-                    {selectedMenu.level === 0 ? "(Top Level)" : "(Sub Menu)"}
+                    {selectedMenu.level || 0}{" "}
+                    {(selectedMenu.level || 0) === 0
+                      ? "(Top Level)"
+                      : "(Sub Menu)"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -1443,17 +1554,71 @@ const MenusPage = () => {
                   </Typography>
                   <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
                     <Chip
-                      label={`${selectedMenu.roles_count} Roles`}
+                      label={`${selectedMenu.roles?.length || 0} Roles`}
                       size="small"
                       icon={<SecurityIcon />}
                       variant="outlined"
                     />
                     <Chip
-                      label={`${selectedMenu.permissions_count} Permissions`}
+                      label={`${selectedMenu.permissions?.length || 0} Permissions`}
                       size="small"
                       icon={<LockIcon />}
                       variant="outlined"
                     />
+                  </Box>
+                </Grid>
+                {selectedMenu.description && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Description
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {selectedMenu.description}
+                    </Typography>
+                  </Grid>
+                )}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Assigned Roles
+                  </Typography>
+                  <Box
+                    sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}
+                  >
+                    {selectedMenu.roles?.map((role) => (
+                      <Chip
+                        key={role.id}
+                        label={role.role_name}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    )) || (
+                      <Typography variant="body2" color="text.secondary">
+                        No roles assigned
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Required Permissions
+                  </Typography>
+                  <Box
+                    sx={{ display: "flex", flexWrap: "wrap", gap: 1, mt: 1 }}
+                  >
+                    {selectedMenu.permissions?.map((permission) => (
+                      <Chip
+                        key={permission.id}
+                        label={permission.name}
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                      />
+                    )) || (
+                      <Typography variant="body2" color="text.secondary">
+                        No permissions required
+                      </Typography>
+                    )}
                   </Box>
                 </Grid>
               </Grid>
@@ -1510,9 +1675,16 @@ const MenusPage = () => {
                       secondary={role.description}
                     />
                     <Switch
-                      defaultChecked={Math.random() > 0.5} // Mock data
-                      onChange={() => {
-                        /* Handle role permission change */
+                      checked={
+                        menuPermissions[`${role.id}-${selectedMenu?.id}`] ||
+                        false
+                      }
+                      onChange={(e) => {
+                        handleRoleMenuAccessUpdate(
+                          role.id,
+                          selectedMenu?.id,
+                          e.target.checked
+                        );
                       }}
                     />
                   </ListItem>
@@ -1536,9 +1708,19 @@ const MenusPage = () => {
                       secondary={permission.category}
                     />
                     <Switch
-                      defaultChecked={Math.random() > 0.5} // Mock data
-                      onChange={() => {
-                        /* Handle permission requirement change */
+                      checked={
+                        selectedMenu?.permissions?.some(
+                          (p) => p.id === permission.id
+                        ) || false
+                      }
+                      onChange={(e) => {
+                        // Handle permission requirement change
+                        // This would need to be implemented based on your API structure
+                        console.log(
+                          "Permission toggle:",
+                          permission.id,
+                          e.target.checked
+                        );
                       }}
                     />
                   </ListItem>
@@ -1551,10 +1733,8 @@ const MenusPage = () => {
           <Button onClick={() => setPermissionDialogOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
-            onClick={() => {
-              setPermissionDialogOpen(false);
-              showSuccess("Menu permissions updated successfully");
-            }}
+            onClick={handleSavePermissions}
+            startIcon={<SaveIcon />}
           >
             Save Permissions
           </Button>

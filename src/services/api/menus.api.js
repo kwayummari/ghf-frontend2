@@ -111,6 +111,51 @@ class MenusAPI {
             throw error;
         }
     }
+
+    /**
+     * Get permission matrix
+     * @returns {Promise<Object>} - Permission matrix data
+     */
+    async getMenuPermissionMatrix() {
+        try {
+            const response = await apiClient.get(`${API_ENDPOINTS.MENUS}/permission-matrix`);
+            return response.data;
+        } catch (error) {
+            console.error('Get permission matrix error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Update menu order
+     * @param {number} menuId - Menu ID
+     * @param {Object} orderData - Order data
+     * @returns {Promise<Object>} - Update result
+     */
+    async updateMenuOrder(menuId, orderData) {
+        try {
+            const response = await apiClient.put(`${API_ENDPOINTS.MENU_BY_ID(menuId)}/order`, orderData);
+            return response.data;
+        } catch (error) {
+            console.error('Update menu order error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Bulk update role-menu permissions
+     * @param {Object} permissionData - Permission data
+     * @returns {Promise<Object>} - Update result
+     */
+    async bulkUpdateRoleMenuPermissions(permissionData) {
+        try {
+            const response = await apiClient.put(`${API_ENDPOINTS.MENUS}/bulk-permissions`, permissionData);
+            return response.data;
+        } catch (error) {
+            console.error('Bulk update permissions error:', error);
+            throw error;
+        }
+    }
 }
 
 const menusAPI = new MenusAPI();
