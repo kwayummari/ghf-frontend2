@@ -86,8 +86,8 @@ import PerformanceAppraisalsPage from "../pages/procurement/PerformanceAppraisal
 
 // Meeting Management
 import MeetingsPage from "../pages/meetings/MeetingsPage";
-// import MeetingDetailsPage from "../pages/meetings/MeetingDetailsPage";
-// import MeetingTasksPage from "../pages/meetings/MeetingTasksPage";
+import MeetingDetailsPage from "../pages/meetings/MeetingDetailsPage";
+import MeetingTasksPage from "../pages/meetings/MeetingTasksPage";
 
 // Enhanced Reports
 // import HRReportsPage from "../pages/reports/HRReportsPage";
@@ -520,7 +520,7 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        {/* <Route
+        <Route
           path="meetings/create"
           element={
             <PermissionGuard permissions={[PERMISSIONS.CREATE_MEETINGS]}>
@@ -535,15 +535,15 @@ const AppRoutes = () => {
               <MeetingTasksPage />
             </PermissionGuard>
           }
-        /> */}
-        {/* <Route
+        />
+        <Route
           path="meetings/:id"
           element={
             <PermissionGuard permissions={[PERMISSIONS.VIEW_MEETINGS]}>
               <MeetingDetailsPage />
             </PermissionGuard>
           }
-        /> */}
+        />
 
         {/* Documents */}
         <Route
