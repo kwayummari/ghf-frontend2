@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import {
@@ -15,6 +15,8 @@ import {
   Divider,
   Chip,
   InputAdornment,
+  CircularProgress,
+  Skeleton,
 } from "@mui/material";
 import { LoadingButton } from "@mui/lab";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -23,11 +25,18 @@ import {
   AttachFile as AttachIcon,
   Save as SaveIcon,
   Send as SendIcon,
+  CloudUpload as UploadIcon,
 } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 import { selectUser } from "../../../store/slices/authSlice";
 import { ROUTES, LEAVE_STATUS } from "../../../constants";
+import { leavesAPI } from "../../../services/api/leaves.api";
+import { documentsAPI } from "../../../services/api/documents.api";
+import useNotification from "../../../hooks/common/useNotification";
 
+// =============================================================================
+// VALIDATION SCHEMA
+// =============================================================================
 const validationSchema = Yup.object({
   type_id: Yup.number().required("Leave type is required"),
   starting_date: Yup.date()
@@ -39,79 +48,42 @@ const validationSchema = Yup.object({
   comment: Yup.string().max(500, "Comment must be less than 500 characters"),
 });
 
-const LeaveForm = ({ editMode = false, initialData = null }) => {
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
+const LeaveForm = ({ editMode = false }) => {
+  // ---------------------------------------------------------------------------
+  // HOOKS & STATE
+  // ---------------------------------------------------------------------------
   const navigate = useNavigate();
+  const { id } = useParams();
   const user = useSelector(selectUser);
+  const { showSuccess, showError, showWarning } = useNotification();
+
+  // Component state
   const [leaveTypes, setLeaveTypes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [submitType, setSubmitType] = useState("draft"); // 'draft' or 'submit'
+  const [leaveData, setLeaveData] = useState(null);
   const [leaveBalance, setLeaveBalance] = useState({});
+  const [uploadedFile, setUploadedFile] = useState(null);
 
-  useEffect(() => {
-    const fetchLeaveTypes = async () => {
-      // Simulate API call for leave types
-      const sampleLeaveTypes = [
-        {
-          id: 1,
-          name: "Annual Leave",
-          max_days: 21,
-          description: "Annual vacation leave",
-        },
-        {
-          id: 2,
-          name: "Sick Leave",
-          max_days: 14,
-          description: "Medical leave",
-        },
-        {
-          id: 3,
-          name: "Maternity Leave",
-          max_days: 84,
-          description: "Maternity leave",
-        },
-        {
-          id: 4,
-          name: "Paternity Leave",
-          max_days: 7,
-          description: "Paternity leave",
-        },
-        {
-          id: 5,
-          name: "Emergency Leave",
-          max_days: 3,
-          description: "Emergency leave",
-        },
-        {
-          id: 6,
-          name: "Study Leave",
-          max_days: 30,
-          description: "Educational leave",
-        },
-      ];
-      setLeaveTypes(sampleLeaveTypes);
+  // Loading states
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [fileUploading, setFileUploading] = useState(false);
 
-      // Simulate leave balance
-      setLeaveBalance({
-        1: { used: 5, available: 16 }, // Annual Leave
-        2: { used: 2, available: 12 }, // Sick Leave
-        3: { used: 0, available: 84 }, // Maternity Leave
-        4: { used: 0, available: 7 }, // Paternity Leave
-        5: { used: 1, available: 2 }, // Emergency Leave
-        6: { used: 0, available: 30 }, // Study Leave
-      });
-    };
+  // Form state
+  const [submitType, setSubmitType] = useState("draft");
 
-    fetchLeaveTypes();
-  }, []);
-
+  // ---------------------------------------------------------------------------
+  // FORM SETUP
+  // ---------------------------------------------------------------------------
   const formik = useFormik({
     initialValues: {
       type_id: "",
       starting_date: null,
       end_date: null,
       comment: "",
-      attachment: null,
-      ...initialData,
+      attachment_id: null,
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -119,31 +91,237 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
     },
   });
 
+  // ---------------------------------------------------------------------------
+  // EFFECTS
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    loadInitialData();
+  }, [id, editMode]);
+
+  useEffect(() => {
+    // Generate mock balance when leave types are loaded
+    if (leaveTypes.length > 0 && Object.keys(leaveBalance).length === 0) {
+      generateMockBalance();
+    }
+  }, [leaveTypes]);
+
+  // ---------------------------------------------------------------------------
+  // DATA FETCHING FUNCTIONS
+  // ---------------------------------------------------------------------------
+  const loadInitialData = async () => {
+    try {
+      setInitialLoading(true);
+      await Promise.all([
+        fetchLeaveTypes(),
+        fetchLeaveBalance(),
+        editMode && id ? fetchLeaveData(id) : Promise.resolve(),
+      ]);
+    } catch (error) {
+      console.error("Error loading initial data:", error);
+      showError("Failed to load form data");
+    } finally {
+      setInitialLoading(false);
+    }
+  };
+
+  const fetchLeaveTypes = async () => {
+    try {
+      const response = await leavesAPI.getTypes();
+
+      if (response && response.success) {
+        setLeaveTypes(response.data || []);
+      } else if (response && response.data) {
+        setLeaveTypes(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch (error) {
+      console.error("Error fetching leave types:", error);
+      showError("Failed to load leave types");
+    }
+  };
+
+  const fetchLeaveBalance = async () => {
+    try {
+      const response = await leavesAPI.getBalance();
+
+      if (response && response.success) {
+        setLeaveBalance(response.data || {});
+      }
+    } catch (error) {
+      console.error("Leave balance endpoint not available:", error);
+      // Will generate mock balance after leave types are loaded
+    }
+  };
+
+  const fetchLeaveData = async (leaveId) => {
+    try {
+      const response = await leavesAPI.getById(leaveId);
+
+      if (response && response.success) {
+        const leave = response.data;
+        setLeaveData(leave);
+
+        // Set form values
+        formik.setValues({
+          type_id: leave.type_id,
+          starting_date: new Date(leave.starting_date),
+          end_date: new Date(leave.end_date),
+          comment: leave.comment || "",
+          attachment_id: leave.attachment_id || null,
+        });
+
+        // Set uploaded file info if exists
+        if (leave.attachment) {
+          setUploadedFile({
+            id: leave.attachment.id,
+            name: leave.attachment.name,
+            existing: true,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching leave data:", error);
+      showError("Failed to load leave application");
+      navigate(ROUTES.LEAVES);
+    }
+  };
+
+  const generateMockBalance = () => {
+    const mockBalance = {};
+    leaveTypes.forEach((type) => {
+      mockBalance[type.id] = {
+        used: Math.floor(Math.random() * 5),
+        available:
+          (type.maximum_days || type.max_days || 21) -
+          Math.floor(Math.random() * 5),
+      };
+    });
+    setLeaveBalance(mockBalance);
+  };
+
+  // ---------------------------------------------------------------------------
+  // FILE HANDLING FUNCTIONS
+  // ---------------------------------------------------------------------------
+  const handleFileUpload = async (file) => {
+    if (!file) return null;
+
+    try {
+      setFileUploading(true);
+
+      const response = await documentsAPI.upload(file, {
+        type: "leave_document",
+        description: "Leave application supporting document",
+        category: "leave_attachments",
+      });
+
+      if (response && response.success) {
+        setUploadedFile({
+          id: response.data.id,
+          name: response.data.name || file.name,
+          existing: false,
+        });
+
+        showSuccess("File uploaded successfully");
+        return response.data.id;
+      } else {
+        throw new Error(response?.message || "Upload failed");
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      showError("Failed to upload file: " + error.message);
+      return null;
+    } finally {
+      setFileUploading(false);
+    }
+  };
+
+  const handleFileRemove = () => {
+    formik.setFieldValue("attachment", null);
+    formik.setFieldValue("attachment_id", null);
+    setUploadedFile(null);
+  };
+
+  const handleFileSelect = (file) => {
+    formik.setFieldValue("attachment", file);
+    if (file) {
+      setUploadedFile({
+        name: file.name,
+        existing: false,
+      });
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // FORM HANDLING FUNCTIONS
+  // ---------------------------------------------------------------------------
   const handleSubmit = async (values) => {
     setLoading(true);
 
     try {
+      // Upload file if selected and not already uploaded
+      let attachmentId = values.attachment_id;
+      if (formik.values.attachment && !uploadedFile?.existing) {
+        attachmentId = await handleFileUpload(formik.values.attachment);
+      }
+
       const submissionData = {
-        ...values,
-        approval_status:
-          submitType === "draft" ? LEAVE_STATUS.DRAFT : LEAVE_STATUS.PENDING,
-        user_id: user.id,
+        type_id: parseInt(values.type_id),
+        starting_date: values.starting_date.toISOString().split("T")[0],
+        end_date: values.end_date.toISOString().split("T")[0],
+        comment: values.comment,
+        attachment_id: attachmentId,
+        save_as_draft: submitType === "draft",
+        submit: submitType === "submit",
       };
 
       console.log("Submitting leave application:", submissionData);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      let response;
+      if (editMode && id) {
+        response = await leavesAPI.update(id, {
+          ...submissionData,
+          submit: submitType === "submit",
+        });
+      } else {
+        response = await leavesAPI.create(submissionData);
+      }
 
-      // Success
-      navigate(ROUTES.LEAVES);
+      if (response && response.success) {
+        const message = editMode
+          ? submitType === "submit"
+            ? "Leave application updated and submitted successfully"
+            : "Leave application updated successfully"
+          : submitType === "submit"
+            ? "Leave application submitted successfully"
+            : "Leave application saved as draft";
+
+        showSuccess(message);
+        navigate(ROUTES.LEAVES);
+      } else {
+        throw new Error(
+          response?.message || "Failed to save leave application"
+        );
+      }
     } catch (error) {
       console.error("Failed to submit leave application:", error);
+      showError(error.message || "Failed to save leave application");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDraftSave = () => {
+    setSubmitType("draft");
+    formik.handleSubmit();
+  };
+
+  const handleFinalSubmit = () => {
+    setSubmitType("submit");
+    formik.handleSubmit();
+  };
+
+  // ---------------------------------------------------------------------------
+  // UTILITY FUNCTIONS
+  // ---------------------------------------------------------------------------
   const calculateLeaveDays = () => {
     const { starting_date, end_date } = formik.values;
     if (starting_date && end_date) {
@@ -165,14 +343,50 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
     return leaveBalance[typeId] || { used: 0, available: 0 };
   };
 
+  // ---------------------------------------------------------------------------
+  // COMPUTED VALUES
+  // ---------------------------------------------------------------------------
   const leaveDays = calculateLeaveDays();
   const selectedType = getSelectedLeaveType();
   const balance = getLeaveBalance();
   const exceedsBalance = leaveDays > balance.available;
+  const canEdit =
+    !editMode || (leaveData && leaveData.approval_status === "draft");
 
+  // ---------------------------------------------------------------------------
+  // LOADING STATE
+  // ---------------------------------------------------------------------------
+  if (initialLoading) {
+    return (
+      <Box>
+        <Skeleton variant="text" width={300} height={40} sx={{ mb: 2 }} />
+        <Skeleton variant="text" width={200} height={20} sx={{ mb: 4 }} />
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={8}>
+            <Card>
+              <CardContent sx={{ p: 4 }}>
+                <Skeleton variant="rectangular" height={400} />
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Skeleton variant="rectangular" height={300} />
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // MAIN RENDER
+  // ---------------------------------------------------------------------------
   return (
     <Box>
-      {/* Header */}
+      {/* Header Section */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
           {editMode ? "Edit Leave Application" : "Apply for Leave"}
@@ -182,16 +396,24 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
             ? "Update your leave application"
             : "Submit a new leave request"}
         </Typography>
+
+        {editMode && leaveData && leaveData.approval_status !== "draft" && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            This leave application has status:{" "}
+            <strong>{leaveData.approval_status}</strong>. Only draft
+            applications can be edited.
+          </Alert>
+        )}
       </Box>
 
       <Grid container spacing={3}>
-        {/* Main Form */}
+        {/* Main Form Section */}
         <Grid item xs={12} md={8}>
           <Card>
             <CardContent sx={{ p: 4 }}>
               <form onSubmit={formik.handleSubmit}>
                 <Grid container spacing={3}>
-                  {/* Leave Type */}
+                  {/* Leave Type Selection */}
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
@@ -208,6 +430,7 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
                         formik.touched.type_id && formik.errors.type_id
                       }
                       required
+                      disabled={!canEdit}
                     >
                       {leaveTypes.map((type) => (
                         <MenuItem key={type.id} value={type.id}>
@@ -220,7 +443,7 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
                           >
                             <span>{type.name}</span>
                             <Chip
-                              label={`${type.max_days} days max`}
+                              label={`${type.maximum_days || type.max_days} days max`}
                               size="small"
                               color="primary"
                               variant="outlined"
@@ -231,7 +454,7 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
                     </TextField>
                   </Grid>
 
-                  {/* Date Range */}
+                  {/* Date Range Selection */}
                   <Grid item xs={12} md={6}>
                     <DatePicker
                       label="Start Date"
@@ -239,6 +462,7 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
                       onChange={(value) =>
                         formik.setFieldValue("starting_date", value)
                       }
+                      disabled={!canEdit}
                       slotProps={{
                         textField: {
                           fullWidth: true,
@@ -260,7 +484,7 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
                           },
                         },
                       }}
-                      minDate={new Date()}
+                      minDate={editMode ? null : new Date()}
                     />
                   </Grid>
 
@@ -271,6 +495,7 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
                       onChange={(value) =>
                         formik.setFieldValue("end_date", value)
                       }
+                      disabled={!canEdit}
                       slotProps={{
                         textField: {
                           fullWidth: true,
@@ -324,7 +549,7 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
                     </Grid>
                   )}
 
-                  {/* Comment */}
+                  {/* Comment Section */}
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
@@ -343,61 +568,97 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
                         `${formik.values.comment.length}/500 characters`
                       }
                       placeholder="Provide details about your leave request..."
+                      disabled={!canEdit}
                     />
                   </Grid>
 
-                  {/* File Attachment */}
+                  {/* File Attachment Section */}
                   <Grid item xs={12}>
                     <Box
                       sx={{
                         border: "2px dashed",
-                        borderColor: "grey.300",
+                        borderColor: canEdit ? "grey.300" : "grey.200",
                         borderRadius: 1,
                         p: 3,
                         textAlign: "center",
-                        cursor: "pointer",
-                        "&:hover": {
-                          borderColor: "primary.main",
-                          bgcolor: "action.hover",
-                        },
+                        cursor: canEdit ? "pointer" : "default",
+                        bgcolor: canEdit ? "transparent" : "grey.50",
+                        "&:hover": canEdit
+                          ? {
+                              borderColor: "primary.main",
+                              bgcolor: "action.hover",
+                            }
+                          : {},
                       }}
                     >
-                      <input
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        style={{ display: "none" }}
-                        id="attachment-upload"
-                        type="file"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          formik.setFieldValue("attachment", file);
-                        }}
-                      />
-                      <label htmlFor="attachment-upload">
-                        <Button
-                          variant="outlined"
-                          component="span"
-                          startIcon={<AttachIcon />}
-                        >
-                          Attach Supporting Document
-                        </Button>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ mt: 1 }}
-                        >
-                          Optional: Medical certificate, invitation letter, etc.
+                      {canEdit ? (
+                        <>
+                          <input
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                            style={{ display: "none" }}
+                            id="attachment-upload"
+                            type="file"
+                            onChange={(e) =>
+                              handleFileSelect(e.target.files[0])
+                            }
+                            disabled={fileUploading}
+                          />
+                          <label htmlFor="attachment-upload">
+                            <Button
+                              variant="outlined"
+                              component="span"
+                              startIcon={
+                                fileUploading ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  <AttachIcon />
+                                )
+                              }
+                              disabled={fileUploading}
+                            >
+                              {fileUploading
+                                ? "Uploading..."
+                                : "Attach Supporting Document"}
+                            </Button>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ mt: 1 }}
+                            >
+                              Optional: Medical certificate, invitation letter,
+                              etc.
+                            </Typography>
+                          </label>
+                        </>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          File attachment not available in view mode
                         </Typography>
-                      </label>
+                      )}
 
-                      {formik.values.attachment && (
+                      {uploadedFile && (
                         <Box sx={{ mt: 2 }}>
                           <Chip
-                            label={formik.values.attachment.name}
-                            onDelete={() =>
-                              formik.setFieldValue("attachment", null)
-                            }
+                            label={uploadedFile.name}
+                            onDelete={canEdit ? handleFileRemove : undefined}
                             color="success"
+                            icon={
+                              uploadedFile.existing ? (
+                                <AttachIcon />
+                              ) : (
+                                <UploadIcon />
+                              )
+                            }
                           />
+                          {uploadedFile.existing && (
+                            <Typography
+                              variant="caption"
+                              display="block"
+                              sx={{ mt: 1 }}
+                            >
+                              Existing attachment
+                            </Typography>
+                          )}
                         </Box>
                       )}
                     </Box>
@@ -412,109 +673,114 @@ const LeaveForm = ({ editMode = false, initialData = null }) => {
                     variant="outlined"
                     onClick={() => navigate(ROUTES.LEAVES)}
                   >
-                    Cancel
+                    {canEdit ? "Cancel" : "Back to List"}
                   </Button>
 
-                  <Box sx={{ display: "flex", gap: 2 }}>
-                    <LoadingButton
-                      variant="outlined"
-                      startIcon={<SaveIcon />}
-                      loading={loading && submitType === "draft"}
-                      disabled={!formik.isValid || exceedsBalance}
-                      onClick={() => {
-                        setSubmitType("draft");
-                        formik.handleSubmit();
-                      }}
-                    >
-                      Save as Draft
-                    </LoadingButton>
+                  {canEdit && (
+                    <Box sx={{ display: "flex", gap: 2 }}>
+                      <LoadingButton
+                        variant="outlined"
+                        startIcon={<SaveIcon />}
+                        loading={loading && submitType === "draft"}
+                        disabled={
+                          !formik.isValid || exceedsBalance || fileUploading
+                        }
+                        onClick={handleDraftSave}
+                      >
+                        Save as Draft
+                      </LoadingButton>
 
-                    <LoadingButton
-                      variant="contained"
-                      startIcon={<SendIcon />}
-                      loading={loading && submitType === "submit"}
-                      disabled={!formik.isValid || exceedsBalance}
-                      onClick={() => {
-                        setSubmitType("submit");
-                        formik.handleSubmit();
-                      }}
-                    >
-                      Submit Application
-                    </LoadingButton>
-                  </Box>
+                      <LoadingButton
+                        variant="contained"
+                        startIcon={<SendIcon />}
+                        loading={loading && submitType === "submit"}
+                        disabled={
+                          !formik.isValid || exceedsBalance || fileUploading
+                        }
+                        onClick={handleFinalSubmit}
+                      >
+                        {editMode ? "Update & Submit" : "Submit Application"}
+                      </LoadingButton>
+                    </Box>
+                  )}
                 </Box>
               </form>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Sidebar - Leave Balance */}
+        {/* Sidebar Section */}
         <Grid item xs={12} md={4}>
+          {/* Leave Balance Card */}
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold" }}>
                 Leave Balance
               </Typography>
 
-              {leaveTypes.map((type) => {
-                const typeBalance = leaveBalance[type.id] || {
-                  used: 0,
-                  available: type.max_days,
-                };
-                const usagePercentage =
-                  (typeBalance.used / type.max_days) * 100;
+              {leaveTypes.length === 0 ? (
+                <Skeleton variant="rectangular" height={200} />
+              ) : (
+                leaveTypes.map((type) => {
+                  const typeBalance = leaveBalance[type.id] || {
+                    used: 0,
+                    available: type.maximum_days || type.max_days || 21,
+                  };
+                  const totalDays = type.maximum_days || type.max_days || 21;
+                  const usagePercentage = (typeBalance.used / totalDays) * 100;
 
-                return (
-                  <Box key={type.id} sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      {type.name}
-                    </Typography>
-
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        mb: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Used: {typeBalance.used} days
+                  return (
+                    <Box key={type.id} sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        {type.name}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Available: {typeBalance.available} days
-                      </Typography>
-                    </Box>
 
-                    <Box
-                      sx={{
-                        width: "100%",
-                        height: 8,
-                        bgcolor: "grey.200",
-                        borderRadius: 1,
-                        overflow: "hidden",
-                      }}
-                    >
                       <Box
                         sx={{
-                          width: `${usagePercentage}%`,
-                          height: "100%",
-                          bgcolor:
-                            usagePercentage > 80
-                              ? "error.main"
-                              : usagePercentage > 60
-                                ? "warning.main"
-                                : "success.main",
-                          transition: "width 0.3s ease",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          mb: 1,
                         }}
-                      />
+                      >
+                        <Typography variant="body2" color="text.secondary">
+                          Used: {typeBalance.used} days
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Available: {typeBalance.available} days
+                        </Typography>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          width: "100%",
+                          height: 8,
+                          bgcolor: "grey.200",
+                          borderRadius: 1,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: `${usagePercentage}%`,
+                            height: "100%",
+                            bgcolor:
+                              usagePercentage > 80
+                                ? "error.main"
+                                : usagePercentage > 60
+                                  ? "warning.main"
+                                  : "success.main",
+                            transition: "width 0.3s ease",
+                          }}
+                        />
+                      </Box>
                     </Box>
-                  </Box>
-                );
-              })}
+                  );
+                })
+              )}
             </CardContent>
           </Card>
 
-          {/* Leave Policy Info */}
+          {/* Leave Policy Info Card */}
           <Card sx={{ mt: 3 }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>

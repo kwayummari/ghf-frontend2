@@ -28,6 +28,14 @@ export const API_ENDPOINTS = {
     LEAVE_APPROVALS: '/leaves/approvals',
     MY_LEAVES: '/leaves/my',
 
+    LEAVE_BALANCE: '/leaves/balance',
+    LEAVE_BALANCE_BY_USER: (userId) => `/leaves/balance/${userId}`,
+    LEAVE_STATISTICS: '/leaves/statistics',
+    LEAVE_CHECK_CONFLICTS: '/leaves/check-conflicts',
+    LEAVE_BULK_ACTION: '/leaves/bulk-action',
+    LEAVE_EXPORT: '/leaves/export',
+    LEAVE_CANCEL: (id) => `/leaves/${id}/cancel`,
+
     // Attendance
     ATTENDANCE: '/attendance',
     ATTENDANCE_CLOCK_IN: '/attendance/clock-in',
