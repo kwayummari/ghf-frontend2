@@ -118,7 +118,13 @@ class MenusAPI {
      */
     async getMenuPermissionMatrix() {
         try {
-            const response = await apiClient.get(`${API_ENDPOINTS.MENUS}/permission-matrix`);
+            const response = await apiClient.get(API_ENDPOINTS.MENU_PERMISSION_MATRIX, {
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                }
+            });
             return response.data;
         } catch (error) {
             console.error('Get permission matrix error:', error);
@@ -134,7 +140,7 @@ class MenusAPI {
      */
     async updateMenuOrder(menuId, orderData) {
         try {
-            const response = await apiClient.put(`${API_ENDPOINTS.MENU_BY_ID(menuId)}/order`, orderData);
+            const response = await apiClient.put(API_ENDPOINTS.MENU_ORDER_UPDATE(menuId), orderData);
             return response.data;
         } catch (error) {
             console.error('Update menu order error:', error);
@@ -149,10 +155,44 @@ class MenusAPI {
      */
     async bulkUpdateRoleMenuPermissions(permissionData) {
         try {
-            const response = await apiClient.put(`${API_ENDPOINTS.MENUS}/bulk-permissions`, permissionData);
+            const response = await apiClient.put(API_ENDPOINTS.MENU_BULK_PERMISSIONS, permissionData);
             return response.data;
         } catch (error) {
             console.error('Bulk update permissions error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get role permissions for a specific menu
+     * @param {number} menuId - Menu ID
+     * @returns {Promise<Object>} - Role permissions data
+     */
+    async getRoleMenuPermissions(menuId) {
+        try {
+            const response = await apiClient.get(API_ENDPOINTS.MENU_ROLE_PERMISSIONS(menuId));
+            return response.data;
+        } catch (error) {
+            console.error('Get role menu permissions error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Update role permissions for a specific menu
+     * @param {number} menuId - Menu ID
+     * @param {Object} rolePermissions - Role permissions data
+     * @returns {Promise<Object>} - Update result
+     */
+    async updateRoleMenuPermissions(menuId, rolePermissions) {
+        try {
+            const response = await apiClient.put(
+                API_ENDPOINTS.MENU_ROLE_PERMISSIONS(menuId),
+                rolePermissions
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Update role menu permissions error:', error);
             throw error;
         }
     }

@@ -57,6 +57,10 @@ export const API_ENDPOINTS = {
     MENU_BY_ID: (id) => `/menus/${id}`,
     USER_MENUS: '/menus/user',
     ROLE_MENU_ACCESS: (roleId, menuId) => `/menus/roles/${roleId}/menus/${menuId}/access`,
+    MENU_PERMISSION_MATRIX: '/menus/permission-matrix',
+    MENU_ORDER_UPDATE: (id) => `/menus/${id}/order`,
+    MENU_BULK_PERMISSIONS: '/menus/bulk-permissions',
+    MENU_ROLE_PERMISSIONS: (menuId) => `/menus/${menuId}/role-permissions`,
 
     // **NEW ENDPOINTS - Payroll Management**
     PAYROLL: '/payroll',
@@ -180,6 +184,13 @@ export const PERMISSIONS = {
     USERS_CREATE: 'Users:create',
     USERS_UPDATE: 'Users:update',
     USERS_DELETE: 'Users:delete',
+
+    MENUS_READ: 'Menus:read',
+    MENUS_CREATE: 'Menus:create',
+    MENUS_UPDATE: 'Menus:update',
+    MENUS_DELETE: 'Menus:delete',
+    MANAGE_MENUS: 'Menus:manage',
+    MENU_PERMISSIONS: 'Menus:permissions',
 
     // HR
     HR_READ: 'HR:read',

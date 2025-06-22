@@ -44,7 +44,7 @@ import {
   Switch,
   CircularProgress,
 } from '@mui/material';
-import { TreeView, TreeItem } from "@mui/lab";
+import MenuTreeComponent from "../../components/features/menus/MenuTreeComponent";
 import { DataGrid } from '@mui/x-data-grid';
 import {
   Search as SearchIcon,
@@ -204,7 +204,7 @@ const MenusPage = () => {
     {
       title: "Total Menus",
       value: menus.length.toString(),
-      subtitle: "Active menu items",
+      subtitle: `${menus.filter((m) => m.is_active).length} active`,
       icon: <MenuIcon />,
       color: "primary",
     },
@@ -216,18 +216,16 @@ const MenusPage = () => {
       color: "success",
     },
     {
-      title: "Active Pages",
-      value: menus
-        .filter((menu) => menu.is_active && menu.menu_type === "page")
-        .length.toString(),
-      subtitle: "Accessible pages",
+      title: "Submenus",
+      value: menus.filter((menu) => menu.parent_id !== null).length.toString(),
+      subtitle: "Nested menu items",
       icon: <PageIcon />,
       color: "info",
     },
     {
-      title: "Total Roles",
-      value: roles.length.toString(),
-      subtitle: "System roles",
+      title: "Active Permissions",
+      value: Object.values(menuPermissions).filter(Boolean).length.toString(),
+      subtitle: `of ${Object.keys(menuPermissions).length} total`,
       icon: <SecurityIcon />,
       color: "warning",
     },
@@ -358,12 +356,39 @@ const MenusPage = () => {
   }, []);
 
   const loadInitialData = async () => {
-    await Promise.all([
-      fetchMenus(),
-      fetchRoles(),
-      fetchPermissions(),
-      fetchPermissionMatrix(),
-    ]);
+    setLoading(true);
+    try {
+      // Load all data in parallel for better performance
+      const [menusResult, rolesResult, permissionsResult, matrixResult] =
+        await Promise.allSettled([
+          fetchMenus(),
+          fetchRoles(),
+          fetchPermissions(),
+          fetchPermissionMatrix(),
+        ]);
+
+      // Check for any failures
+      const failures = [
+        menusResult,
+        rolesResult,
+        permissionsResult,
+        matrixResult,
+      ].filter((result) => result.status === "rejected");
+
+      if (failures.length > 0) {
+        console.warn("Some data failed to load:", failures);
+        showWarning(
+          `${failures.length} data source(s) failed to load. Some features may not work properly.`
+        );
+      } else {
+        console.log("All data loaded successfully");
+      }
+    } catch (error) {
+      console.error("Error loading initial data:", error);
+      showError("Failed to load application data");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchMenus = async () => {
@@ -373,19 +398,56 @@ const MenusPage = () => {
         include_permissions: true,
         include_roles: true,
         include_hierarchy: true,
-        include_children: true, // Add this for tree structure
+        include_children: true,
       });
-
+  
       if (response.success) {
         // Handle both flat and hierarchical responses
-        const menuData = response.data?.hierarchy || response.data || [];
-        setMenus(Array.isArray(menuData) ? menuData : []);
+        let menuData;
+        
+        if (response.data?.flat) {
+          // New API format with both hierarchy and flat
+          menuData = response.data.flat;
+          console.log('Using flat menu data:', menuData.length, 'menus');
+        } else if (response.data?.hierarchy) {
+          // Flatten the hierarchy for the menu list
+          const flattenHierarchy = (hierarchicalMenus) => {
+            const flattened = [];
+            hierarchicalMenus.forEach(menu => {
+              flattened.push(menu);
+              if (menu.children && menu.children.length > 0) {
+                flattened.push(...flattenHierarchy(menu.children));
+              }
+            });
+            return flattened;
+          };
+          menuData = flattenHierarchy(response.data.hierarchy);
+          console.log('Flattened hierarchical menu data:', menuData.length, 'menus');
+        } else if (Array.isArray(response.data)) {
+          // Simple array format
+          menuData = response.data;
+          console.log('Using direct array menu data:', menuData.length, 'menus');
+        } else {
+          throw new Error('Unexpected menu data format');
+        }
+  
+        // Add level calculation for better display
+        const menusWithLevels = menuData.map(menu => ({
+          ...menu,
+          level: menu.parent_id === null ? 0 : 1, // Simple level calculation
+          // Ensure roles and permissions are arrays
+          roles: Array.isArray(menu.roles) ? menu.roles : [],
+          permissions: Array.isArray(menu.permissions) ? menu.permissions : [],
+        }));
+  
+        setMenus(menusWithLevels);
+        console.log('Menus loaded successfully:', menusWithLevels.length);
       } else {
-        throw new Error(response.message || "Failed to fetch menus");
+        throw new Error(response.message || 'Failed to fetch menus');
       }
     } catch (error) {
-      console.error("Error fetching menus:", error);
-      showError(error.userMessage || "Failed to fetch menus");
+      console.error('Error fetching menus:', error);
+      showError(error.userMessage || 'Failed to fetch menus');
       setMenus([]); // Set empty array on error
     } finally {
       setLoading(false);
@@ -446,9 +508,29 @@ const MenusPage = () => {
   // Add this function after fetchPermissions
   const fetchPermissionMatrix = async () => {
     try {
+      console.log("Fetching permission matrix..."); // Debug log
+
       const response = await menusAPI.getMenuPermissionMatrix();
+
       if (response.success) {
-        setMenuPermissions(response.data || {});
+        console.log("Permission matrix response:", response.data); // Debug log
+
+        // Update state with the actual database data
+        setMenuPermissions(response.data.matrix || {});
+
+        // Also update roles and menus if they came with the response
+        if (response.data.roles) {
+          setRoles(response.data.roles);
+        }
+        if (response.data.menus) {
+          // Don't overwrite the main menus array, just log for verification
+          console.log("Matrix menus count:", response.data.menus.length);
+        }
+
+        console.log(
+          "Matrix loaded with permissions:",
+          Object.keys(response.data.matrix || {}).length
+        );
       } else {
         throw new Error(
           response.message || "Failed to fetch permission matrix"
@@ -456,7 +538,12 @@ const MenusPage = () => {
       }
     } catch (error) {
       console.error("Error fetching permission matrix:", error);
-      showError("Failed to load permission matrix");
+      showError(
+        "Failed to load permission matrix: " + (error.message || error)
+      );
+
+      // Set empty matrix on error to prevent undefined errors
+      setMenuPermissions({});
     }
   };
 
@@ -845,7 +932,6 @@ const MenusPage = () => {
                       Add Menu
                     </Button>
                   )}
-                  // Find this button and replace its onClick:
                   <Button
                     variant="outlined"
                     startIcon={<SortIcon />}
@@ -919,115 +1005,403 @@ const MenusPage = () => {
           {/* Menu Tree Tab */}
           {activeTab === 1 && (
             <Box sx={{ mt: 2 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Navigation Structure
-              </Typography>
-              <TreeView
-                defaultCollapseIcon={<ExpandMoreIcon />}
-                defaultExpandIcon={<ChevronRightIcon />}
-                expanded={expandedNodes}
-                onNodeToggle={(event, nodeIds) => setExpandedNodes(nodeIds)}
-              >
-                {Array.isArray(filteredMenus) &&
-                  buildMenuTree(filteredMenus).map((node) =>
-                    renderTreeItem(node)
-                  )}
-              </TreeView>
+              <MenuTreeComponent
+                menus={menus}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                onMenuAction={(menu, action, event) => {
+                  switch (action) {
+                    case "toggle-status":
+                      handleToggleStatus(menu);
+                      break;
+                    case "menu":
+                      setAnchorEl(event.currentTarget);
+                      setSelectedMenu(menu);
+                      break;
+                    case "create":
+                      setDialogOpen(true);
+                      resetForm();
+                      break;
+                    default:
+                      console.log("Unknown action:", action);
+                  }
+                }}
+              />
             </Box>
           )}
 
           {/* Permission Matrix Tab */}
           {activeTab === 2 && (
             <Box sx={{ mt: 2 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Menu-Role Permission Matrix
-              </Typography>
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
+                <Typography variant="h6">
+                  Menu-Role Permission Matrix
+                </Typography>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button
+                    size="small"
+                    onClick={async () => {
+                      try {
+                        // Refresh the permission matrix
+                        await fetchPermissionMatrix();
+                        showSuccess("Permission matrix refreshed successfully");
+                      } catch (error) {
+                        showError("Failed to refresh permission matrix");
+                      }
+                    }}
+                    startIcon={<RefreshIcon />}
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => {
+                      // Grant all permissions to Admin role (role ID 1)
+                      const newMatrix = { ...menuPermissions };
+                      filteredMenus.forEach((menu) => {
+                        newMatrix[`1-${menu.id}`] = true;
+                      });
+                      setMenuPermissions(newMatrix);
+                    }}
+                    startIcon={<SecurityIcon />}
+                  >
+                    Grant Admin Full Access
+                  </Button>
+                </Box>
+              </Box>
+
+              {/* Permission Matrix Table */}
+              <TableContainer
+                component={Paper}
+                variant="outlined"
+                sx={{ maxHeight: 600 }}
+              >
+                <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Menu</TableCell>
+                      <TableCell
+                        sx={{
+                          minWidth: 200,
+                          fontWeight: "bold",
+                          bgcolor: "background.paper",
+                        }}
+                      >
+                        Menu / Submenu
+                      </TableCell>
                       {roles.map((role) => (
-                        <TableCell key={role.id} align="center">
-                          {role.role_name}
+                        <TableCell
+                          key={role.id}
+                          align="center"
+                          sx={{
+                            minWidth: 120,
+                            fontWeight: "bold",
+                            bgcolor: "background.paper",
+                            writingMode:
+                              role.role_name.length > 8
+                                ? "vertical-rl"
+                                : "horizontal-tb",
+                            textOrientation:
+                              role.role_name.length > 8 ? "mixed" : "initial",
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
+                            <Typography variant="caption" fontWeight="bold">
+                              {role.role_name}
+                            </Typography>
+                            <Chip
+                              label={`ID: ${role.id}`}
+                              size="small"
+                              variant="outlined"
+                              sx={{ fontSize: "0.6rem", height: 16 }}
+                            />
+                          </Box>
                         </TableCell>
                       ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredMenus.slice(0, 10).map((menu) => (
-                      <TableRow key={menu.id}>
-                        <TableCell>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            {menu.menu_type === "folder" ? (
-                              <FolderIcon fontSize="small" />
-                            ) : (
-                              <PageIcon fontSize="small" />
-                            )}
-                            <Typography variant="body2">
-                              {menu.menu_label}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        {roles.map((role) => (
-                          <TableCell key={role.id} align="center">
-                            <Checkbox
-                              size="small"
-                              checked={
-                                menuPermissions[`${role.id}-${menu.id}`] ||
-                                false
-                              }
-                              onChange={async (e) => {
-                                try {
-                                  const response =
-                                    await menusAPI.updateRoleMenuAccess(
-                                      role.id,
-                                      menu.id,
-                                      {
-                                        has_access: e.target.checked,
-                                      }
-                                    );
+                    {filteredMenus.map((menu) => {
+                      // Determine if this is a parent menu or submenu
+                      const isParentMenu = menu.parent_id === null;
+                      const isSubmenu = menu.parent_id !== null;
+                      const parentMenu = isSubmenu
+                        ? filteredMenus.find((m) => m.id === menu.parent_id)
+                        : null;
 
-                                  if (response.success) {
-                                    // Update local state
-                                    setMenuPermissions((prev) => ({
-                                      ...prev,
-                                      [`${role.id}-${menu.id}`]:
-                                        e.target.checked,
-                                    }));
-                                    showSuccess(
-                                      `Access ${e.target.checked ? "granted" : "removed"} successfully`
-                                    );
-                                  } else {
-                                    throw new Error(
-                                      response.message ||
-                                        "Failed to update access"
-                                    );
-                                  }
-                                } catch (error) {
-                                  console.error(
-                                    "Error updating menu access:",
-                                    error
-                                  );
-                                  showError("Failed to update menu access");
-                                  // Revert checkbox state on error
-                                  e.target.checked = !e.target.checked;
-                                }
+                      return (
+                        <TableRow
+                          key={menu.id}
+                          sx={{
+                            "&:hover": { bgcolor: "action.hover" },
+                            bgcolor: isParentMenu
+                              ? "action.selected"
+                              : "inherit",
+                          }}
+                        >
+                          <TableCell>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                pl: isSubmenu ? 3 : 0, // Indent submenus
                               }}
-                            />
+                            >
+                              {/* Indentation line for submenus */}
+                              {isSubmenu && (
+                                <Box
+                                  sx={{
+                                    width: 2,
+                                    height: 20,
+                                    bgcolor: "divider",
+                                    position: "absolute",
+                                    left: 16,
+                                  }}
+                                />
+                              )}
+
+                              {/* Menu icon */}
+                              {menu.menu_type === "folder" || isParentMenu ? (
+                                <FolderIcon color="primary" fontSize="small" />
+                              ) : (
+                                <PageIcon color="action" fontSize="small" />
+                              )}
+
+                              {/* Menu details */}
+                              <Box>
+                                <Typography
+                                  variant="body2"
+                                  fontWeight={isParentMenu ? "bold" : "medium"}
+                                >
+                                  {menu.menu_label}
+                                </Typography>
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    gap: 1,
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    {menu.menu_name}
+                                  </Typography>
+                                  {menu.menu_url && (
+                                    <>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        •
+                                      </Typography>
+                                      <Typography
+                                        variant="caption"
+                                        color="primary.main"
+                                        fontFamily="monospace"
+                                      >
+                                        {menu.menu_url}
+                                      </Typography>
+                                    </>
+                                  )}
+                                  {isSubmenu && parentMenu && (
+                                    <>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        •
+                                      </Typography>
+                                      <Chip
+                                        label={`Under: ${parentMenu.menu_label}`}
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{ height: 16, fontSize: "0.6rem" }}
+                                      />
+                                    </>
+                                  )}
+                                </Box>
+                              </Box>
+                            </Box>
                           </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
+
+                          {/* Permission checkboxes for each role */}
+                          {roles.map((role) => {
+                            const permissionKey = `${role.id}-${menu.id}`;
+                            const hasPermission =
+                              menuPermissions[permissionKey] || false;
+
+                            return (
+                              <TableCell key={role.id} align="center">
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: 0.5,
+                                  }}
+                                >
+                                  <Checkbox
+                                    size="small"
+                                    checked={hasPermission}
+                                    onChange={async (e) => {
+                                      try {
+                                        const newAccess = e.target.checked;
+
+                                        // Update backend
+                                        const response =
+                                          await menusAPI.updateRoleMenuAccess(
+                                            role.id,
+                                            menu.id,
+                                            { can_access: newAccess }
+                                          );
+
+                                        if (response.success) {
+                                          // Update local state
+                                          setMenuPermissions((prev) => ({
+                                            ...prev,
+                                            [permissionKey]: newAccess,
+                                          }));
+
+                                          showSuccess(
+                                            `${role.role_name} access to "${menu.menu_label}" ${newAccess ? "granted" : "removed"}`
+                                          );
+                                        } else {
+                                          throw new Error(
+                                            response.message ||
+                                              "Failed to update access"
+                                          );
+                                        }
+                                      } catch (error) {
+                                        console.error(
+                                          "Error updating menu access:",
+                                          error
+                                        );
+                                        showError(
+                                          `Failed to update access: ${error.message}`
+                                        );
+
+                                        // Revert checkbox state on error
+                                        e.target.checked = !e.target.checked;
+                                      }
+                                    }}
+                                    sx={{
+                                      color: hasPermission
+                                        ? "success.main"
+                                        : "action.disabled",
+                                      "&.Mui-checked": {
+                                        color: "success.main",
+                                      },
+                                    }}
+                                  />
+
+                                  {/* Visual indicator */}
+                                  {hasPermission && (
+                                    <Chip
+                                      label="✓"
+                                      size="small"
+                                      color="success"
+                                      sx={{
+                                        height: 16,
+                                        fontSize: "0.6rem",
+                                        minWidth: 16,
+                                        "& .MuiChip-label": { px: 0.5 },
+                                      }}
+                                    />
+                                  )}
+                                </Box>
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
+
+              {/* Matrix Summary */}
+              <Box
+                sx={{
+                  mt: 2,
+                  p: 2,
+                  bgcolor: "background.paper",
+                  borderRadius: 1,
+                  border: 1,
+                  borderColor: "divider",
+                }}
+              >
+                <Typography variant="subtitle2" gutterBottom>
+                  Permission Matrix Summary
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Menus: <strong>{filteredMenus.length}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Roles: <strong>{roles.length}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Combinations:{" "}
+                      <strong>{filteredMenus.length * roles.length}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">
+                      Active Permissions:{" "}
+                      <strong>
+                        {Object.values(menuPermissions).filter(Boolean).length}
+                      </strong>
+                    </Typography>
+                  </Grid>
+                </Grid>
+
+                {/* Legend */}
+                <Box
+                  sx={{ mt: 2, display: "flex", gap: 2, alignItems: "center" }}
+                >
+                  <Typography variant="caption" color="text.secondary">
+                    Legend:
+                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Checkbox size="small" checked readOnly />
+                    <Typography variant="caption">Has Access</Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Checkbox size="small" readOnly />
+                    <Typography variant="caption">No Access</Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <FolderIcon fontSize="small" color="primary" />
+                    <Typography variant="caption">Parent Menu</Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <PageIcon fontSize="small" color="action" />
+                    <Typography variant="caption">Submenu/Page</Typography>
+                  </Box>
+                </Box>
+              </Box>
             </Box>
           )}
         </CardContent>
