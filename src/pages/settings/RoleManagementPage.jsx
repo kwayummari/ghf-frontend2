@@ -31,9 +31,6 @@ import {
   Checkbox,
   FormControlLabel,
   FormGroup,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Alert,
   Divider,
   Switch,
@@ -41,6 +38,12 @@ import {
   LinearProgress,
   Tooltip,
   Badge,
+  Stack,
+  AppBar,
+  Toolbar,
+  Container,
+  CardHeader,
+  CardActions,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -63,6 +66,18 @@ import {
   Refresh as RefreshIcon,
   PersonAdd as PersonAddIcon,
   Settings as SettingsIcon,
+  ArrowBack as ArrowBackIcon,
+  SelectAll as SelectAllIcon,
+  Dashboard as DashboardIcon,
+  People as PeopleIcon,
+  AccountCircle as AccountCircleIcon,
+  Business as BusinessIcon,
+  Payment as PaymentIcon,
+  Receipt as ReceiptIcon,
+  Assignment as AssignmentIcon,
+  EventNote as EventNoteIcon,
+  Assessment as AssessmentIcon,
+  AttachMoney as AttachMoneyIcon,
 } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 import { selectUser } from "../../store/slices/authSlice";
@@ -72,7 +87,41 @@ import useNotification from "../../hooks/common/useNotification";
 import useConfirmDialog from "../../hooks/common/useConfirmDialog";
 import { LoadingSpinner } from "../../components/common/Loading";
 import rolesAPI from "../../services/api/roles.api";
-// import usersAPI from "../../services/api/users.api"; // Import when available
+
+const moduleIcons = {
+  'Dashboard': DashboardIcon,
+  'HR Management': PeopleIcon,
+  'Users': AccountCircleIcon,
+  'Departments': BusinessIcon,
+  'Employees': PeopleIcon,
+  'Payroll': PaymentIcon,
+  'Finance': AttachMoneyIcon,
+  'Attendance': EventNoteIcon,
+  'Leave Management': AssignmentIcon,
+  'Reports': AssessmentIcon,
+  'Settings': SettingsIcon,
+  'Documents': ReceiptIcon,
+  'General': SecurityIcon,
+};
+
+const getModuleColor = (module) => {
+  const colors = {
+    'Dashboard': 'primary',
+    'HR Management': 'success',
+    'Users': 'info',
+    'Departments': 'warning',
+    'Employees': 'success',
+    'Payroll': 'error',
+    'Finance': 'success',
+    'Attendance': 'info',
+    'Leave Management': 'warning',
+    'Reports': 'secondary',
+    'Settings': 'default',
+    'Documents': 'info',
+    'General': 'default',
+  };
+  return colors[module] || 'default';
+};
 
 const RoleManagementPage = () => {
   const navigate = useNavigate();
@@ -94,7 +143,8 @@ const RoleManagementPage = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
-  const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
+  const [permissionManagementMode, setPermissionManagementMode] =
+    useState(false);
   const [assignRoleDialogOpen, setAssignRoleDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -105,8 +155,10 @@ const RoleManagementPage = () => {
   });
   const [rolePermissions, setRolePermissions] = useState({});
   const [selectedRolePermissions, setSelectedRolePermissions] = useState([]);
+  const [originalPermissions, setOriginalPermissions] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userRoles, setUserRoles] = useState([]);
+  const [permissionsSearchTerm, setPermissionsSearchTerm] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -115,11 +167,7 @@ const RoleManagementPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        fetchRoles(),
-        fetchPermissions(),
-        fetchUsers(),
-      ]);
+      await Promise.all([fetchRoles(), fetchPermissions(), fetchUsers()]);
     } catch (error) {
       console.error("Failed to fetch data:", error);
       showError("Failed to load roles and permissions data");
@@ -132,7 +180,7 @@ const RoleManagementPage = () => {
     try {
       const rolesResponse = await rolesAPI.getAllRoles();
       console.log("Roles response:", rolesResponse);
-      
+
       const rolesData = rolesResponse.data || rolesResponse;
       setRoles(rolesData);
 
@@ -148,14 +196,13 @@ const RoleManagementPage = () => {
     try {
       const permissionsResponse = await rolesAPI.getAllPermissions();
       console.log("Permissions response:", permissionsResponse);
-      
-      // Handle different response structures
-      const permissionsData = 
-        permissionsResponse.data?.all || 
-        permissionsResponse.data?.data || 
-        permissionsResponse.data || 
+
+      const permissionsData =
+        permissionsResponse.data?.all ||
+        permissionsResponse.data?.data ||
+        permissionsResponse.data ||
         permissionsResponse;
-      
+
       setPermissions(permissionsData);
     } catch (error) {
       console.error("Failed to fetch permissions:", error);
@@ -165,45 +212,39 @@ const RoleManagementPage = () => {
 
   const fetchUsers = async () => {
     try {
-      // TODO: Replace with actual users API when available
-      // const usersResponse = await usersAPI.getAllUsers();
-      // const usersData = usersResponse.data || usersResponse;
-      
-      // For now, keep sample users data
       const sampleUsers = [
-        { 
-          id: 1, 
-          name: "John Admin", 
-          email: "admin@ghf.org", 
+        {
+          id: 1,
+          name: "John Admin",
+          email: "admin@ghf.org",
           roles: ["Admin"],
-          role_ids: [1] 
+          role_ids: [1],
         },
-        { 
-          id: 2, 
-          name: "Jane HR", 
-          email: "hr@ghf.org", 
+        {
+          id: 2,
+          name: "Jane HR",
+          email: "hr@ghf.org",
           roles: ["HR Manager"],
-          role_ids: [2] 
+          role_ids: [2],
         },
         {
           id: 3,
           name: "Mike Finance",
           email: "finance@ghf.org",
           roles: ["Finance Manager"],
-          role_ids: [3]
+          role_ids: [3],
         },
         {
           id: 4,
           name: "Sarah Employee",
           email: "sarah@ghf.org",
           roles: ["Employee"],
-          role_ids: [4]
+          role_ids: [4],
         },
       ];
       setUsers(sampleUsers);
     } catch (error) {
       console.error("Failed to fetch users:", error);
-      // Don't throw for users since it's mock data
     }
   };
 
@@ -213,16 +254,20 @@ const RoleManagementPage = () => {
         try {
           const roleMenuPerms = await rolesAPI.getRoleMenuPermissions(role.id);
           console.log(`Permissions for role ${role.id}:`, roleMenuPerms);
-          
-          // Extract permission IDs from the response
-          const permissionIds = extractPermissionIds(roleMenuPerms.data || roleMenuPerms);
-          
+
+          const permissionIds = extractPermissionIds(
+            roleMenuPerms.data || roleMenuPerms
+          );
+
           return {
             roleId: role.id,
             permissions: permissionIds,
           };
         } catch (error) {
-          console.warn(`Failed to fetch permissions for role ${role.id}:`, error);
+          console.warn(
+            `Failed to fetch permissions for role ${role.id}:`,
+            error
+          );
           return { roleId: role.id, permissions: [] };
         }
       });
@@ -237,12 +282,11 @@ const RoleManagementPage = () => {
       );
 
       setRolePermissions(rolePermsMapping);
-      
-      // Update roles with permissions count
-      setRoles(prevRoles => 
-        prevRoles.map(role => ({
+
+      setRoles((prevRoles) =>
+        prevRoles.map((role) => ({
           ...role,
-          permissions_count: rolePermsMapping[role.id]?.length || 0
+          permissions_count: rolePermsMapping[role.id]?.length || 0,
         }))
       );
     } catch (error) {
@@ -252,20 +296,21 @@ const RoleManagementPage = () => {
 
   const extractPermissionIds = (permissionsData) => {
     if (!permissionsData) return [];
-    
-    // Handle different response structures
+
     if (Array.isArray(permissionsData)) {
-      return permissionsData.map(p => p.permission_id || p.id);
+      return permissionsData.map((p) => p.permission_id || p.id);
     }
-    
+
     if (permissionsData.permissions) {
-      return permissionsData.permissions.map(p => p.permission_id || p.id);
+      return permissionsData.permissions.map((p) => p.permission_id || p.id);
     }
-    
+
     if (permissionsData.menu_permissions) {
-      return permissionsData.menu_permissions.map(p => p.permission_id || p.id);
+      return permissionsData.menu_permissions.map(
+        (p) => p.permission_id || p.id
+      );
     }
-    
+
     return [];
   };
 
@@ -291,7 +336,6 @@ const RoleManagementPage = () => {
     try {
       let response;
       if (editMode && selectedItem) {
-        // Update existing role
         response = await rolesAPI.updateRole(selectedItem.id, newRole);
         setRoles((prev) =>
           prev.map((role) =>
@@ -302,7 +346,6 @@ const RoleManagementPage = () => {
         );
         showSuccess("Role updated successfully");
       } else {
-        // Create new role
         response = await rolesAPI.createRole(newRole);
         const createdRole = response.data || response;
         setRoles((prev) => [...prev, { ...createdRole, permissions_count: 0 }]);
@@ -323,20 +366,33 @@ const RoleManagementPage = () => {
   };
 
   const handleManagePermissions = (role) => {
-    console.log("Managing permissions for role:", role); // Add for debugging
+    console.log("Managing permissions for role:", role);
+    console.log("Available permissions:", permissions.length);
+    console.log(
+      "Current role permissions from state:",
+      rolePermissions[role.id]
+    );
+
     setSelectedItem(role);
     const currentPermissions = rolePermissions[role.id] || [];
-    const cleanPermissions = currentPermissions.filter(
-      (id) => id !== undefined && id !== null
+
+    // Ensure we have valid numbers and log the process
+    const cleanPermissions = currentPermissions
+      .map((id) => parseInt(id, 10))
+      .filter((id) => !isNaN(id));
+
+    console.log("Clean permissions for role:", cleanPermissions);
+    console.log(
+      "Total permissions available:",
+      permissions.map((p) => ({ id: p.id, name: p.name }))
     );
+
     setSelectedRolePermissions(cleanPermissions);
-    setPermissionDialogOpen(true);
+    setOriginalPermissions(cleanPermissions);
+    setPermissionManagementMode(true);
   };
 
   const handleUpdateRolePermissions = async () => {
-    console.log("handleUpdateRolePermissions called"); // Add this line
-    console.log("selectedItem:", selectedItem); // Add this line
-
     if (!selectedItem) return;
 
     setSaving(true);
@@ -362,22 +418,31 @@ const RoleManagementPage = () => {
       );
       console.log("Update response:", response);
 
-      // Update local state
+      // Update rolePermissions state
       setRolePermissions((prev) => ({
         ...prev,
         [selectedItem.id]: selectedRolePermissions,
       }));
 
-      // Update role permissions count
+      // Update roles state with new permissions count
       setRoles((prev) =>
-        prev.map((role) =>
-          role.id === selectedItem.id
-            ? { ...role, permissions_count: selectedRolePermissions.length }
-            : role
-        )
+        prev.map((role) => {
+          if (role.id === selectedItem.id) {
+            const updatedRole = {
+              ...role,
+              permissions_count: selectedRolePermissions.length,
+            };
+            console.log(
+              `Updated role ${role.role_name} permissions count to:`,
+              selectedRolePermissions.length
+            );
+            return updatedRole;
+          }
+          return role;
+        })
       );
 
-      setPermissionDialogOpen(false);
+      setPermissionManagementMode(false);
       setSelectedItem(null);
       showSuccess("Role permissions updated successfully");
     } catch (error) {
@@ -403,10 +468,9 @@ const RoleManagementPage = () => {
       };
 
       console.log("Assigning roles:", assignmentData);
-      
+
       await rolesAPI.assignRole(assignmentData);
 
-      // Update local state
       setUsers((prev) =>
         prev.map((user) =>
           user.id === selectedUser.id
@@ -426,7 +490,7 @@ const RoleManagementPage = () => {
     } catch (error) {
       console.error("Assign role error:", error);
       const errorMessage =
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         error.message ||
         "Failed to assign roles";
       showError(errorMessage);
@@ -460,7 +524,6 @@ const RoleManagementPage = () => {
         try {
           await rolesAPI.deleteRole(roleId);
           setRoles((prev) => prev.filter((r) => r.id !== roleId));
-          // Clean up role permissions
           setRolePermissions((prev) => {
             const newPerms = { ...prev };
             delete newPerms[roleId];
@@ -470,7 +533,7 @@ const RoleManagementPage = () => {
         } catch (error) {
           console.error("Delete role error:", error);
           const errorMessage =
-            error.response?.data?.message || 
+            error.response?.data?.message ||
             error.message ||
             "Failed to delete role";
           showError(errorMessage);
@@ -497,52 +560,100 @@ const RoleManagementPage = () => {
   };
 
   const handlePermissionChange = (permissionId, checked) => {
-    console.log("Permission change:", permissionId, checked); // Debug log
-    if (checked) {
-      setSelectedRolePermissions((prev) => {
-        const filtered = prev.filter((id) => id !== undefined && id !== null);
-        return [...filtered, permissionId];
-      });
-    } else {
-      setSelectedRolePermissions((prev) =>
-        prev.filter(
-          (id) => id !== permissionId && id !== undefined && id !== null
-        )
-      );
-    }
+    const numericPermissionId = parseInt(permissionId, 10);
+    console.log("Permission change:", numericPermissionId, checked);
+
+    setSelectedRolePermissions((prev) => {
+      // Convert all existing IDs to numbers for consistency
+      const normalizedPrev = prev
+        .map((id) => parseInt(id, 10))
+        .filter((id) => !isNaN(id));
+
+      if (checked) {
+        // Add permission if not already selected
+        if (!normalizedPrev.includes(numericPermissionId)) {
+          return [...normalizedPrev, numericPermissionId];
+        }
+        return normalizedPrev;
+      } else {
+        // Remove permission
+        return normalizedPrev.filter((id) => id !== numericPermissionId);
+      }
+    });
   };
 
   const handleSelectAllPermissions = (modulePermissions, checked) => {
     const modulePermissionIds = modulePermissions
-      .map((p) => p.id)
-      .filter((id) => id !== undefined);
+      .map((p) => parseInt(p.id, 10))
+      .filter((id) => !isNaN(id));
 
-    if (checked) {
-      setSelectedRolePermissions((prev) => {
-        const filtered = prev.filter(
-          (id) =>
-            id !== undefined && id !== null && !modulePermissionIds.includes(id)
+    setSelectedRolePermissions((prev) => {
+      // Convert all existing IDs to numbers for consistency
+      const normalizedPrev = prev
+        .map((id) => parseInt(id, 10))
+        .filter((id) => !isNaN(id));
+
+      if (checked) {
+        // Add all module permissions that aren't already selected
+        const newPermissions = modulePermissionIds.filter(
+          (id) => !normalizedPrev.includes(id)
         );
-        return [...filtered, ...modulePermissionIds];
-      });
-    } else {
-      setSelectedRolePermissions((prev) =>
-        prev.filter(
-          (id) =>
-            id !== undefined && id !== null && !modulePermissionIds.includes(id)
-        )
-      );
-    }
+        return [...normalizedPrev, ...newPermissions];
+      } else {
+        // Remove all module permissions
+        return normalizedPrev.filter((id) => !modulePermissionIds.includes(id));
+      }
+    });
+  };
+
+  const handleExitPermissionManagement = () => {
+    setPermissionManagementMode(false);
+    setSelectedItem(null);
+    setSelectedRolePermissions([]);
+    setOriginalPermissions([]);
+    setPermissionsSearchTerm("");
+  };
+
+  const handleResetPermissions = () => {
+    setSelectedRolePermissions([...originalPermissions]);
   };
 
   const groupedPermissions = permissions.reduce((acc, permission) => {
-    const module = permission.module || 'General';
+    const module = permission.module || "General";
     if (!acc[module]) {
       acc[module] = [];
     }
     acc[module].push(permission);
     return acc;
   }, {});
+
+  // Filter permissions based on search term
+  const filteredGroupedPermissions = Object.entries(groupedPermissions).reduce(
+    (acc, [module, perms]) => {
+      if (permissionsSearchTerm) {
+        const filteredPerms = perms.filter(
+          (p) =>
+            p.permission_name
+              ?.toLowerCase()
+              .includes(permissionsSearchTerm.toLowerCase()) ||
+            p.name
+              ?.toLowerCase()
+              .includes(permissionsSearchTerm.toLowerCase()) ||
+            p.description
+              ?.toLowerCase()
+              .includes(permissionsSearchTerm.toLowerCase()) ||
+            module.toLowerCase().includes(permissionsSearchTerm.toLowerCase())
+        );
+        if (filteredPerms.length > 0) {
+          acc[module] = filteredPerms;
+        }
+      } else {
+        acc[module] = perms;
+      }
+      return acc;
+    },
+    {}
+  );
 
   const rolesColumns = [
     {
@@ -566,7 +677,7 @@ const RoleManagementPage = () => {
       width: 300,
       renderCell: (params) => (
         <Typography variant="body2" color="text.secondary">
-          {params.value || 'No description'}
+          {params.value || "No description"}
         </Typography>
       ),
     },
@@ -594,7 +705,7 @@ const RoleManagementPage = () => {
       width: 120,
       renderCell: (params) => (
         <Typography variant="body2">
-          {params.value ? new Date(params.value).toLocaleDateString() : '-'}
+          {params.value ? new Date(params.value).toLocaleDateString() : "-"}
         </Typography>
       ),
     },
@@ -638,7 +749,11 @@ const RoleManagementPage = () => {
         <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
           {params.value?.map((role, index) => (
             <Chip key={index} label={role} size="small" color="primary" />
-          )) || <Typography variant="body2" color="text.secondary">No roles assigned</Typography>}
+          )) || (
+            <Typography variant="body2" color="text.secondary">
+              No roles assigned
+            </Typography>
+          )}
         </Box>
       ),
     },
@@ -674,6 +789,247 @@ const RoleManagementPage = () => {
     return <LoadingSpinner />;
   }
 
+  // Full-screen permission management view
+  if (permissionManagementMode && selectedItem) {
+    return (
+      <Box sx={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+        {/* App Bar */}
+        <AppBar position="static" elevation={1}>
+          <Toolbar>
+            <IconButton
+              edge="start"
+              color="inherit"
+              onClick={handleExitPermissionManagement}
+              sx={{ mr: 2 }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+            <RoleIcon sx={{ mr: 2 }} />
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6">
+                Manage Permissions - {selectedItem.role_name}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                {selectedItem.description || "No description"}
+              </Typography>
+            </Box>
+            <Chip
+              label={`${selectedRolePermissions.length} permissions selected`}
+              color="secondary"
+              sx={{ mr: 2, bgcolor: "rgba(255,255,255,0.1)", color: "white" }}
+            />
+            <Button
+              color="inherit"
+              onClick={handleResetPermissions}
+              disabled={saving}
+              sx={{ mr: 1 }}
+            >
+              Reset
+            </Button>
+            <Button
+              color="inherit"
+              variant="outlined"
+              onClick={handleUpdateRolePermissions}
+              disabled={saving}
+              startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
+              sx={{
+                borderColor: "rgba(255,255,255,0.3)",
+                "&:hover": { borderColor: "white" },
+              }}
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </Toolbar>
+        </AppBar>
+
+        {/* Progress indicator */}
+        {saving && <LinearProgress />}
+
+        {/* Search Bar */}
+        <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search permissions by name, module, or description..."
+            value={permissionsSearchTerm}
+            onChange={(e) => setPermissionsSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ maxWidth: 500 }}
+          />
+        </Box>
+
+        {/* Permissions Grid */}
+        <Box sx={{ flexGrow: 1, overflow: "auto", p: 2 }}>
+          <Grid container spacing={2}>
+            {Object.entries(filteredGroupedPermissions).map(
+              ([module, modulePermissions]) => {
+                const modulePermissionIds = modulePermissions.map((p) => p.id);
+                const selectedModulePerms = selectedRolePermissions.filter(
+                  (id) => modulePermissionIds.includes(id)
+                );
+                const isAllSelected =
+                  selectedModulePerms.length === modulePermissions.length;
+                const isPartiallySelected =
+                  selectedModulePerms.length > 0 && !isAllSelected;
+                const IconComponent = moduleIcons[module] || SecurityIcon;
+                const moduleColor = getModuleColor(module);
+
+                return (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={module}>
+                    <Card
+                      elevation={3}
+                      sx={{
+                        height: "100%",
+                        border: isAllSelected
+                          ? `2px solid ${(theme) => theme.palette.primary.main}`
+                          : isPartiallySelected
+                            ? `2px solid ${(theme) => theme.palette.warning.main}`
+                            : "1px solid rgba(0,0,0,0.12)",
+                        transition: "all 0.2s ease-in-out",
+                        "&:hover": {
+                          transform: "translateY(-2px)",
+                          boxShadow: 6,
+                        },
+                      }}
+                    >
+                      <CardHeader
+                        avatar={
+                          <IconComponent
+                            sx={{
+                              fontSize: 32,
+                              color: isAllSelected
+                                ? "primary.main"
+                                : isPartiallySelected
+                                  ? "warning.main"
+                                  : "text.secondary",
+                            }}
+                          />
+                        }
+                        action={
+                          <Checkbox
+                            checked={isAllSelected}
+                            indeterminate={isPartiallySelected}
+                            onChange={(e) =>
+                              handleSelectAllPermissions(
+                                modulePermissions,
+                                e.target.checked
+                              )
+                            }
+                            color={isPartiallySelected ? "warning" : "primary"}
+                          />
+                        }
+                        title={
+                          <Typography variant="h6" fontWeight="bold">
+                            {module}
+                          </Typography>
+                        }
+                        subheader={
+                          <Chip
+                            label={`${selectedModulePerms.length}/${modulePermissions.length}`}
+                            size="small"
+                            color={
+                              isAllSelected
+                                ? "success"
+                                : isPartiallySelected
+                                  ? "warning"
+                                  : "default"
+                            }
+                            sx={{ mt: 0.5 }}
+                          />
+                        }
+                        sx={{ pb: 1 }}
+                      />
+                      <CardContent sx={{ pt: 0 }}>
+                        <Stack spacing={1}>
+                          {modulePermissions.map((permission) => (
+                            <FormControlLabel
+                              key={permission.id}
+                              control={
+                                <Checkbox
+                                  size="small"
+                                  checked={selectedRolePermissions.includes(
+                                    permission.id
+                                  )}
+                                  onChange={(e) =>
+                                    handlePermissionChange(
+                                      permission.id,
+                                      e.target.checked
+                                    )
+                                  }
+                                />
+                              }
+                              label={
+                                <Box>
+                                  <Typography
+                                    variant="body2"
+                                    fontWeight="medium"
+                                  >
+                                    {permission.permission_name ||
+                                      permission.name}
+                                  </Typography>
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 1,
+                                      mt: 0.5,
+                                    }}
+                                  >
+                                    <Chip
+                                      label={permission.action || "read"}
+                                      size="small"
+                                      variant="outlined"
+                                      color={
+                                        permission.action === "create"
+                                          ? "success"
+                                          : permission.action === "update"
+                                            ? "warning"
+                                            : permission.action === "delete"
+                                              ? "error"
+                                              : "info"
+                                      }
+                                    />
+                                  </Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    display="block"
+                                    sx={{ mt: 0.5 }}
+                                  >
+                                    {permission.description ||
+                                      "No description available"}
+                                  </Typography>
+                                </Box>
+                              }
+                              sx={{
+                                display: "block",
+                                mb: 1,
+                                "& .MuiFormControlLabel-label": {
+                                  width: "100%",
+                                },
+                              }}
+                            />
+                          ))}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              }
+            )}
+          </Grid>
+        </Box>
+      </Box>
+    );
+  }
+
+  // Main dashboard view
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
@@ -870,81 +1226,148 @@ const RoleManagementPage = () => {
           )}
 
           {activeTab === 1 && (
-            // Permissions Tab
+            // Permissions Tab - Card View
             <Box>
-              <Typography variant="h6" sx={{ mb: 3 }}>
-                System Permissions by Module
-              </Typography>
-              {Object.entries(groupedPermissions).map(
-                ([module, modulePermissions]) => (
-                  <Accordion key={module} sx={{ mb: 2 }}>
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 2 }}
-                      >
-                        <SecurityIcon color="primary" />
-                        <Typography variant="h6">{module}</Typography>
-                        <Chip
-                          label={`${modulePermissions.length} permissions`}
-                          size="small"
-                        />
-                      </Box>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <TableContainer>
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Permission Name</TableCell>
-                              <TableCell>Action</TableCell>
-                              <TableCell>Description</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {modulePermissions.map((permission) => (
-                              <TableRow key={permission.id}>
-                                <TableCell>
-                                  <Typography
-                                    variant="body2"
-                                    fontWeight="medium"
+              <Box
+                sx={{
+                  mb: 3,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="h6">
+                  System Permissions by Module
+                </Typography>
+                <TextField
+                  size="small"
+                  placeholder="Search permissions..."
+                  value={permissionsSearchTerm}
+                  onChange={(e) => setPermissionsSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ width: 300 }}
+                />
+              </Box>
+
+              <Grid container spacing={3}>
+                {Object.entries(filteredGroupedPermissions).map(
+                  ([module, modulePermissions]) => {
+                    const IconComponent = moduleIcons[module] || SecurityIcon;
+                    const moduleColor = getModuleColor(module);
+
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={module}>
+                        <Card
+                          elevation={2}
+                          sx={{
+                            height: "100%",
+                            "&:hover": {
+                              transform: "translateY(-2px)",
+                              boxShadow: 4,
+                            },
+                            transition: "all 0.2s ease-in-out",
+                          }}
+                        >
+                          <CardHeader
+                            avatar={
+                              <IconComponent
+                                sx={{
+                                  fontSize: 32,
+                                  color: `${moduleColor}.main`,
+                                }}
+                              />
+                            }
+                            title={
+                              <Typography variant="h6" fontWeight="bold">
+                                {module}
+                              </Typography>
+                            }
+                            subheader={
+                              <Chip
+                                label={`${modulePermissions.length} permissions`}
+                                size="small"
+                                color={moduleColor}
+                              />
+                            }
+                          />
+                          <CardContent sx={{ pt: 0 }}>
+                            <Stack spacing={1.5}>
+                              {modulePermissions
+                                .slice(0, 5)
+                                .map((permission) => (
+                                  <Box
+                                    key={permission.id}
+                                    sx={{
+                                      p: 1.5,
+                                      border: 1,
+                                      borderColor: "divider",
+                                      borderRadius: 1,
+                                      bgcolor: "grey.50",
+                                    }}
                                   >
-                                    {permission.permission_name ||
-                                      permission.name}
-                                  </Typography>
-                                </TableCell>
-                                <TableCell>
-                                  <Chip
-                                    label={permission.action || "read"}
-                                    size="small"
-                                    color={
-                                      permission.action === "create"
-                                        ? "success"
-                                        : permission.action === "update"
-                                          ? "warning"
-                                          : permission.action === "delete"
-                                            ? "error"
-                                            : "info"
-                                    }
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                  >
-                                    {permission.description ||
-                                      "No description available"}
-                                  </Typography>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </AccordionDetails>
-                  </Accordion>
-                )
-              )}
+                                    <Box
+                                      sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        mb: 1,
+                                      }}
+                                    >
+                                      <Typography
+                                        variant="body2"
+                                        fontWeight="medium"
+                                      >
+                                        {permission.permission_name ||
+                                          permission.name}
+                                      </Typography>
+                                      <Chip
+                                        label={permission.action || "read"}
+                                        size="small"
+                                        color={
+                                          permission.action === "create"
+                                            ? "success"
+                                            : permission.action === "update"
+                                              ? "warning"
+                                              : permission.action === "delete"
+                                                ? "error"
+                                                : "info"
+                                        }
+                                      />
+                                    </Box>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      display="block"
+                                    >
+                                      {permission.description ||
+                                        "No description available"}
+                                    </Typography>
+                                  </Box>
+                                ))}
+                              {modulePermissions.length > 5 && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ textAlign: "center", pt: 1 }}
+                                >
+                                  +{modulePermissions.length - 5} more
+                                  permissions
+                                </Typography>
+                              )}
+                            </Stack>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  }
+                )}
+              </Grid>
             </Box>
           )}
 
@@ -1121,217 +1544,6 @@ const RoleManagementPage = () => {
             startIcon={saving ? <CircularProgress size={16} /> : null}
           >
             {saving ? "Saving..." : editMode ? "Update Role" : "Create Role"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Manage Permissions Dialog */}
-      <Dialog
-        open={permissionDialogOpen}
-        onClose={() => {
-          if (!saving) {
-            setPermissionDialogOpen(false);
-            // Don't clear selectedItem here
-          }
-        }}
-        maxWidth="lg"
-        fullWidth
-        PaperProps={{
-          sx: { height: "80vh" },
-        }}
-      >
-        <DialogTitle>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Typography variant="h6">
-              Manage Permissions for "
-              {selectedItem?.role_name || selectedItem?.name}"
-            </Typography>
-            <Chip
-              label={`${selectedRolePermissions.length} selected`}
-              color="primary"
-              size="small"
-            />
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            {saving && <LinearProgress sx={{ mb: 2 }} />}
-
-            {Object.keys(groupedPermissions).length === 0 ? (
-              <Alert severity="warning">
-                No permissions available. Please ensure permissions are properly
-                loaded.
-              </Alert>
-            ) : (
-              Object.entries(groupedPermissions).map(
-                ([module, modulePermissions]) => {
-                  const modulePermissionIds = modulePermissions.map(
-                    (p) => p.id
-                  );
-                  const selectedModulePerms = selectedRolePermissions.filter(
-                    (id) => modulePermissionIds.includes(id)
-                  );
-                  const isAllSelected =
-                    selectedModulePerms.length === modulePermissions.length;
-                  const isPartiallySelected =
-                    selectedModulePerms.length > 0 && !isAllSelected;
-
-                  return (
-                    <Accordion key={module} sx={{ mb: 1 }} defaultExpanded>
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 2,
-                            width: "100%",
-                          }}
-                        >
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={isAllSelected}
-                                indeterminate={isPartiallySelected}
-                                onChange={(e) =>
-                                  handleSelectAllPermissions(
-                                    modulePermissions,
-                                    e.target.checked
-                                  )
-                                }
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            }
-                            label=""
-                            sx={{ margin: 0 }}
-                          />
-                          <SecurityIcon color="primary" />
-                          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-                            {module} Permissions
-                          </Typography>
-                          <Chip
-                            label={`${selectedModulePerms.length}/${modulePermissions.length}`}
-                            size="small"
-                            color={
-                              isAllSelected
-                                ? "success"
-                                : isPartiallySelected
-                                  ? "warning"
-                                  : "default"
-                            }
-                          />
-                        </Box>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        <FormGroup>
-                          {modulePermissions.map((permission) => (
-                            <FormControlLabel
-                              key={permission.id}
-                              control={
-                                <Checkbox
-                                  checked={selectedRolePermissions.includes(
-                                    permission.id
-                                  )}
-                                  onChange={(e) =>
-                                    handlePermissionChange(
-                                      permission.id,
-                                      e.target.checked
-                                    )
-                                  }
-                                />
-                              }
-                              label={
-                                <Box sx={{ ml: 1 }}>
-                                  <Box
-                                    sx={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 1,
-                                    }}
-                                  >
-                                    <Typography
-                                      variant="body2"
-                                      fontWeight="medium"
-                                    >
-                                      {permission.permission_name ||
-                                        permission.name}
-                                    </Typography>
-                                    <Chip
-                                      label={permission.action || "read"}
-                                      size="small"
-                                      variant="outlined"
-                                      color={
-                                        permission.action === "create"
-                                          ? "success"
-                                          : permission.action === "update"
-                                            ? "warning"
-                                            : permission.action === "delete"
-                                              ? "error"
-                                              : "info"
-                                      }
-                                    />
-                                  </Box>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    display="block"
-                                  >
-                                    {permission.description ||
-                                      "No description available"}
-                                  </Typography>
-                                </Box>
-                              }
-                              sx={{
-                                display: "block",
-                                mb: 1,
-                                "& .MuiFormControlLabel-label": {
-                                  width: "100%",
-                                },
-                              }}
-                            />
-                          ))}
-                        </FormGroup>
-                      </AccordionDetails>
-                    </Accordion>
-                  );
-                }
-              )
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            onClick={() => {
-              setPermissionDialogOpen(false);
-              setSelectedItem(null); // Clear only when canceling
-            }}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              // Reset to original permissions
-              setSelectedRolePermissions(
-                rolePermissions[selectedItem?.id] || []
-              );
-            }}
-            disabled={saving}
-          >
-            Reset
-          </Button>
-          <Button
-            onClick={handleUpdateRolePermissions}
-            variant="contained"
-            disabled={saving}
-            startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
-          >
-            {saving ? "Saving..." : "Save Permissions"}
           </Button>
         </DialogActions>
       </Dialog>
