@@ -25,6 +25,8 @@ import {
   ListItemText,
   Divider,
   Paper,
+  CircularProgress,
+  Skeleton,
 } from "@mui/material";
 import { LoadingButton } from "@mui/lab";
 import {
@@ -35,84 +37,63 @@ import {
   AdminPanelSettings as AdminIcon,
   Schedule as ScheduleIcon,
   Comment as CommentIcon,
+  SupervisorAccount as SupervisorIcon,
+  GetApp as DownloadIcon,
 } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 import { selectUser } from "../../../store/slices/authSlice";
 import { useAuth } from "../auth/AuthGuard";
 import { ROUTES, LEAVE_STATUS, ROLES } from "../../../constants";
+import { leavesAPI } from "../../../services/api/leaves.api";
+import { documentsAPI } from "../../../services/api/documents.api";
+import useNotification from "../../../hooks/common/useNotification";
 
 const LeaveApproval = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const user = useSelector(selectUser);
   const { hasRole, hasAnyRole } = useAuth();
+  const { showSuccess, showError, showWarning } = useNotification();
+
+  // State management
   const [leaveApplication, setLeaveApplication] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actionType, setActionType] = useState(""); // 'approve' or 'reject'
   const [comment, setComment] = useState("");
+  const [downloadingDoc, setDownloadingDoc] = useState(false);
 
   useEffect(() => {
-    const fetchLeaveApplication = async () => {
-      setLoading(true);
-      try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        const sampleLeave = {
-          id: parseInt(id),
-          user: {
-            id: 2,
-            first_name: "John",
-            sur_name: "Doe",
-            email: "john.doe@ghf.org",
-            department: "IT Department",
-            position: "Software Developer",
-          },
-          type: {
-            id: 1,
-            name: "Annual Leave",
-            max_days: 21,
-          },
-          starting_date: "2024-02-15",
-          end_date: "2024-02-20",
-          days: 6,
-          approval_status: "pending",
-          comment: "Family vacation to attend wedding ceremony",
-          attachment_url: null,
-          created_at: "2024-02-10T10:30:00Z",
-          approval_history: [
-            {
-              id: 1,
-              action: "submitted",
-              comment: "Initial submission",
-              actor: "John Doe",
-              actor_role: "Employee",
-              timestamp: "2024-02-10T10:30:00Z",
-              status: "pending",
-            },
-          ],
-          current_approver_role: "HR Manager", // Next approver role
-          supervisor: {
-            id: 3,
-            name: "Jane Manager",
-            role: "Department Head",
-          },
-        };
-
-        setLeaveApplication(sampleLeave);
-      } catch (error) {
-        console.error("Failed to fetch leave application:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchLeaveApplication();
+    if (id) {
+      fetchLeaveApplication();
+    }
   }, [id]);
 
+  const fetchLeaveApplication = async () => {
+    try {
+      setLoading(true);
+      const response = await leavesAPI.getById(id);
+
+      if (response && response.success) {
+        setLeaveApplication(response.data);
+      } else {
+        throw new Error(
+          response?.message || "Failed to fetch leave application"
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch leave application:", error);
+      showError("Failed to load leave application");
+      navigate(ROUTES.LEAVES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getApprovalSteps = () => {
+    if (!leaveApplication) return [];
+
     const steps = [
       {
         label: "Employee Submission",
@@ -122,67 +103,137 @@ const LeaveApproval = () => {
         completed: true,
       },
       {
-        label: "HR Manager Review",
-        description: "HR review and initial approval",
+        label: "Supervisor Review",
+        description: "Supervisor review and approval",
+        role: "Supervisor",
+        icon: <SupervisorIcon />,
+        completed: [
+          "approved by supervisor",
+          "approved by hr",
+          "approved",
+        ].includes(leaveApplication.approval_status),
+        active:
+          leaveApplication.approval_status === "pending" &&
+          hasAnyRole([ROLES.DEPARTMENT_HEAD]) &&
+          canUserApproveBySupervisor(),
+      },
+      {
+        label: "HR Review",
+        description: "HR review and processing",
         role: "HR Manager",
         icon: <HRIcon />,
-        completed: false,
+        completed: ["approved by hr", "approved"].includes(
+          leaveApplication.approval_status
+        ),
         active:
-          leaveApplication?.approval_status === "pending" &&
-          leaveApplication?.current_approver_role === "HR Manager",
+          (leaveApplication.approval_status === "approved by supervisor" ||
+            (leaveApplication.approval_status === "pending" &&
+              hasRole(ROLES.HR_MANAGER))) &&
+          canUserApproveByHR(),
       },
       {
-        label: "CEO/Admin Approval",
-        description: "Final approval by management",
+        label: "Final Approval",
+        description: "Final management approval",
         role: "Admin",
         icon: <AdminIcon />,
-        completed: false,
-        active: leaveApplication?.approval_status === "approved by hr",
-      },
-      {
-        label: "Approved",
-        description: "Leave request approved",
-        role: "System",
-        icon: <ApproveIcon />,
-        completed: leaveApplication?.approval_status === "approved",
+        completed: leaveApplication.approval_status === "approved",
+        active:
+          leaveApplication.approval_status === "approved by hr" &&
+          hasRole(ROLES.ADMIN),
       },
     ];
 
-    return steps;
+    // Filter out steps that don't apply to this workflow
+    return steps.filter((step) => {
+      // Always show employee submission
+      if (step.role === "Employee") return true;
+
+      // Show supervisor step if there's supervisor approval flow
+      if (step.role === "Supervisor") {
+        return (
+          leaveApplication.user?.basicEmployeeData?.supervisor_id ||
+          hasAnyRole([ROLES.DEPARTMENT_HEAD])
+        );
+      }
+
+      // Always show HR and Admin steps
+      return true;
+    });
+  };
+
+  const canUserApproveBySupervisor = () => {
+    if (!leaveApplication) return false;
+
+    // Check if current user is the supervisor of the applicant
+    const supervisorId =
+      leaveApplication.user?.basicEmployeeData?.supervisor?.id;
+    return supervisorId === user.id || hasRole(ROLES.DEPARTMENT_HEAD);
+  };
+
+  const canUserApproveByHR = () => {
+    return hasRole(ROLES.HR_MANAGER) || hasRole(ROLES.ADMIN);
   };
 
   const canUserApprove = () => {
     if (!leaveApplication) return false;
 
-    const { approval_status, current_approver_role } = leaveApplication;
+    const { approval_status } = leaveApplication;
 
-    // HR Manager can approve pending requests
-    if (
-      approval_status === "pending" &&
-      current_approver_role === "HR Manager"
-    ) {
-      return hasRole(ROLES.HR_MANAGER);
+    // Don't allow approval of own applications
+    if (leaveApplication.user_id === user.id) return false;
+
+    // Don't allow approval of already processed applications
+    if (["approved", "rejected"].includes(approval_status)) return false;
+
+    // Supervisor can approve pending requests
+    if (approval_status === "pending" && canUserApproveBySupervisor()) {
+      return true;
     }
 
-    // Admin/CEO can approve HR-approved requests
-    if (approval_status === "approved by hr") {
-      return hasRole(ROLES.ADMIN);
+    // HR can approve pending or supervisor-approved requests
+    if (
+      (approval_status === "pending" ||
+        approval_status === "approved by supervisor") &&
+      canUserApproveByHR()
+    ) {
+      return true;
+    }
+
+    // Admin can approve HR-approved requests
+    if (approval_status === "approved by hr" && hasRole(ROLES.ADMIN)) {
+      return true;
     }
 
     return false;
   };
 
   const getNextApprovalStatus = (action) => {
-    if (action === "reject") return LEAVE_STATUS.REJECTED;
+    if (action === "reject") return "rejected";
 
     const { approval_status } = leaveApplication;
 
-    if (approval_status === "pending" && hasRole(ROLES.HR_MANAGER)) {
+    // Supervisor approval
+    if (approval_status === "pending" && canUserApproveBySupervisor()) {
+      return "approved by supervisor";
+    }
+
+    // HR approval
+    if (
+      (approval_status === "pending" ||
+        approval_status === "approved by supervisor") &&
+      hasRole(ROLES.HR_MANAGER)
+    ) {
       return "approved by hr";
     }
 
+    // Admin final approval
     if (approval_status === "approved by hr" && hasRole(ROLES.ADMIN)) {
-      return LEAVE_STATUS.APPROVED;
+      return "approved";
+    }
+
+    // Direct HR approval (if no supervisor workflow)
+    if (approval_status === "pending" && hasRole(ROLES.ADMIN)) {
+      return "approved";
     }
 
     return approval_status;
@@ -195,55 +246,77 @@ const LeaveApproval = () => {
   };
 
   const handleActionSubmit = async () => {
-    setActionLoading(true);
-
     try {
+      setActionLoading(true);
+
       const newStatus = getNextApprovalStatus(actionType);
-      const actionData = {
-        leave_id: leaveApplication.id,
-        action: actionType,
-        comment,
-        new_status: newStatus,
-        approver_id: user.id,
-        approver_role: hasRole(ROLES.ADMIN) ? "Admin" : "HR Manager",
+      const statusData = {
+        status: newStatus,
+        comment:
+          comment ||
+          `${actionType === "approve" ? "Approved" : "Rejected"} by ${user.first_name} ${user.sur_name}`,
       };
 
-      console.log("Processing leave approval:", actionData);
+      console.log("Processing leave approval:", {
+        leave_id: leaveApplication.id,
+        action: actionType,
+        new_status: newStatus,
+        comment: statusData.comment,
+      });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const response = await leavesAPI.updateStatus(
+        leaveApplication.id,
+        statusData
+      );
 
-      // Update the leave application status
-      setLeaveApplication((prev) => ({
-        ...prev,
-        approval_status: newStatus,
-        approval_history: [
-          ...prev.approval_history,
-          {
-            id: prev.approval_history.length + 1,
-            action: actionType,
-            comment:
-              comment ||
-              `${actionType === "approve" ? "Approved" : "Rejected"} by ${user.first_name} ${user.sur_name}`,
-            actor: `${user.first_name} ${user.sur_name}`,
-            actor_role: hasRole(ROLES.ADMIN) ? "Admin" : "HR Manager",
-            timestamp: new Date().toISOString(),
-            status: newStatus,
-          },
-        ],
-        current_approver_role: newStatus === "approved by hr" ? "Admin" : null,
-      }));
+      if (response && response.success) {
+        showSuccess(
+          `Leave application ${actionType === "approve" ? "approved" : "rejected"} successfully`
+        );
 
-      setDialogOpen(false);
+        // Refresh the leave application data
+        await fetchLeaveApplication();
 
-      // Navigate back after successful action
-      setTimeout(() => {
-        navigate(ROUTES.LEAVE_APPROVALS);
-      }, 2000);
+        setDialogOpen(false);
+
+        // Navigate back after a short delay
+        setTimeout(() => {
+          navigate(ROUTES.LEAVES);
+        }, 1500);
+      } else {
+        throw new Error(response?.message || "Failed to update leave status");
+      }
     } catch (error) {
       console.error("Failed to process approval:", error);
+      showError("Failed to process leave approval");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDownloadAttachment = async () => {
+    if (!leaveApplication.attachment) return;
+
+    try {
+      setDownloadingDoc(true);
+      const blob = await documentsAPI.download(leaveApplication.attachment.id);
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = leaveApplication.attachment.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      showSuccess("Document downloaded successfully");
+    } catch (error) {
+      console.error("Download error:", error);
+      showError("Failed to download document");
+    } finally {
+      setDownloadingDoc(false);
     }
   };
 
@@ -260,6 +333,7 @@ const LeaveApproval = () => {
       case "approved":
         return "success";
       case "pending":
+      case "approved by supervisor":
       case "approved by hr":
         return "warning";
       case "rejected":
@@ -273,17 +347,47 @@ const LeaveApproval = () => {
     return status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ");
   };
 
+  const getUserDisplayName = (user) => {
+    if (!user) return "Unknown User";
+    return `${user.first_name || ""} ${user.middle_name || ""} ${user.sur_name || ""}`.trim();
+  };
+
+  const calculateLeaveDays = () => {
+    if (!leaveApplication) return 0;
+
+    // Extract days from validity_check or calculate from dates
+    if (leaveApplication.validity_check) {
+      const days = leaveApplication.validity_check.split(" ")[0];
+      return parseInt(days) || 0;
+    }
+
+    const start = new Date(leaveApplication.starting_date);
+    const end = new Date(leaveApplication.end_date);
+    const diffTime = Math.abs(end - start);
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
+
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "50vh",
-        }}
-      >
-        <Typography>Loading leave application...</Typography>
+      <Box>
+        <Skeleton variant="text" width={300} height={40} sx={{ mb: 2 }} />
+        <Skeleton variant="text" width={200} height={20} sx={{ mb: 4 }} />
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={8}>
+            <Card>
+              <CardContent>
+                <Skeleton variant="rectangular" height={400} />
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Skeleton variant="rectangular" height={300} />
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
       </Box>
     );
   }
@@ -300,6 +404,7 @@ const LeaveApproval = () => {
   }
 
   const steps = getApprovalSteps();
+  const leaveDays = calculateLeaveDays();
 
   return (
     <Box>
@@ -341,24 +446,30 @@ const LeaveApproval = () => {
               >
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                   <Avatar sx={{ bgcolor: "primary.main" }}>
-                    {leaveApplication.user.first_name.charAt(0)}
-                    {leaveApplication.user.sur_name.charAt(0)}
+                    {leaveApplication.user?.first_name?.charAt(0) || "U"}
+                    {leaveApplication.user?.sur_name?.charAt(0) || ""}
                   </Avatar>
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                      {leaveApplication.user.first_name}{" "}
-                      {leaveApplication.user.sur_name}
+                      {getUserDisplayName(leaveApplication.user)}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {leaveApplication.user.position} •{" "}
-                      {leaveApplication.user.department}
+                      {leaveApplication.user?.email || ""}
                     </Typography>
+                    {leaveApplication.user?.basicEmployeeData && (
+                      <Typography variant="caption" color="text.secondary">
+                        Employee ID:{" "}
+                        {leaveApplication.user.basicEmployeeData.employee_id ||
+                          "N/A"}
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
 
                 <Chip
                   label={formatStatus(leaveApplication.approval_status)}
                   color={getStatusColor(leaveApplication.approval_status)}
+                  size="large"
                 />
               </Box>
 
@@ -368,7 +479,9 @@ const LeaveApproval = () => {
                     <ListItem>
                       <ListItemText
                         primary="Leave Type"
-                        secondary={leaveApplication.type.name}
+                        secondary={
+                          leaveApplication.leaveType?.name || "Unknown"
+                        }
                       />
                     </ListItem>
                     <ListItem>
@@ -386,7 +499,7 @@ const LeaveApproval = () => {
                     <ListItem>
                       <ListItemText
                         primary="Duration"
-                        secondary={`${leaveApplication.days} days`}
+                        secondary={`${leaveDays} days`}
                       />
                     </ListItem>
                   </List>
@@ -404,7 +517,22 @@ const LeaveApproval = () => {
                       <ListItemText
                         primary="Supervisor"
                         secondary={
-                          leaveApplication.supervisor?.name || "Not assigned"
+                          leaveApplication.user?.basicEmployeeData?.supervisor
+                            ? getUserDisplayName(
+                                leaveApplication.user.basicEmployeeData
+                                  .supervisor
+                              )
+                            : "Not assigned"
+                        }
+                      />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemText
+                        primary="Approved By"
+                        secondary={
+                          leaveApplication.approver
+                            ? getUserDisplayName(leaveApplication.approver)
+                            : "Pending approval"
                         }
                       />
                     </ListItem>
@@ -430,6 +558,37 @@ const LeaveApproval = () => {
                   </Alert>
                 </Box>
               )}
+
+              {leaveApplication.attachment && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Supporting Document:
+                  </Typography>
+                  <Paper
+                    variant="outlined"
+                    sx={{ p: 2, display: "flex", alignItems: "center", gap: 2 }}
+                  >
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      {leaveApplication.attachment.name}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={
+                        downloadingDoc ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          <DownloadIcon />
+                        )
+                      }
+                      onClick={handleDownloadAttachment}
+                      disabled={downloadingDoc}
+                    >
+                      {downloadingDoc ? "Downloading..." : "Download"}
+                    </Button>
+                  </Paper>
+                </Box>
+              )}
             </CardContent>
           </Card>
 
@@ -440,6 +599,18 @@ const LeaveApproval = () => {
                 <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold" }}>
                   Approval Actions
                 </Typography>
+
+                <Alert severity="info" sx={{ mb: 3 }}>
+                  <Typography variant="body2">
+                    As a{" "}
+                    {hasRole(ROLES.ADMIN)
+                      ? "System Administrator"
+                      : hasRole(ROLES.HR_MANAGER)
+                        ? "HR Manager"
+                        : "Department Head"}
+                    , you can approve or reject this leave application.
+                  </Typography>
+                </Alert>
 
                 <Box sx={{ display: "flex", gap: 2 }}>
                   <Button
@@ -465,6 +636,23 @@ const LeaveApproval = () => {
               </CardContent>
             </Card>
           )}
+
+          {!canUserApprove() && leaveApplication.user_id === user.id && (
+            <Alert severity="info">
+              You cannot approve your own leave application.
+            </Alert>
+          )}
+
+          {!canUserApprove() &&
+            leaveApplication.user_id !== user.id &&
+            !["approved", "rejected"].includes(
+              leaveApplication.approval_status
+            ) && (
+              <Alert severity="warning">
+                You do not have permission to approve this leave application at
+                its current stage.
+              </Alert>
+            )}
         </Grid>
 
         {/* Approval Workflow */}
@@ -482,13 +670,32 @@ const LeaveApproval = () => {
                     active={step.active}
                     completed={step.completed}
                   >
-                    <StepLabel icon={step.icon}>
+                    <StepLabel
+                      icon={step.icon}
+                      StepIconProps={{
+                        style: {
+                          color: step.completed
+                            ? "#4caf50"
+                            : step.active
+                              ? "#ff9800"
+                              : "#9e9e9e",
+                        },
+                      }}
+                    >
                       <Typography variant="subtitle2">{step.label}</Typography>
                     </StepLabel>
                     <StepContent>
                       <Typography variant="body2" color="text.secondary">
                         {step.description}
                       </Typography>
+                      {step.active && (
+                        <Chip
+                          label="Pending Your Action"
+                          size="small"
+                          color="warning"
+                          sx={{ mt: 1 }}
+                        />
+                      )}
                     </StepContent>
                   </Step>
                 ))}
@@ -496,65 +703,60 @@ const LeaveApproval = () => {
             </CardContent>
           </Card>
 
-          {/* Approval History */}
+          {/* Application Summary */}
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 3, fontWeight: "bold" }}>
-                Approval History
+                Application Summary
               </Typography>
 
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Application ID
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  #{leaveApplication.id}
+                </Typography>
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Leave Type
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {leaveApplication.leaveType?.name || "Unknown"}
+                </Typography>
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Duration
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {leaveDays} {leaveDays === 1 ? "day" : "days"}
+                </Typography>
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Date Range
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {formatDate(leaveApplication.starting_date)} -{" "}
+                  {formatDate(leaveApplication.end_date)}
+                </Typography>
+              </Box>
+
               <Box>
-                {leaveApplication.approval_history.map((entry, index) => (
-                  <Paper
-                    key={entry.id}
-                    elevation={1}
-                    sx={{
-                      p: 2,
-                      mb: 2,
-                      border: "1px solid",
-                      borderColor: "divider",
-                      borderLeft: "4px solid",
-                      borderLeftColor:
-                        entry.action === "approved" ||
-                        entry.action === "approve"
-                          ? "success.main"
-                          : entry.action === "rejected" ||
-                              entry.action === "reject"
-                            ? "error.main"
-                            : "primary.main",
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-start",
-                        mb: 1,
-                      }}
-                    >
-                      <Box>
-                        <Typography
-                          variant="subtitle2"
-                          sx={{ fontWeight: "bold" }}
-                        >
-                          {entry.actor}
-                        </Typography>
-                        <Chip
-                          label={entry.actor_role}
-                          size="small"
-                          variant="outlined"
-                          sx={{ mt: 0.5 }}
-                        />
-                      </Box>
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDateTime(entry.timestamp)}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {entry.comment}
-                    </Typography>
-                  </Paper>
-                ))}
+                <Typography variant="body2" color="text.secondary">
+                  Status
+                </Typography>
+                <Chip
+                  label={formatStatus(leaveApplication.approval_status)}
+                  color={getStatusColor(leaveApplication.approval_status)}
+                  size="small"
+                  sx={{ mt: 0.5 }}
+                />
               </Box>
             </CardContent>
           </Card>
@@ -597,10 +799,18 @@ const LeaveApproval = () => {
                 : "Explain why this request is being rejected..."
             }
             required={actionType === "reject"}
+            error={actionType === "reject" && !comment.trim()}
+            helperText={
+              actionType === "reject" && !comment.trim()
+                ? "Rejection reason is required"
+                : ""
+            }
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDialogOpen(false)} disabled={actionLoading}>
+            Cancel
+          </Button>
           <LoadingButton
             variant="contained"
             color={actionType === "approve" ? "success" : "error"}
