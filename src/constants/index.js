@@ -177,6 +177,17 @@ export const API_ENDPOINTS = {
     SYSTEM_BACKUP: '/settings/backup',
     EMAIL_TEMPLATES: '/settings/email-templates',
     NOTIFICATION_SETTINGS: '/settings/notifications',
+
+    // Timesheet Management
+    TIMESHEETS: '/timesheets',
+    TIMESHEET_BY_ID: (id) => `/timesheets/${id}`,
+    TIMESHEET_SUBMIT: (id) => `/timesheets/${id}/submit`,
+    TIMESHEET_APPROVE: (id) => `/timesheets/${id}/approve`,
+    TIMESHEET_REJECT: (id) => `/timesheets/${id}/reject`,
+    TEAM_TIMESHEETS: '/timesheets/team',
+    TIMESHEET_SUMMARY: '/timesheets/summary',
+    TIMESHEET_EXPORT: '/timesheets/export',
+    MY_TIMESHEETS: '/timesheets/my',
 };
 
 // Authentication Constants
