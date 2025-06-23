@@ -29,6 +29,8 @@ import LeaveApprovalsPage from "../pages/leaves/LeaveApprovalsPage";
 import AttendancePage from "../pages/attendance/AttendancePage";
 import AttendanceReportsPage from "../pages/attendance/AttendanceReportsPage";
 import WorkSchedulePage from "../pages/attendance/WorkSchedulePage";
+import TimesheetPage from "../pages/attendance/TimesheetPage";
+import TimesheetApprovalPage from "../pages/attendance/TimesheetApprovalPage";
 import DepartmentsPage from "../pages/departments/DepartmentsPage";
 import DepartmentDetailsPage from "../pages/departments/DepartmentDetailsPage";
 import FinancePage from "../pages/finance/FinancePage";
@@ -49,7 +51,8 @@ import UnauthorizedPage from "../pages/error/UnauthorizedPage";
 // Payroll Management
 import PayrollPage from "../pages/finance/PayrollPage";
 import PayrollDetailsPage from "../pages/finance/PayrollDetailsPage";
-import PayrollProcessPage from "../pages/finance/PayrollProcessPage";
+// import PayrollProcessPage from "../pages/finance/PayrollProcessPage";
+import PayrollProcessPage from "../pages/finance/PayrollProcessing";
 import SalaryComponentsPage from "../pages/finance/SalaryComponentsPage";
 
 // Asset Management
@@ -235,6 +238,23 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
+        <Route
+          path="attendance/timesheet"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.HR_READ]}>
+              <TimesheetPage />
+            </PermissionGuard>
+          }
+        />
+
+        <Route
+          path="attendance/timesheet/approval"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.HR_UPDATE]}>
+              <TimesheetApprovalPage />
+            </PermissionGuard>
+          }
+        />
 
         {/* Departments */}
         <Route
@@ -275,6 +295,14 @@ const AppRoutes = () => {
         />
         <Route
           path="finance/payroll/process"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.PROCESS_PAYROLL]}>
+              <PayrollProcessPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/payroll/processing"
           element={
             <PermissionGuard permissions={[PERMISSIONS.PROCESS_PAYROLL]}>
               <PayrollProcessPage />

@@ -35,6 +35,8 @@ export const API_ENDPOINTS = {
     LEAVE_BULK_ACTION: '/leaves/bulk-action',
     LEAVE_EXPORT: '/leaves/export',
     LEAVE_CANCEL: (id) => `/leaves/${id}/cancel`,
+    LEAVE_DETAILS_READ: 'LeaveDetails:read',
+    LEAVE_DETAILS_UPDATE: 'LeaveDetails:update',
 
     // Attendance
     ATTENDANCE: '/attendance',
@@ -82,6 +84,7 @@ export const API_ENDPOINTS = {
     PAYROLL_REPORTS: '/payroll/reports',
     PAYSLIPS: '/payroll/payslips',
     PAYSLIP_BY_ID: (id) => `/payroll/payslips/${id}`,
+    PAYROLL_GENERATE: 'Payroll:generate',
 
     // **NEW ENDPOINTS - Performance Management**
     PERFORMANCE: '/performance',
@@ -266,11 +269,21 @@ export const ROUTES = {
     LEAVE_CREATE: '/leaves/create',
     LEAVE_DETAILS: '/leaves/:id',
     LEAVE_APPROVALS: '/leaves/approvals',
+    TIMESHEET: '/attendance/timesheet',
+    TIMESHEET_APPROVAL: '/attendance/timesheet/approval',
+    PAYROLL_PROCESSING: '/finance/payroll/processing',
 
     // Attendance routes
     ATTENDANCE: '/attendance',
     ATTENDANCE_REPORTS: '/attendance/reports',
     ATTENDANCE_SCHEDULE: '/attendance/schedule',
+
+    // Timesheet Management
+    TIMESHEET_READ: 'Timesheet:read',
+    TIMESHEET_CREATE: 'Timesheet:create',
+    TIMESHEET_UPDATE: 'Timesheet:update',
+    TIMESHEET_APPROVE: 'Timesheet:approve',
+    TIMESHEET_REJECT: 'Timesheet:reject',
 
     // Department routes
     DEPARTMENTS: '/departments',
