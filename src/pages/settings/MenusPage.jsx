@@ -1105,11 +1105,11 @@ const MenusPage = () => {
                             fontWeight: "bold",
                             bgcolor: "background.paper",
                             writingMode:
-                              role.role_name.length > 8
+                              role.role_name.length > 20
                                 ? "vertical-rl"
                                 : "horizontal-tb",
                             textOrientation:
-                              role.role_name.length > 8 ? "mixed" : "initial",
+                              role.role_name.length > 20 ? "mixed" : "initial",
                           }}
                         >
                           <Box
