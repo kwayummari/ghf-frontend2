@@ -108,7 +108,7 @@ const LoginForm = () => {
               {url}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Welcome back! Please sign in to your account
+              {url}
             </Typography>
           </Box>
 
