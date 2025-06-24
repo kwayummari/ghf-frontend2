@@ -11,6 +11,8 @@ class AuthService {
      */
     async login(credentials) {
         try {
+            const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+            console.log('API Base URL:', baseURL);
             const response = await apiClient.post(API_ENDPOINTS.LOGIN, credentials);
             const { data } = response.data;
 
