@@ -46,9 +46,6 @@ const LoginForm = () => {
   const loading = useSelector(selectLoginLoading);
   const error = useSelector(selectAuthError);
   const [showPassword, setShowPassword] = useState(false);
-  const url = import.meta.env.VITE_API_BASE_URL;
-
-  console.log("🔍 VITE_API_BASE_URL:", import.meta.env.VITE_API_BASE_URL);
 
   const formik = useFormik({
     initialValues: {
@@ -105,10 +102,10 @@ const LoginForm = () => {
               component="h1"
               sx={{ fontWeight: "bold", color: "primary.main" }}
             >
-              {url}
+              GHF Office System
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              {url}
+              Welcome back! Please sign in to your account
             </Typography>
           </Box>
 
