@@ -3,7 +3,7 @@ import { AUTH_CONSTANTS, API_ENDPOINTS } from '../../constants';
 
 // Create axios instance
 const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://185.172.57.203:3000/api/v1',
+    baseURL: 'http://185.172.57.203:3000/api/v1',
     timeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
     headers: {
         'Content-Type': 'application/json',
