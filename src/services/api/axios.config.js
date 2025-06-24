@@ -10,8 +10,6 @@ const apiClient = axios.create({
     },
 });
 
-console.log('🔍 VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
-
 
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(

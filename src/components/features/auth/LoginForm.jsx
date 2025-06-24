@@ -47,6 +47,8 @@ const LoginForm = () => {
   const error = useSelector(selectAuthError);
   const [showPassword, setShowPassword] = useState(false);
 
+  console.log("🔍 VITE_API_BASE_URL:", import.meta.env.VITE_API_BASE_URL);
+
   const formik = useFormik({
     initialValues: {
       email: "",
