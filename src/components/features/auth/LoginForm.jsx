@@ -102,7 +102,7 @@ const LoginForm = () => {
               component="h1"
               sx={{ fontWeight: "bold", color: "primary.main" }}
             >
-              GHF Office System
+              GHF Office System 1
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               Welcome back! Please sign in to your account
