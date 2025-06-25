@@ -542,7 +542,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           registration_number:
             employeeData.basicEmployeeData.registration_number,
           supervisor_id: employeeData.basicEmployeeData.supervisor_id || null,
-          date_joined: employeeData.basicEmployeeData.date_joined,
+          date_joined: employeeData.basicEmployeeData.date_joined ? new Date(employeeData.basicEmployeeData.date_joined).toISOString().split('T')[0] : null,
           salary: employeeData.basicEmployeeData.salary,
           status: employeeData.basicEmployeeData.status,
           nida: employeeData.basicEmployeeData.nida,
@@ -554,7 +554,9 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         },
 
         bio_data: {
-          dob: employeeData.bioData.dob,
+          dob: employeeData.bioData.dob
+            ? new Date(employeeData.bioData.dob).toISOString().split("T")[0]
+            : null,
           marital_status: employeeData.bioData.marital_status,
           blood_group: employeeData.bioData.blood_group,
           national_id: employeeData.bioData.national_id,
