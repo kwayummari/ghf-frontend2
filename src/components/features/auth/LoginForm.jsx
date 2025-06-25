@@ -57,8 +57,6 @@ const LoginForm = () => {
       try {
         const resultAction = await dispatch(loginUser(values));
 
-        console.log(resultAction);
-
         if (loginUser.fulfilled.match(resultAction)) {
           // Login successful
           navigate(AUTH_CONSTANTS.LOGIN_REDIRECT, { replace: true });
@@ -81,7 +79,7 @@ const LoginForm = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+        background: "#c2895a",
         padding: 2,
       }}
     >
