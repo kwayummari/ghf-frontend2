@@ -52,7 +52,7 @@ const validationSchema = Yup.object({
   hire_date: Yup.date().required("Hire date is required"),
 });
 
-const EnhancedUserForm = ({
+const LoginForm = ({
   open,
   onClose,
   onSubmit,
@@ -693,4 +693,4 @@ const EnhancedUserForm = ({
   );
 };
 
-export default EnhancedUserForm;
+export default LoginForm;
