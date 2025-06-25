@@ -157,7 +157,7 @@ const employmentDataSchema = Yup.object({
   }),
 });
 
-// NEW: Role assignment validation schema
+// Role assignment validation schema
 const roleAssignmentSchema = Yup.object({
   role_ids: Yup.array()
     .of(Yup.number())
@@ -165,7 +165,7 @@ const roleAssignmentSchema = Yup.object({
     .required("Role assignment is required"),
 });
 
-// NEW: Role Assignment Form Component
+// Role Assignment Form Component
 const RoleAssignmentForm = ({ formik, availableRoles }) => {
   const handleRoleChange = (event) => {
     const value = event.target.value;
@@ -252,12 +252,12 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // NEW: State for roles
+  // State for roles
   const [availableRoles, setAvailableRoles] = useState([]);
   const [rolesLoading, setRolesLoading] = useState(true);
   const [userRoles, setUserRoles] = useState([]);
 
-  // NEW: Fetch available roles on component mount
+  // Fetch available roles on component mount
   useEffect(() => {
     const fetchRoles = async () => {
       try {
@@ -277,13 +277,11 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     fetchRoles();
   }, []);
 
-  // NEW: Fetch user roles if in edit mode
+  // Fetch user roles if in edit mode
   useEffect(() => {
     const fetchUserRoles = async () => {
       if (editMode && initialData?.id) {
         try {
-          // You might need to implement this endpoint or get roles from initialData
-          // For now, we'll extract from initialData or use a placeholder
           const roleIds = initialData.roles?.map((role) => role.id) || [];
           setUserRoles(roleIds);
         } catch (error) {
@@ -298,7 +296,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     }
   }, [editMode, initialData, availableRoles]);
 
-  // Initialize form data with proper structure including roles
+  // Initialize form data with proper structure
   const getInitialFormData = () => {
     if (editMode && initialData) {
       return {
@@ -358,7 +356,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           account_number: initialData.basicEmployeeData?.account_number || "",
         },
 
-        // NEW: Role assignment
+        // Role assignment
         role_ids: initialData.roles?.map((role) => role.id) || userRoles || [],
       };
     }
@@ -418,7 +416,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         account_number: "",
       },
 
-      // NEW: Role assignment - default to Employee role (ID: 5)
+      // Role assignment - default to Employee role (ID: 5)
       role_ids: [5],
     };
   };
@@ -525,9 +523,9 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       // Extract role_ids for separate handling
       const { role_ids, ...employeeData } = finalData;
 
-      // Transform data to match API expectations
+      // FIXED: Transform data to match backend API expectations
       const apiData = {
-        // Basic info (root level)
+        // Basic info (root level) - matches backend structure
         first_name: employeeData.first_name,
         middle_name: employeeData.middle_name,
         sur_name: employeeData.sur_name,
@@ -535,78 +533,104 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         phone_number: employeeData.phone_number,
         gender: employeeData.gender,
         status: employeeData.status,
-        address: employeeData.address,
 
-        // Emergency contacts (root level)
-        emergency_contact_name: employeeData.emergency_contact_name,
-        emergency_contact_phone: employeeData.emergency_contact_phone,
-        emergency_contact_relationship:
-          employeeData.emergency_contact_relationship,
-        next_of_kin_name: employeeData.next_of_kin_name,
-        next_of_kin_phone: employeeData.next_of_kin_phone,
-        next_of_kin_relationship: employeeData.next_of_kin_relationship,
+        // FIXED: Transform nested objects to backend format
+        basic_employee_data: {
+          department_id: employeeData.basicEmployeeData.department_id || null,
+          designation: employeeData.basicEmployeeData.designation,
+          employment_type: employeeData.basicEmployeeData.employment_type,
+          registration_number:
+            employeeData.basicEmployeeData.registration_number,
+          supervisor_id: employeeData.basicEmployeeData.supervisor_id || null,
+          date_joined: employeeData.basicEmployeeData.date_joined,
+          salary: employeeData.basicEmployeeData.salary,
+          status: employeeData.basicEmployeeData.status,
+          nida: employeeData.basicEmployeeData.nida,
+          nssf: employeeData.basicEmployeeData.nssf,
+          bima: employeeData.basicEmployeeData.bima,
+          helsb: employeeData.basicEmployeeData.helsb,
+          bank_name: employeeData.basicEmployeeData.bank_name,
+          account_number: employeeData.basicEmployeeData.account_number,
+        },
 
-        // Nested data
-        bioData: employeeData.bioData,
-        personalEmployeeData: employeeData.personalEmployeeData,
-        basicEmployeeData: employeeData.basicEmployeeData,
+        bio_data: {
+          dob: employeeData.bioData.dob,
+          marital_status: employeeData.bioData.marital_status,
+          blood_group: employeeData.bioData.blood_group,
+          national_id: employeeData.bioData.national_id,
+          fingerprint_id: employeeData.bioData.fingerprint_id,
+          signature: employeeData.bioData.signature,
+        },
+
+        personal_employee_data: {
+          location: employeeData.personalEmployeeData.location,
+          education_level: employeeData.personalEmployeeData.education_level,
+        },
+
+        // FIXED: Transform emergency contacts to array format expected by backend
+        emergency_contacts: [
+          {
+            name: employeeData.emergency_contact_name,
+            phone_number: employeeData.emergency_contact_phone,
+            relationship: employeeData.emergency_contact_relationship,
+          },
+        ].filter((contact) => contact.name && contact.phone_number), // Only include if data exists
+
+        // FIXED: Transform next of kin to array format expected by backend
+        next_of_kin: [
+          {
+            name: employeeData.next_of_kin_name,
+            phone_number: employeeData.next_of_kin_phone,
+            relationship: employeeData.next_of_kin_relationship,
+            percentage: 100, // Default to 100% for single next of kin
+          },
+        ].filter((kin) => kin.name && kin.phone_number), // Only include if data exists
+
+        // FIXED: Include roles in the main payload for backend processing
+        roles: role_ids || [],
       };
+
+      console.log("API Data being sent:", apiData);
 
       let response;
       if (editMode && initialData?.id) {
-        // Update employee
+        // Update employee - backend handles role assignment internally
         response = await employeesAPI.update(initialData.id, apiData);
-
-        // NEW: Update role assignments separately
-        if (role_ids && role_ids.length > 0) {
-          try {
-            await rolesAPI.assignRole({
-              user_id: initialData.id,
-              role_ids: role_ids,
-            });
-          } catch (roleError) {
-            console.warn("Role assignment error:", roleError);
-            // Continue with success message even if role assignment fails
-            showError(
-              "Employee updated but role assignment failed. Please update roles manually."
-            );
-          }
-        }
-
         showSuccess("Employee updated successfully");
       } else {
-        // Create employee
+        // Create employee - backend handles role assignment internally
         response = await employeesAPI.create(apiData);
-        const newEmployeeId = response.data?.data?.id || response.data?.id;
-
-        // NEW: Assign roles to the new employee
-        if (newEmployeeId && role_ids && role_ids.length > 0) {
-          try {
-            await rolesAPI.assignRole({
-              user_id: newEmployeeId,
-              role_ids: role_ids,
-            });
-          } catch (roleError) {
-            console.warn("Role assignment error:", roleError);
-            showError(
-              "Employee created but role assignment failed. Please assign roles manually."
-            );
-          }
-        }
-
         showSuccess("Employee created successfully");
       }
 
       // Call onSuccess callback if provided
       if (onSuccess && response.data) {
-        onSuccess(response.data.data);
+        onSuccess(response.data.data || response.data);
       } else {
         navigate(ROUTES.EMPLOYEES);
       }
     } catch (err) {
       console.error("Error saving employee:", err);
-      const errorMessage =
-        err.userMessage || err.message || "Failed to save employee data";
+      console.error("Error details:", err.response?.data);
+
+      // Better error handling
+      let errorMessage = "Failed to save employee data";
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.errors) {
+        // Handle validation errors
+        const validationErrors = err.response.data.errors;
+        if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+          errorMessage = validationErrors
+            .map((e) => e.message || e.msg)
+            .join(", ");
+        }
+      } else if (err.userMessage) {
+        errorMessage = err.userMessage;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
       setError(errorMessage);
       showError(errorMessage);
     } finally {
