@@ -23,6 +23,7 @@ import {
   ContactPhone as ContactIcon,
   Work as WorkIcon,
   Assignment as AssignmentIcon,
+  Security as SecurityIcon,
 } from "@mui/icons-material";
 import BasicInfoForm from "./forms/BasicInfoForm";
 import PersonalInfoForm from "./forms/PersonalInfoForm";
@@ -30,6 +31,7 @@ import BioDataForm from "./forms/BioDataForm";
 import EmploymentDataForm from "./forms/EmploymentDataForm";
 import { ROUTES } from "../../../constants";
 import { employeesAPI } from "../../../services/api/employees.api";
+import rolesAPI from "../../../services/api/roles.api";
 import useNotification from "../../../hooks/common/useNotification";
 
 // Custom LoadingButton component to replace @mui/lab
@@ -85,9 +87,14 @@ const steps = [
     icon: <WorkIcon />,
     description: "Job Details, Salary, Banking, Government IDs",
   },
+  {
+    label: "Role Assignment",
+    icon: <SecurityIcon />,
+    description: "System Access & Permissions",
+  },
 ];
 
-// FIXED: Updated validation schemas to match your form structure
+// Updated validation schemas to include role validation
 const basicInfoSchema = Yup.object({
   first_name: Yup.string().required("First name is required"),
   middle_name: Yup.string(),
@@ -109,13 +116,11 @@ const bioDataSchema = Yup.object({
   }),
 });
 
-// FIXED: Updated personal data schema to match the actual form fields
 const personalDataSchema = Yup.object({
   personalEmployeeData: Yup.object({
     location: Yup.string().required("Location is required"),
     education_level: Yup.string().required("Education level is required"),
   }),
-  // FIXED: Updated field names to match PersonalInfoForm structure
   address: Yup.string().required("Address is required"),
   emergency_contact_name: Yup.string().required(
     "Emergency contact name is required"
@@ -126,7 +131,6 @@ const personalDataSchema = Yup.object({
   emergency_contact_relationship: Yup.string().required(
     "Relationship is required"
   ),
-  // Made next of kin optional since it's marked as optional in the form
   next_of_kin_name: Yup.string(),
   next_of_kin_phone: Yup.string(),
   next_of_kin_relationship: Yup.string(),
@@ -153,6 +157,94 @@ const employmentDataSchema = Yup.object({
   }),
 });
 
+// NEW: Role assignment validation schema
+const roleAssignmentSchema = Yup.object({
+  role_ids: Yup.array()
+    .of(Yup.number())
+    .min(1, "At least one role must be assigned")
+    .required("Role assignment is required"),
+});
+
+// NEW: Role Assignment Form Component
+const RoleAssignmentForm = ({ formik, availableRoles }) => {
+  const handleRoleChange = (event) => {
+    const value = event.target.value;
+    formik.setFieldValue("role_ids", value);
+  };
+
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        Role Assignment
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Assign system roles to define the employee's access permissions.
+        Multiple roles can be assigned.
+      </Typography>
+
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <TextField
+            select
+            fullWidth
+            label="System Roles"
+            name="role_ids"
+            value={formik.values.role_ids || []}
+            onChange={handleRoleChange}
+            error={formik.touched.role_ids && Boolean(formik.errors.role_ids)}
+            helperText={formik.touched.role_ids && formik.errors.role_ids}
+            SelectProps={{
+              multiple: true,
+              renderValue: (selected) => {
+                const selectedRoles = availableRoles.filter((role) =>
+                  selected.includes(role.id)
+                );
+                return selectedRoles.map((role) => role.role_name).join(", ");
+              },
+            }}
+          >
+            {availableRoles.map((role) => (
+              <MenuItem key={role.id} value={role.id}>
+                <Box>
+                  <Typography variant="body1" fontWeight="medium">
+                    {role.role_name}
+                  </Typography>
+                  {role.description && (
+                    <Typography variant="body2" color="text.secondary">
+                      {role.description}
+                    </Typography>
+                  )}
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+
+        {formik.values.role_ids && formik.values.role_ids.length > 0 && (
+          <Grid item xs={12}>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Selected Roles:
+              </Typography>
+              {formik.values.role_ids.map((roleId) => {
+                const role = availableRoles.find((r) => r.id === roleId);
+                return role ? (
+                  <Box key={role.id} sx={{ mb: 1 }}>
+                    <Typography variant="body2">
+                      <strong>{role.role_name}</strong>
+                      {role.description && ` - ${role.description}`}
+                    </Typography>
+                  </Box>
+                ) : null;
+              })}
+            </Box>
+          </Grid>
+        )}
+      </Grid>
+    </Box>
+  );
+};
+
 const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
@@ -160,7 +252,53 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Initialize form data with proper structure
+  // NEW: State for roles
+  const [availableRoles, setAvailableRoles] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [userRoles, setUserRoles] = useState([]);
+
+  // NEW: Fetch available roles on component mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        setRolesLoading(true);
+        const response = await rolesAPI.getAllRoles();
+        const roles = response.data || response;
+        setAvailableRoles(Array.isArray(roles) ? roles : []);
+      } catch (error) {
+        console.error("Failed to fetch roles:", error);
+        showError("Failed to load available roles");
+        setAvailableRoles([]);
+      } finally {
+        setRolesLoading(false);
+      }
+    };
+
+    fetchRoles();
+  }, []);
+
+  // NEW: Fetch user roles if in edit mode
+  useEffect(() => {
+    const fetchUserRoles = async () => {
+      if (editMode && initialData?.id) {
+        try {
+          // You might need to implement this endpoint or get roles from initialData
+          // For now, we'll extract from initialData or use a placeholder
+          const roleIds = initialData.roles?.map((role) => role.id) || [];
+          setUserRoles(roleIds);
+        } catch (error) {
+          console.error("Failed to fetch user roles:", error);
+          setUserRoles([]);
+        }
+      }
+    };
+
+    if (editMode && initialData && availableRoles.length > 0) {
+      fetchUserRoles();
+    }
+  }, [editMode, initialData, availableRoles]);
+
+  // Initialize form data with proper structure including roles
   const getInitialFormData = () => {
     if (editMode && initialData) {
       return {
@@ -190,7 +328,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
             initialData.personalEmployeeData?.education_level || "",
         },
 
-        // FIXED: Added address field that PersonalInfoForm expects
         address: initialData.address || "",
 
         // Emergency contacts (root level)
@@ -220,6 +357,9 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           bank_name: initialData.basicEmployeeData?.bank_name || "",
           account_number: initialData.basicEmployeeData?.account_number || "",
         },
+
+        // NEW: Role assignment
+        role_ids: initialData.roles?.map((role) => role.id) || userRoles || [],
       };
     }
 
@@ -250,7 +390,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         education_level: "",
       },
 
-      // FIXED: Added address field
       address: "",
 
       // Emergency contacts
@@ -278,6 +417,9 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         bank_name: "",
         account_number: "",
       },
+
+      // NEW: Role assignment - default to Employee role (ID: 5)
+      role_ids: [5],
     };
   };
 
@@ -293,6 +435,8 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         return personalDataSchema;
       case 3:
         return employmentDataSchema;
+      case 4:
+        return roleAssignmentSchema;
       default:
         return Yup.object({});
     }
@@ -305,9 +449,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     onSubmit: async (values) => {
       console.log("Form submission triggered for step:", activeStep);
       console.log("Current form values:", values);
-      console.log("Form errors:", formik.errors);
-      console.log("Form touched:", formik.touched);
-      console.log("Form isValid:", formik.isValid);
 
       if (activeStep === steps.length - 1) {
         // Final submission
@@ -320,14 +461,24 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     },
   });
 
-  // Update validation schema when step changes by recreating formik
+  // Update validation schema when step changes
   useEffect(() => {
-    // Reset validation errors when step changes
     formik.setErrors({});
     formik.setTouched({});
   }, [activeStep]);
 
-  // Validate current step only - FIXED: Support nested validation paths
+  // Update formData when userRoles are loaded in edit mode
+  useEffect(() => {
+    if (
+      editMode &&
+      userRoles.length > 0 &&
+      formik.values.role_ids.length === 0
+    ) {
+      formik.setFieldValue("role_ids", userRoles);
+    }
+  }, [userRoles, editMode]);
+
+  // Validate current step
   const validateCurrentStep = async () => {
     const currentSchema = getValidationSchema();
     try {
@@ -338,15 +489,12 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       const touched = {};
 
       validationErrors.inner.forEach((error) => {
-        // Handle nested error paths properly
         const path = error.path;
         if (path.includes(".")) {
-          // Nested path like "personalEmployeeData.location"
           const pathParts = path.split(".");
           let errorRef = errors;
           let touchedRef = touched;
 
-          // Build nested error structure
           for (let i = 0; i < pathParts.length - 1; i++) {
             const part = pathParts[i];
             if (!errorRef[part]) errorRef[part] = {};
@@ -358,18 +506,13 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           errorRef[pathParts[pathParts.length - 1]] = error.message;
           touchedRef[pathParts[pathParts.length - 1]] = true;
         } else {
-          // Simple path
           errors[path] = error.message;
           touched[path] = true;
         }
       });
 
-      console.log("Validation errors:", errors);
-      console.log("Touched fields:", touched);
-
       formik.setErrors(errors);
       formik.setTouched(touched);
-
       return false;
     }
   };
@@ -379,41 +522,78 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     setError(null);
 
     try {
+      // Extract role_ids for separate handling
+      const { role_ids, ...employeeData } = finalData;
+
       // Transform data to match API expectations
       const apiData = {
         // Basic info (root level)
-        first_name: finalData.first_name,
-        middle_name: finalData.middle_name,
-        sur_name: finalData.sur_name,
-        email: finalData.email,
-        phone_number: finalData.phone_number,
-        gender: finalData.gender,
-        status: finalData.status,
-
-        // FIXED: Added address field
-        address: finalData.address,
+        first_name: employeeData.first_name,
+        middle_name: employeeData.middle_name,
+        sur_name: employeeData.sur_name,
+        email: employeeData.email,
+        phone_number: employeeData.phone_number,
+        gender: employeeData.gender,
+        status: employeeData.status,
+        address: employeeData.address,
 
         // Emergency contacts (root level)
-        emergency_contact_name: finalData.emergency_contact_name,
-        emergency_contact_phone: finalData.emergency_contact_phone,
+        emergency_contact_name: employeeData.emergency_contact_name,
+        emergency_contact_phone: employeeData.emergency_contact_phone,
         emergency_contact_relationship:
-          finalData.emergency_contact_relationship,
-        next_of_kin_name: finalData.next_of_kin_name,
-        next_of_kin_phone: finalData.next_of_kin_phone,
-        next_of_kin_relationship: finalData.next_of_kin_relationship,
+          employeeData.emergency_contact_relationship,
+        next_of_kin_name: employeeData.next_of_kin_name,
+        next_of_kin_phone: employeeData.next_of_kin_phone,
+        next_of_kin_relationship: employeeData.next_of_kin_relationship,
 
         // Nested data
-        bioData: finalData.bioData,
-        personalEmployeeData: finalData.personalEmployeeData,
-        basicEmployeeData: finalData.basicEmployeeData,
+        bioData: employeeData.bioData,
+        personalEmployeeData: employeeData.personalEmployeeData,
+        basicEmployeeData: employeeData.basicEmployeeData,
       };
 
       let response;
       if (editMode && initialData?.id) {
+        // Update employee
         response = await employeesAPI.update(initialData.id, apiData);
+
+        // NEW: Update role assignments separately
+        if (role_ids && role_ids.length > 0) {
+          try {
+            await rolesAPI.assignRole({
+              user_id: initialData.id,
+              role_ids: role_ids,
+            });
+          } catch (roleError) {
+            console.warn("Role assignment error:", roleError);
+            // Continue with success message even if role assignment fails
+            showError(
+              "Employee updated but role assignment failed. Please update roles manually."
+            );
+          }
+        }
+
         showSuccess("Employee updated successfully");
       } else {
+        // Create employee
         response = await employeesAPI.create(apiData);
+        const newEmployeeId = response.data?.data?.id || response.data?.id;
+
+        // NEW: Assign roles to the new employee
+        if (newEmployeeId && role_ids && role_ids.length > 0) {
+          try {
+            await rolesAPI.assignRole({
+              user_id: newEmployeeId,
+              role_ids: role_ids,
+            });
+          } catch (roleError) {
+            console.warn("Role assignment error:", roleError);
+            showError(
+              "Employee created but role assignment failed. Please assign roles manually."
+            );
+          }
+        }
+
         showSuccess("Employee created successfully");
       }
 
@@ -436,23 +616,17 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
 
   const handleNext = async () => {
     console.log("Next button clicked for step:", activeStep);
-    console.log("Current form values:", formik.values);
 
-    // Validate current step
     const isStepValid = await validateCurrentStep();
     console.log("Step validation result:", isStepValid);
 
     if (isStepValid) {
       if (activeStep === steps.length - 1) {
-        // Final submission
         await handleSubmit(formik.values);
       } else {
-        // Move to next step
         setFormData(formik.values);
         setActiveStep((prev) => prev + 1);
       }
-    } else {
-      console.log("Form has validation errors, not proceeding");
     }
   };
 
@@ -475,6 +649,15 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         return <PersonalInfoForm formik={formik} />;
       case 3:
         return <EmploymentDataForm formik={formik} />;
+      case 4:
+        return rolesLoading ? (
+          <Box display="flex" justifyContent="center" p={4}>
+            <CircularProgress />
+            <Typography sx={{ ml: 2 }}>Loading roles...</Typography>
+          </Box>
+        ) : (
+          <RoleAssignmentForm formik={formik} availableRoles={availableRoles} />
+        );
       default:
         return null;
     }
@@ -489,8 +672,8 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         </Typography>
         <Typography variant="body1" color="text.secondary">
           {editMode
-            ? "Update employee information"
-            : "Register a new employee in the system"}
+            ? "Update employee information and role assignments"
+            : "Register a new employee in the system with role assignments"}
         </Typography>
       </Box>
 
@@ -500,25 +683,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           {error}
         </Alert>
       )}
-
-      {/* ADDED: Debug information (remove this in production) */}
-      {/* {process.env.NODE_ENV === "development" && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="body2">
-            <strong>Debug Info - Step {activeStep}:</strong>
-            <br />
-            Form Valid: {formik.isValid ? "Yes" : "No"}
-            <br />
-            Errors:{" "}
-            {Object.keys(formik.errors).length > 0
-              ? JSON.stringify(formik.errors, null, 2)
-              : "None"}
-            <br />
-            Values:{" "}
-            {JSON.stringify(formik.values.personalEmployeeData, null, 2)}
-          </Typography>
-        </Alert>
-      )} */}
 
       <Card>
         <CardContent sx={{ p: 4 }}>
@@ -562,7 +726,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
               variant="contained"
               onClick={handleNext}
               loading={loading && activeStep === steps.length - 1}
-              disabled={loading}
+              disabled={loading || (activeStep === 4 && rolesLoading)}
             >
               {activeStep === steps.length - 1
                 ? editMode
