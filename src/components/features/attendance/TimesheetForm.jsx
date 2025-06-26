@@ -43,7 +43,6 @@ import { ROUTES } from "../../../constants";
 import useNotification from "../../../hooks/common/useNotification";
 import { LoadingSpinner } from "../../../components/common/Loading";
 import attendanceAPI from "../../../services/api/attendance.api";
-import timesheetAPI from "../../../services/api/timesheet.api";
 
 const TimesheetForm = () => {
   const navigate = useNavigate();
@@ -54,7 +53,6 @@ const TimesheetForm = () => {
   // Get parameters from URL
   const monthParam = searchParams.get("month");
   const yearParam = searchParams.get("year");
-  const timesheetIdParam = searchParams.get("timesheetId");
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     if (monthParam && yearParam) {
@@ -65,7 +63,6 @@ const TimesheetForm = () => {
 
   const [attendanceData, setAttendanceData] = useState([]);
   const [timesheetData, setTimesheetData] = useState({});
-  const [existingTimesheet, setExistingTimesheet] = useState(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [submitType, setSubmitType] = useState("save");
@@ -75,25 +72,15 @@ const TimesheetForm = () => {
     loadTimesheetData();
   }, [selectedMonth]);
 
-  useEffect(() => {
-    if (timesheetIdParam) {
-      loadExistingTimesheet();
-    }
-  }, [timesheetIdParam]);
-
   const calculateWorkingHours = (arrivalTime, departureTime) => {
     if (!arrivalTime || !departureTime) return 0;
 
     try {
-      // Convert time strings to Date objects for calculation
-      const arrival = new Date(`2000-01-01T${arrivalTime}`);
-      const departure = new Date(`2000-01-01T${departureTime}`);
-
-      // Calculate difference in hours
+      const arrival = new Date(arrivalTime);
+      const departure = new Date(departureTime);
       const diffMs = departure - arrival;
       const diffHours = diffMs / (1000 * 60 * 60);
-
-      return Math.max(0, diffHours); // Ensure non-negative
+      return Math.max(0, diffHours);
     } catch (error) {
       console.error("Error calculating working hours:", error);
       return 0;
@@ -103,7 +90,7 @@ const TimesheetForm = () => {
   const loadTimesheetData = async () => {
     try {
       setInitialLoading(true);
-      await Promise.all([fetchMonthlyAttendance(), fetchExistingTimesheet()]);
+      await fetchMonthlyAttendance();
     } catch (error) {
       console.error("Failed to load timesheet data:", error);
       showError("Failed to load timesheet data");
@@ -126,6 +113,29 @@ const TimesheetForm = () => {
         const attendanceRecords = response.data || [];
         setAttendanceData(attendanceRecords);
 
+        // Determine overall timesheet status based on attendance approval status
+        let overallStatus = "draft";
+        if (attendanceRecords.length > 0) {
+          const allApproved = attendanceRecords.every(
+            (record) => record.approval_status === "approved"
+          );
+          const anySubmitted = attendanceRecords.some(
+            (record) => record.approval_status === "submitted"
+          );
+          const anyRejected = attendanceRecords.some(
+            (record) => record.approval_status === "rejected"
+          );
+
+          if (allApproved) {
+            overallStatus = "approved";
+          } else if (anyRejected) {
+            overallStatus = "rejected";
+          } else if (anySubmitted) {
+            overallStatus = "submitted";
+          }
+        }
+        setTimesheetStatus(overallStatus);
+
         // Initialize timesheet data structure with calculated working hours
         const initialTimesheet = {};
         attendanceRecords.forEach((record) => {
@@ -138,14 +148,24 @@ const TimesheetForm = () => {
             activity: record.activity || "",
             description: record.description || "",
             attendance_id: record.id,
-            arrival_time: record.arrival_time,
-            departure_time: record.departure_time,
+            arrival_time: record.arrival_time
+              ? format(new Date(record.arrival_time), "HH:mm")
+              : null,
+            departure_time: record.departure_time
+              ? format(new Date(record.departure_time), "HH:mm")
+              : null,
             working_hours: workingHours.toFixed(2),
             status: record.status,
             scheduler_status: record.scheduler_status || "working day",
+            approval_status: record.approval_status || "draft",
+            submitted_at: record.submitted_at,
+            approved_at: record.approved_at,
+            rejected_at: record.rejected_at,
+            rejection_reason: record.rejection_reason,
+            supervisor_comments: record.supervisor_comments,
           };
         });
-        setTimesheetData((prev) => ({ ...prev, ...initialTimesheet }));
+        setTimesheetData(initialTimesheet);
       } else {
         throw new Error(response.message || "Failed to fetch attendance data");
       }
@@ -153,86 +173,6 @@ const TimesheetForm = () => {
       console.error("Failed to fetch attendance data:", error);
       showError(error.userMessage || "Failed to fetch attendance data");
       setAttendanceData([]);
-    }
-  };
-
-  const fetchExistingTimesheet = async () => {
-    try {
-      const year = selectedMonth.getFullYear();
-      const month = selectedMonth.getMonth() + 1;
-
-      const response = await timesheetAPI.getTimesheet({
-        year: year,
-        month: month,
-        user_id: user.id,
-      });
-
-      if (response.success && response.data) {
-        const timesheet = response.data;
-        setExistingTimesheet(timesheet);
-        setTimesheetStatus(timesheet.status || "draft");
-
-        // Populate timesheet data from existing timesheet entries
-        if (timesheet.entries) {
-          const timesheetEntries = {};
-          timesheet.entries.forEach((entry) => {
-            timesheetEntries[entry.date] = {
-              activity: entry.activity || "",
-              description: entry.description || "",
-              attendance_id: entry.attendance_id,
-              arrival_time: entry.arrival_time,
-              departure_time: entry.departure_time,
-              working_hours: entry.working_hours || 0,
-              status: entry.status,
-              scheduler_status: entry.scheduler_status,
-              id: entry.id,
-            };
-          });
-          setTimesheetData(timesheetEntries);
-        }
-      } else {
-        // No existing timesheet found
-        setExistingTimesheet(null);
-        setTimesheetStatus("draft");
-      }
-    } catch (error) {
-      console.error("Failed to fetch existing timesheet:", error);
-      // Don't show error for missing timesheet - it's normal for new timesheets
-    }
-  };
-
-  const loadExistingTimesheet = async () => {
-    try {
-      const response = await timesheetAPI.getTimesheetById(timesheetIdParam);
-
-      if (response.success) {
-        const timesheet = response.data;
-        setExistingTimesheet(timesheet);
-        setTimesheetStatus(timesheet.status);
-        setSelectedMonth(new Date(timesheet.year, timesheet.month - 1, 1));
-
-        // Load timesheet entries
-        if (timesheet.entries) {
-          const timesheetEntries = {};
-          timesheet.entries.forEach((entry) => {
-            timesheetEntries[entry.date] = {
-              activity: entry.activity || "",
-              description: entry.description || "",
-              attendance_id: entry.attendance_id,
-              arrival_time: entry.arrival_time,
-              departure_time: entry.departure_time,
-              working_hours: entry.working_hours || 0,
-              status: entry.status,
-              scheduler_status: entry.scheduler_status,
-              id: entry.id,
-            };
-          });
-          setTimesheetData(timesheetEntries);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load existing timesheet:", error);
-      showError("Failed to load timesheet");
     }
   };
 
@@ -268,6 +208,33 @@ const TimesheetForm = () => {
     return errors;
   };
 
+  const updateAttendanceRecords = async () => {
+    // Update individual attendance records with activity and description
+    const updatePromises = attendanceData.map(async (record) => {
+      const entry = timesheetData[record.date];
+      if (
+        entry &&
+        (entry.activity !== record.activity ||
+          entry.description !== record.description)
+      ) {
+        try {
+          await attendanceAPI.updateAttendance(record.id, {
+            activity: entry.activity || "",
+            description: entry.description || "",
+          });
+        } catch (error) {
+          console.error(
+            `Failed to update attendance for ${record.date}:`,
+            error
+          );
+          throw error;
+        }
+      }
+    });
+
+    await Promise.all(updatePromises);
+  };
+
   const handleSubmit = async (type) => {
     setLoading(true);
     setSubmitType(type);
@@ -282,60 +249,39 @@ const TimesheetForm = () => {
         }
       }
 
-      const submissionData = {
-        month: selectedMonth.getMonth() + 1,
-        year: selectedMonth.getFullYear(),
-        user_id: user.id,
-        status: type === "save" ? "draft" : "submitted",
-        timesheet_entries: attendanceData
-          .map((record) => ({
-            date: record.date,
-            attendance_id: record.id,
-            arrival_time: timesheetData[record.date]?.arrival_time,
-            departure_time: timesheetData[record.date]?.departure_time,
-            working_hours: parseFloat(
-              timesheetData[record.date]?.working_hours || 0
-            ),
-            activity: timesheetData[record.date]?.activity || "",
-            description: timesheetData[record.date]?.description || "",
-            status: timesheetData[record.date]?.status || record.status,
-            scheduler_status:
-              timesheetData[record.date]?.scheduler_status || "working day",
-          }))
-          .filter((entry) => entry.activity.trim() || entry.description.trim()), // Only include entries with content
-      };
+      // First, update all attendance records with activity and description
+      await updateAttendanceRecords();
 
-      let response;
-      if (existingTimesheet?.id) {
-        // Update existing timesheet
-        response = await timesheetAPI.updateTimesheet(
-          existingTimesheet.id,
-          submissionData
-        );
-      } else {
-        // Create new timesheet
-        response = await timesheetAPI.createTimesheet(submissionData);
-      }
+      if (type === "submit") {
+        // Submit monthly timesheet for approval
+        const response = await attendanceAPI.submitMonthlyTimesheet({
+          month: selectedMonth.getMonth() + 1,
+          year: selectedMonth.getFullYear(),
+          user_id: user.id,
+        });
 
-      if (response.success) {
-        if (type === "submit") {
+        if (response.success) {
           setTimesheetStatus("submitted");
           showSuccess(
             "Timesheet submitted successfully! It will be reviewed by your supervisor."
           );
           navigate(ROUTES.ATTENDANCE);
         } else {
-          setTimesheetStatus("draft");
-          setExistingTimesheet(response.data);
-          showSuccess("Timesheet saved as draft.");
+          throw new Error(response.message || "Failed to submit timesheet");
         }
       } else {
-        throw new Error(response.message || "Failed to save timesheet");
+        // Just save as draft
+        setTimesheetStatus("draft");
+        showSuccess("Timesheet saved as draft.");
+        // Refresh data to show updated status
+        await fetchMonthlyAttendance();
       }
     } catch (error) {
       console.error("Failed to submit timesheet:", error);
       showError(
-        error.userMessage || "Failed to submit timesheet. Please try again."
+        error.userMessage ||
+          error.message ||
+          "Failed to submit timesheet. Please try again."
       );
     } finally {
       setLoading(false);
@@ -403,6 +349,28 @@ const TimesheetForm = () => {
     timesheetStatus === "processing";
 
   const canEdit = !isTimesheetLocked && user?.id;
+
+  // Get rejection reason from any rejected record
+  // Get rejection reason from any rejected record
+  const rejectionInfo = attendanceData.find((record) => {
+    const entry = timesheetData[record.date];
+    return entry?.approval_status === "rejected" && entry?.rejection_reason;
+  });
+
+  console.log("Rejection Info:", attendanceData);
+
+  const rejectionReason = rejectionInfo
+    ? timesheetData[rejectionInfo.date]?.rejection_reason
+    : null;
+  const supervisorComments = rejectionInfo
+    ? timesheetData[rejectionInfo.date]?.supervisor_comments
+    : null;
+
+  const submittedAt =
+    attendanceData.find((record) => timesheetData[record.date]?.submitted_at)
+      ?.submitted_at ||
+    Object.values(timesheetData).find((entry) => entry.submitted_at)
+      ?.submitted_at;
 
   if (initialLoading) {
     return <LoadingSpinner />;
@@ -498,26 +466,10 @@ const TimesheetForm = () => {
               </Grid>
             </Grid>
 
-            {existingTimesheet && (
+            {submittedAt && (
               <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: "divider" }}>
                 <Typography variant="caption" color="text.secondary">
-                  Last updated:{" "}
-                  {existingTimesheet.updated_at
-                    ? format(
-                        new Date(existingTimesheet.updated_at),
-                        "dd/MM/yyyy HH:mm"
-                      )
-                    : "Never"}
-                  {existingTimesheet.submitted_at && (
-                    <>
-                      {" "}
-                      | Submitted:{" "}
-                      {format(
-                        new Date(existingTimesheet.submitted_at),
-                        "dd/MM/yyyy HH:mm"
-                      )}
-                    </>
-                  )}
+                  Submitted: {format(new Date(submittedAt), "dd/MM/yyyy HH:mm")}
                 </Typography>
               </Box>
             )}
@@ -545,8 +497,10 @@ const TimesheetForm = () => {
             )}
             {timesheetStatus === "rejected" && (
               <>
-                This timesheet was rejected. Please check supervisor comments
-                and resubmit after making necessary corrections.
+                This timesheet was rejected.{" "}
+                {rejectionReason && `Reason: ${rejectionReason}.`} Please check
+                supervisor comments below and resubmit after making necessary
+                corrections.
               </>
             )}
           </Alert>
@@ -621,33 +575,17 @@ const TimesheetForm = () => {
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={
-                                entry.arrival_time?.slice(0, 5) ||
-                                record.arrival_time?.slice(0, 5) ||
-                                "--:--"
-                              }
+                              label={entry.arrival_time || "--:--"}
                               size="small"
-                              color={
-                                entry.arrival_time || record.arrival_time
-                                  ? "success"
-                                  : "default"
-                              }
+                              color={entry.arrival_time ? "success" : "default"}
                               variant="outlined"
                             />
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={
-                                entry.departure_time?.slice(0, 5) ||
-                                record.departure_time?.slice(0, 5) ||
-                                "--:--"
-                              }
+                              label={entry.departure_time || "--:--"}
                               size="small"
-                              color={
-                                entry.departure_time || record.departure_time
-                                  ? "error"
-                                  : "default"
-                              }
+                              color={entry.departure_time ? "error" : "default"}
                               variant="outlined"
                             />
                           </TableCell>
@@ -767,6 +705,7 @@ const TimesheetForm = () => {
                 onClick={() => handleSubmit("submit")}
                 disabled={
                   loading ||
+                  new Date().getDate() < 25 ||
                   attendanceData.some((record) => {
                     const entry = timesheetData[record.date];
                     return (
@@ -800,16 +739,30 @@ const TimesheetForm = () => {
         </Alert>
 
         {/* Additional Information */}
-        {timesheetStatus === "rejected" &&
-          existingTimesheet?.rejection_reason && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              <Typography variant="body2">
-                <strong>Rejection Reason:</strong>
-                <br />
-                {existingTimesheet.rejection_reason}
-              </Typography>
-            </Alert>
-          )}
+        {/* Additional Information */}
+        {timesheetStatus === "rejected" && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              <strong>Timesheet Rejected</strong>
+              <br />
+              {rejectionReason ? (
+                <>
+                  <strong>Reason:</strong> {rejectionReason}
+                  <br />
+                </>
+              ) : (
+                "Your timesheet was rejected. Please contact your supervisor for details."
+              )}
+              {supervisorComments && (
+                <>
+                  <strong>Supervisor Comments:</strong> {supervisorComments}
+                </>
+              )}
+              <br />
+              <em>Please make the necessary corrections and resubmit.</em>
+            </Typography>
+          </Alert>
+        )}
       </Box>
     </LocalizationProvider>
   );

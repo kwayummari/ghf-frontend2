@@ -48,6 +48,13 @@ export const API_ENDPOINTS = {
     ATTENDANCE_HOLIDAYS: '/attendance/holidays',
     ATTENDANCE_WORK_SCHEDULE: '/attendance/work-schedule',
 
+    // NEW: Attendance-based Timesheet Management
+    ATTENDANCE_TIMESHEET_SUBMIT: '/attendance/timesheet/submit',
+    ATTENDANCE_TIMESHEET_TEAM: '/attendance/timesheet/team',
+    ATTENDANCE_TIMESHEET_APPROVE: '/attendance/timesheet/approve',
+    ATTENDANCE_TIMESHEET_REJECT: '/attendance/timesheet/reject',
+    ATTENDANCE_TIMESHEET_PAYROLL: '/attendance/timesheet/payroll',
+
     // Documents
     DOCUMENTS: '/documents',
     DOCUMENTS_MY: '/documents/my',

@@ -104,6 +104,100 @@ class AttendanceAPI {
         }
     }
 
+    // ========== TIMESHEET MANAGEMENT METHODS (using attendance endpoints) ==========
+
+    /**
+     * Submit monthly timesheet for approval
+     * @param {Object} submissionData - Submission data
+     * @returns {Promise<Object>} - Submission response
+     */
+    async submitMonthlyTimesheet(submissionData) {
+        try {
+            const response = await apiClient.post(
+                `${API_ENDPOINTS.ATTENDANCE}/timesheet/submit`,
+                submissionData
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Submit monthly timesheet error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get team timesheets for approval (supervisors)
+     * @param {Object} params - Query parameters
+     * @returns {Promise<Object>} - Team timesheets
+     */
+    async getTeamTimesheetsForApproval(params = {}) {
+        try {
+            const response = await apiClient.get(
+                `${API_ENDPOINTS.ATTENDANCE}/timesheet/team`,
+                { params }
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Get team timesheets for approval error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Approve monthly timesheet
+     * @param {Object} approvalData - Approval data
+     * @returns {Promise<Object>} - Approval response
+     */
+    async approveMonthlyTimesheet(approvalData) {
+        try {
+            const response = await apiClient.post(
+                `${API_ENDPOINTS.ATTENDANCE}/timesheet/approve`,
+                approvalData
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Approve monthly timesheet error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Reject monthly timesheet
+     * @param {Object} rejectionData - Rejection data
+     * @returns {Promise<Object>} - Rejection response
+     */
+    async rejectMonthlyTimesheet(rejectionData) {
+        try {
+            const response = await apiClient.post(
+                `${API_ENDPOINTS.ATTENDANCE}/timesheet/reject`,
+                rejectionData
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Reject monthly timesheet error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get approved timesheets for payroll processing
+     * @param {Object} params - Query parameters
+     * @returns {Promise<Object>} - Approved timesheets
+     */
+    async getApprovedTimesheetsForPayroll(params = {}) {
+        try {
+            const response = await apiClient.get(
+                `${API_ENDPOINTS.ATTENDANCE}/timesheet/payroll`,
+                { params }
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Get approved timesheets for payroll error:', error);
+            throw error;
+        }
+    }
+
+    // ========== ORIGINAL ATTENDANCE METHODS ==========
+
     /**
      * Get work schedule
      * @returns {Promise<Object>} - Work schedule

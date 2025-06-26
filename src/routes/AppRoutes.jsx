@@ -104,6 +104,7 @@ import FiscalYearSettingsPage from "../pages/settings/FiscalYearSettingsPage";
 import SalaryScaleSettingsPage from "../pages/settings/SalaryScaleSettingsPage";
 import LeaveTypeSettingsPage from "../pages/settings/LeaveTypeSettingsPage";
 import HolidaySettingsPage from "../pages/settings/HolidaySettingsPage";
+import SupervisorTimesheetApproval from "../components/features/attendance/SupervisorTimesheetApproval";
 
 const AppRoutes = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -144,7 +145,6 @@ const AppRoutes = () => {
         {/* Dashboard */}
         <Route index element={<Navigate to={ROUTES.DASHBOARD} replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-
         {/* Employees Management */}
         <Route
           path="employees"
@@ -178,7 +178,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* Leave Management */}
         <Route
           path="leaves"
@@ -212,7 +211,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* Attendance Management */}
         <Route
           path="attendance"
@@ -246,7 +244,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         <Route
           path="attendance/timesheet/approval"
           element={
@@ -255,7 +252,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* Departments */}
         <Route
           path="departments"
@@ -273,7 +269,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* **FINANCE ROUTES** */}
         <Route
           path="finance"
@@ -283,7 +278,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* Payroll Management */}
         <Route
           path="finance/payroll"
@@ -333,7 +327,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* Budget Management */}
         <Route
           path="finance/budgets"
@@ -369,7 +362,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* Asset Management */}
         <Route
           path="finance/assets"
@@ -413,7 +405,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* Travel & Advances */}
         <Route
           path="finance/travel/requests"
@@ -439,7 +430,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* Petty Cash Management */}
         <Route
           path="finance/petty-cash"
@@ -467,7 +457,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         <Route
           path="finance/requisitions"
           element={
@@ -476,7 +465,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* **PROCUREMENT ROUTES** */}
         <Route
           path="procurement/suppliers"
@@ -518,7 +506,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         /> */}
-
         {/* **PERFORMANCE MANAGEMENT ROUTES** */}
         <Route
           path="performance/appraisals"
@@ -538,7 +525,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         /> */}
-
         {/* **MEETING MANAGEMENT ROUTES** */}
         <Route
           path="meetings"
@@ -572,7 +558,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* Documents */}
         <Route
           path="documents"
@@ -582,7 +567,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* **ENHANCED REPORTS ROUTES** */}
         <Route
           path="reports"
@@ -636,7 +620,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         /> */}
-
         {/* Settings */}
         <Route
           path="settings"
@@ -670,7 +653,6 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
         {/* **ENHANCED SETTINGS ROUTES** */}
         <Route
           path="settings/fiscal-year"
@@ -704,10 +686,17 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-
+        
+        <Route
+          path="/attendance/timesheet/approval"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.TIMESHEET_APPROVE]}>
+              <SupervisorTimesheetApproval />
+            </PermissionGuard>
+          }
+        />
         {/* Profile */}
         <Route path="profile" element={<ProfilePage />} />
-
         {/* Error Pages */}
         <Route path="unauthorized" element={<UnauthorizedPage />} />
         <Route path="*" element={<NotFoundPage />} />

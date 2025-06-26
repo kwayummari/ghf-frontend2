@@ -47,7 +47,7 @@ import useNotification from "../../../hooks/common/useNotification";
 import { LoadingSpinner } from "../../../components/common/Loading";
 import attendanceAPI from "../../../services/api/attendance.api";
 
-const TimesheetApproval = () => {
+const SupervisorTimesheetApproval = () => {
   const user = useSelector(selectUser);
   const { showSuccess, showError } = useNotification();
 
@@ -67,44 +67,6 @@ const TimesheetApproval = () => {
     year: new Date().getFullYear(),
     department_id: "",
   });
-
-  // Helper function to calculate working hours
-  const calculateWorkingHours = (arrivalTime, departureTime) => {
-    if (!arrivalTime || !departureTime) {
-      return 0;
-    }
-
-    try {
-      const arrival = new Date(arrivalTime);
-      const departure = new Date(departureTime);
-
-      // Ensure both dates are valid
-      if (isNaN(arrival.getTime()) || isNaN(departure.getTime())) {
-        return 0;
-      }
-
-      // Calculate difference in milliseconds and convert to hours
-      const diffMs = departure.getTime() - arrival.getTime();
-      const diffHours = diffMs / (1000 * 60 * 60);
-
-      // Return 0 if negative (departure before arrival)
-      return Math.max(0, diffHours);
-    } catch (error) {
-      console.error("Error calculating working hours:", error);
-      return 0;
-    }
-  };
-
-  // Helper function to format time
-  const formatTime = (timeString) => {
-    if (!timeString) return "N/A";
-
-    try {
-      return format(new Date(timeString), "HH:mm");
-    } catch (error) {
-      return "Invalid";
-    }
-  };
 
   useEffect(() => {
     loadTeamTimesheets();
@@ -709,8 +671,6 @@ const TimesheetApproval = () => {
                     <TableRow>
                       <TableCell>Date</TableCell>
                       <TableCell>Day</TableCell>
-                      <TableCell>Arrival</TableCell>
-                      <TableCell>Departure</TableCell>
                       <TableCell>Hours</TableCell>
                       <TableCell>Activity</TableCell>
                       <TableCell>Description</TableCell>
@@ -718,73 +678,40 @@ const TimesheetApproval = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {selectedTimesheet.entries?.map((entry) => {
-                      const workingHours = calculateWorkingHours(
-                        entry.arrival_time,
-                        entry.departure_time
-                      );
-
-                      return (
-                        <TableRow key={entry.id}>
-                          <TableCell>
-                            {format(new Date(entry.date), "dd/MM/yyyy")}
-                          </TableCell>
-                          <TableCell>
-                            {format(new Date(entry.date), "EEEE")}
-                          </TableCell>
-                          <TableCell>
-                            {formatTime(entry.arrival_time)}
-                          </TableCell>
-                          <TableCell>
-                            {formatTime(entry.departure_time)}
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight="medium">
-                              {entry.working_hours || workingHours.toFixed(2)}h
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                maxWidth: 150,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                              title={entry.activity}
-                            >
-                              {entry.activity || "No activity"}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                maxWidth: 200,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                              title={entry.description}
-                            >
-                              {entry.description || "No description"}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={entry.status}
-                              size="small"
-                              color={
-                                entry.status === "present"
-                                  ? "success"
-                                  : "default"
-                              }
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                    {selectedTimesheet.entries?.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell>
+                          {format(new Date(entry.date), "dd/MM/yyyy")}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(entry.date), "EEEE")}
+                        </TableCell>
+                        <TableCell>
+                          {entry.working_hours ||
+                            calculateWorkingHours(
+                              entry.arrival_time,
+                              entry.departure_time
+                            ).toFixed(2)}
+                          h
+                        </TableCell>
+                        <TableCell>{entry.activity}</TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              maxWidth: 200,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {entry.description}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={entry.status} size="small" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -799,4 +726,4 @@ const TimesheetApproval = () => {
   );
 };
 
-export default TimesheetApproval;
+export default SupervisorTimesheetApproval;
