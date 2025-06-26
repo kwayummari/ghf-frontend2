@@ -8,3 +8,4 @@ export * from './documents.api';
 export * from './roles.api';
 export * from './menus.api';
 export * from './finance.api';
+export * from './meetings.api'

@@ -27,6 +27,7 @@ import {
   Alert,
   Badge,
   Tooltip,
+  CircularProgress,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -47,6 +48,8 @@ import {
   Pending as PendingIcon,
   Cancel as CancelIcon,
   EventNote as MinutesIcon,
+  Refresh as RefreshIcon,
+  Notifications as NotificationIcon,
 } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -55,10 +58,11 @@ import { format, isPast, isFuture, isToday } from "date-fns";
 import { useSelector } from "react-redux";
 import { selectUser } from "../../store/slices/authSlice";
 import { useAuth } from "../../components/features/auth/AuthGuard";
-import { ROUTES, ROLES, PERMISSIONS } from "../../constants";
+import { ROUTES, ROLES, MEETING_PERMISSIONS } from "../../constants";
 import useNotification from "../../hooks/common/useNotification";
 import useConfirmDialog from "../../hooks/common/useConfirmDialog";
 import { LoadingSpinner } from "../../components/common/Loading";
+import meetingsAPI from "../../services/api/meetings.api";
 
 const MeetingsPage = () => {
   const navigate = useNavigate();
@@ -71,7 +75,14 @@ const MeetingsPage = () => {
   // State management
   const [meetings, setMeetings] = useState([]);
   const [meetingTasks, setMeetingTasks] = useState([]);
+  const [statistics, setStatistics] = useState({
+    total_meetings: 0,
+    todays_meetings: 0,
+    pending_tasks: 0,
+    meetings_with_minutes: 0,
+  });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFilter, setDateFilter] = useState(null);
@@ -79,276 +90,35 @@ const MeetingsPage = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
 
-  // Sample meeting data
-  const sampleMeetings = [
-    {
-      id: 1,
-      meeting_title: "Monthly Management Review",
-      meeting_type: "Management Meeting",
-      meeting_date: "2024-07-15",
-      start_time: "09:00",
-      end_time: "11:00",
-      location: "Conference Room A",
-      is_virtual: false,
-      meeting_link: null,
-      chairperson: "Executive Director",
-      chairperson_id: 1,
-      organizer: "Admin Assistant",
-      organizer_id: 2,
-      status: "scheduled",
-      agenda_items: [
-        "Review of Q2 performance",
-        "Budget discussion for Q3",
-        "Staff updates",
-        "New project proposals",
-      ],
-      attendees: [
-        {
-          id: 1,
-          name: "John Director",
-          role: "Executive Director",
-          attendance_status: "confirmed",
-        },
-        {
-          id: 2,
-          name: "Jane HR",
-          role: "HR Manager",
-          attendance_status: "confirmed",
-        },
-        {
-          id: 3,
-          name: "Mike Finance",
-          role: "Finance Manager",
-          attendance_status: "pending",
-        },
-        {
-          id: 4,
-          name: "Sarah Program",
-          role: "Program Manager",
-          attendance_status: "confirmed",
-        },
-      ],
-      documents: [
-        {
-          id: 1,
-          name: "Q2 Performance Report.pdf",
-          uploaded_by: "Finance Manager",
-        },
-        {
-          id: 2,
-          name: "Q3 Budget Proposal.xlsx",
-          uploaded_by: "Finance Manager",
-        },
-      ],
-      minutes_document_id: null,
-      tasks_count: 0,
-      created_at: "2024-07-01",
-    },
-    {
-      id: 2,
-      meeting_title: "GBV Program Planning Session",
-      meeting_type: "Program Meeting",
-      meeting_date: "2024-07-18",
-      start_time: "14:00",
-      end_time: "16:30",
-      location: "Virtual Meeting",
-      is_virtual: true,
-      meeting_link: "https://zoom.us/j/123456789",
-      chairperson: "Program Manager",
-      chairperson_id: 3,
-      organizer: "Program Officer",
-      organizer_id: 4,
-      status: "completed",
-      agenda_items: [
-        "Review of current GBV interventions",
-        "Community feedback analysis",
-        "Planning for next quarter activities",
-        "Resource allocation discussion",
-      ],
-      attendees: [
-        {
-          id: 3,
-          name: "Sarah Program",
-          role: "Program Manager",
-          attendance_status: "attended",
-        },
-        {
-          id: 4,
-          name: "Mike Officer",
-          role: "Program Officer",
-          attendance_status: "attended",
-        },
-        {
-          id: 5,
-          name: "Lisa Field",
-          role: "Field Coordinator",
-          attendance_status: "attended",
-        },
-        {
-          id: 6,
-          name: "David Community",
-          role: "Community Liaison",
-          attendance_status: "absent",
-        },
-      ],
-      documents: [
-        {
-          id: 3,
-          name: "GBV Program Status Report.pdf",
-          uploaded_by: "Program Manager",
-        },
-        {
-          id: 4,
-          name: "Community Feedback Summary.docx",
-          uploaded_by: "Field Coordinator",
-        },
-      ],
-      minutes_document_id: 1,
-      tasks_count: 5,
-      created_at: "2024-07-10",
-    },
-    {
-      id: 3,
-      meeting_title: "IT Infrastructure Review",
-      meeting_type: "Technical Meeting",
-      meeting_date: "2024-07-20",
-      start_time: "10:00",
-      end_time: "12:00",
-      location: "IT Department",
-      is_virtual: false,
-      meeting_link: null,
-      chairperson: "IT Manager",
-      chairperson_id: 5,
-      organizer: "IT Manager",
-      organizer_id: 5,
-      status: "in_progress",
-      agenda_items: [
-        "Server performance review",
-        "Network security assessment",
-        "Software license renewals",
-        "Hardware upgrade proposals",
-      ],
-      attendees: [
-        {
-          id: 5,
-          name: "Tech Manager",
-          role: "IT Manager",
-          attendance_status: "confirmed",
-        },
-        {
-          id: 6,
-          name: "Dev John",
-          role: "Software Developer",
-          attendance_status: "confirmed",
-        },
-        {
-          id: 7,
-          name: "Net Admin",
-          role: "Network Administrator",
-          attendance_status: "confirmed",
-        },
-      ],
-      documents: [
-        {
-          id: 5,
-          name: "IT Infrastructure Report.pdf",
-          uploaded_by: "IT Manager",
-        },
-        {
-          id: 6,
-          name: "Security Assessment.pdf",
-          uploaded_by: "Network Administrator",
-        },
-      ],
-      minutes_document_id: null,
-      tasks_count: 0,
-      created_at: "2024-07-15",
-    },
-  ];
-
-  const sampleMeetingTasks = [
-    {
-      id: 1,
-      meeting_id: 2,
-      meeting_title: "GBV Program Planning Session",
-      task_description: "Prepare detailed budget for Q3 GBV activities",
-      assigned_to: "Program Manager",
-      assigned_to_id: 3,
-      raised_by: "Program Officer",
-      raised_by_id: 4,
-      due_date: "2024-07-25",
-      status: "in_progress",
-      priority: "high",
-      follow_up_person: "Program Director",
-      follow_up_person_id: 1,
-      progress: 60,
-      comments: "Initial draft completed, awaiting review",
-      created_at: "2024-07-18",
-    },
-    {
-      id: 2,
-      meeting_id: 2,
-      meeting_title: "GBV Program Planning Session",
-      task_description: "Coordinate with community leaders for next phase",
-      assigned_to: "Field Coordinator",
-      assigned_to_id: 5,
-      raised_by: "Program Manager",
-      raised_by_id: 3,
-      due_date: "2024-07-30",
-      status: "not_started",
-      priority: "medium",
-      follow_up_person: "Program Manager",
-      follow_up_person_id: 3,
-      progress: 0,
-      comments: null,
-      created_at: "2024-07-18",
-    },
-    {
-      id: 3,
-      meeting_id: 2,
-      meeting_title: "GBV Program Planning Session",
-      task_description: "Update training materials based on feedback",
-      assigned_to: "Program Officer",
-      assigned_to_id: 4,
-      raised_by: "Field Coordinator",
-      raised_by_id: 5,
-      due_date: "2024-07-22",
-      status: "completed",
-      priority: "medium",
-      follow_up_person: "Program Manager",
-      follow_up_person_id: 3,
-      progress: 100,
-      comments: "Materials updated and reviewed",
-      created_at: "2024-07-18",
-    },
-  ];
-
+  // API Integration
   useEffect(() => {
-    fetchMeetings();
-    fetchMeetingTasks();
+    fetchMeetingsData();
+    fetchMeetingStatistics();
   }, [statusFilter, dateFilter]);
 
-  const fetchMeetings = async () => {
-    setLoading(true);
+  const fetchMeetingsData = async () => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setLoading(true);
 
-      let filteredData = sampleMeetings;
-      if (statusFilter) {
-        filteredData = filteredData.filter((m) => m.status === statusFilter);
-      }
-      if (dateFilter) {
-        const filterDate = format(dateFilter, "yyyy-MM-dd");
-        filteredData = filteredData.filter(
-          (m) => m.meeting_date === filterDate
-        );
-      }
+      // Build query parameters
+      const params = {};
+      if (statusFilter) params.status = statusFilter;
+      if (dateFilter) params.date = format(dateFilter, "yyyy-MM-dd");
 
-      setMeetings(filteredData);
+      // Fetch meetings
+      const meetingsResponse = await meetingsAPI.getAllMeetings(params);
+      setMeetings(meetingsResponse.data || []);
+
+      // Fetch meeting tasks for the tasks tab
+      if (activeTab === 1) {
+        const tasksResponse = await meetingsAPI.getMeetingTasks();
+        setMeetingTasks(tasksResponse.data || []);
+      }
     } catch (error) {
-      showError("Failed to fetch meetings");
+      console.error("Error fetching meetings:", error);
+      showError(error.response?.data?.message || "Failed to fetch meetings");
     } finally {
       setLoading(false);
     }
@@ -356,22 +126,52 @@ const MeetingsPage = () => {
 
   const fetchMeetingTasks = async () => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setMeetingTasks(sampleMeetingTasks);
+      const response = await meetingsAPI.getMeetingTasks();
+      setMeetingTasks(response.data || []);
     } catch (error) {
+      console.error("Error fetching meeting tasks:", error);
       showError("Failed to fetch meeting tasks");
     }
   };
 
+  const fetchMeetingStatistics = async () => {
+    try {
+      const response = await meetingsAPI.getMeetingStatistics();
+      setStatistics(
+        response.data || {
+          total_meetings: 0,
+          todays_meetings: 0,
+          pending_tasks: 0,
+          meetings_with_minutes: 0,
+        }
+      );
+    } catch (error) {
+      console.error("Error fetching meeting statistics:", error);
+      // Don't show error for statistics as it's not critical
+    }
+  };
+
+  // Refresh data
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([fetchMeetingsData(), fetchMeetingStatistics()]);
+    setRefreshing(false);
+    showSuccess("Data refreshed successfully");
+  };
+
+  // Meeting actions
   const handleCreateMeeting = () => {
     navigate("/meetings/create");
   };
 
-  const handleViewMeeting = (meetingId) => {
-    const meeting = meetings.find((m) => m.id === meetingId);
-    setSelectedItem(meeting);
-    setViewDialogOpen(true);
+  const handleViewMeeting = async (meetingId) => {
+    try {
+      const response = await meetingsAPI.getMeetingById(meetingId);
+      setSelectedItem(response.data);
+      setViewDialogOpen(true);
+    } catch (error) {
+      showError("Failed to fetch meeting details");
+    }
   };
 
   const handleEditMeeting = (meetingId) => {
@@ -385,28 +185,47 @@ const MeetingsPage = () => {
         "Are you sure you want to delete this meeting? This action cannot be undone.",
       onConfirm: async () => {
         try {
-          // API call to delete meeting
+          await meetingsAPI.deleteMeeting(meetingId);
           setMeetings((prev) => prev.filter((m) => m.id !== meetingId));
           showSuccess("Meeting deleted successfully");
+          await fetchMeetingStatistics(); // Refresh statistics
         } catch (error) {
-          showError("Failed to delete meeting");
+          showError(
+            error.response?.data?.message || "Failed to delete meeting"
+          );
         }
       },
     });
   };
 
-  const handleStartMeeting = (meetingId) => {
-    // Update meeting status to in_progress
-    setMeetings((prev) =>
-      prev.map((m) =>
-        m.id === meetingId ? { ...m, status: "in_progress" } : m
-      )
-    );
-    showSuccess("Meeting started");
+  const handleStartMeeting = async (meetingId) => {
+    try {
+      await meetingsAPI.updateMeetingStatus(meetingId, "in_progress");
+      setMeetings((prev) =>
+        prev.map((m) =>
+          m.id === meetingId ? { ...m, status: "in_progress" } : m
+        )
+      );
+      showSuccess("Meeting started");
+    } catch (error) {
+      showError(error.response?.data?.message || "Failed to start meeting");
+    }
   };
 
-  const handleCompleteMeeting = (meetingId) => {
-    navigate(`/meetings/${meetingId}/minutes`);
+  const handleCompleteMeeting = async (meetingId) => {
+    try {
+      await meetingsAPI.updateMeetingStatus(meetingId, "completed");
+      setMeetings((prev) =>
+        prev.map((m) =>
+          m.id === meetingId ? { ...m, status: "completed" } : m
+        )
+      );
+      showSuccess("Meeting completed");
+      // Navigate to minutes page
+      navigate(`/meetings/${meetingId}/minutes`);
+    } catch (error) {
+      showError(error.response?.data?.message || "Failed to complete meeting");
+    }
   };
 
   const handleUploadMinutes = (meetingId) => {
@@ -417,6 +236,30 @@ const MeetingsPage = () => {
     navigate(`/meetings/${meetingId}/tasks`);
   };
 
+  const handleSendNotification = async (meetingId, notificationData) => {
+    try {
+      await meetingsAPI.sendMeetingNotifications(meetingId, notificationData);
+      showSuccess("Notification sent successfully");
+      setNotificationDialogOpen(false);
+    } catch (error) {
+      showError(error.response?.data?.message || "Failed to send notification");
+    }
+  };
+
+  // Task actions
+  const handleUpdateTaskProgress = async (taskId, progress, status) => {
+    try {
+      await meetingsAPI.updateTaskProgress(taskId, progress, status);
+      await fetchMeetingTasks(); // Refresh tasks
+      showSuccess("Task progress updated");
+    } catch (error) {
+      showError(
+        error.response?.data?.message || "Failed to update task progress"
+      );
+    }
+  };
+
+  // Event handlers
   const handleMenuClick = (event, item, type) => {
     setAnchorEl(event.currentTarget);
     setSelectedItem({ ...item, itemType: type });
@@ -427,6 +270,14 @@ const MeetingsPage = () => {
     setSelectedItem(null);
   };
 
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+    if (newValue === 1 && meetingTasks.length === 0) {
+      fetchMeetingTasks();
+    }
+  };
+
+  // Helper functions
   const getStatusColor = (status) => {
     switch (status) {
       case "scheduled":
@@ -498,6 +349,7 @@ const MeetingsPage = () => {
     return "scheduled";
   };
 
+  // DataGrid columns
   const meetingsColumns = [
     {
       field: "meeting_title",
@@ -565,15 +417,15 @@ const MeetingsPage = () => {
               },
             }}
           >
-            {params.value.slice(0, 3).map((attendee, index) => (
+            {(params.value || []).slice(0, 3).map((attendee, index) => (
               <Avatar key={index} title={attendee.name}>
-                {attendee.name.charAt(0)}
+                {attendee.name?.charAt(0)}
               </Avatar>
             ))}
           </AvatarGroup>
-          {params.value.length > 3 && (
+          {(params.value || []).length > 3 && (
             <Typography variant="caption">
-              +{params.value.length - 3}
+              +{(params.value || []).length - 3}
             </Typography>
           )}
         </Box>
@@ -729,19 +581,24 @@ const MeetingsPage = () => {
     },
   ];
 
+  // Filter data
   const filteredMeetings = meetings.filter(
     (meeting) =>
-      meeting.meeting_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      meeting.meeting_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      meeting.chairperson.toLowerCase().includes(searchTerm.toLowerCase())
+      meeting.meeting_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      meeting.meeting_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      meeting.chairperson?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredTasks = meetingTasks.filter(
     (task) =>
-      task.task_description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.assigned_to.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.meeting_title.toLowerCase().includes(searchTerm.toLowerCase())
+      task.task_description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.assigned_to?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.meeting_title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading && !refreshing) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -763,15 +620,27 @@ const MeetingsPage = () => {
               Schedule, manage, and track meetings and action items
             </Typography>
           </Box>
-          {hasPermission(PERMISSIONS.CREATE_MEETINGS) && (
+          <Box sx={{ display: "flex", gap: 1 }}>
             <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreateMeeting}
+              variant="outlined"
+              startIcon={
+                refreshing ? <CircularProgress size={16} /> : <RefreshIcon />
+              }
+              onClick={handleRefresh}
+              disabled={refreshing}
             >
-              Schedule Meeting
+              {refreshing ? "Refreshing..." : "Refresh"}
             </Button>
-          )}
+            {hasPermission(MEETING_PERMISSIONS.CREATE_MEETINGS) && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleCreateMeeting}
+              >
+                Schedule Meeting
+              </Button>
+            )}
+          </Box>
         </Box>
 
         {/* Summary Cards */}
@@ -788,7 +657,7 @@ const MeetingsPage = () => {
                 >
                   <Box>
                     <Typography variant="h6" component="div">
-                      {meetings.length}
+                      {statistics.total_meetings}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Total Meetings
@@ -811,11 +680,7 @@ const MeetingsPage = () => {
                 >
                   <Box>
                     <Typography variant="h6" component="div">
-                      {
-                        meetings.filter((m) =>
-                          isToday(new Date(m.meeting_date))
-                        ).length
-                      }
+                      {statistics.todays_meetings}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Today's Meetings
@@ -838,10 +703,7 @@ const MeetingsPage = () => {
                 >
                   <Box>
                     <Typography variant="h6" component="div">
-                      {
-                        meetingTasks.filter((t) => t.status !== "completed")
-                          .length
-                      }
+                      {statistics.pending_tasks}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Pending Tasks
@@ -864,7 +726,7 @@ const MeetingsPage = () => {
                 >
                   <Box>
                     <Typography variant="h6" component="div">
-                      {meetings.filter((m) => m.minutes_document_id).length}
+                      {statistics.meetings_with_minutes}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       With Minutes
@@ -881,7 +743,7 @@ const MeetingsPage = () => {
         <Card sx={{ mb: 3 }}>
           <Tabs
             value={activeTab}
-            onChange={(e, newValue) => setActiveTab(newValue)}
+            onChange={handleTabChange}
             sx={{ borderBottom: 1, borderColor: "divider" }}
           >
             <Tab label="Meetings" />
@@ -889,13 +751,9 @@ const MeetingsPage = () => {
               label={
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   Meeting Tasks
-                  {meetingTasks.filter((t) => t.status !== "completed").length >
-                    0 && (
+                  {statistics.pending_tasks > 0 && (
                     <Badge
-                      badgeContent={
-                        meetingTasks.filter((t) => t.status !== "completed")
-                          .length
-                      }
+                      badgeContent={statistics.pending_tasks}
                       color="error"
                       size="small"
                     />
@@ -967,23 +825,20 @@ const MeetingsPage = () => {
             </Box>
 
             {/* Data Grid */}
-            {loading ? (
-              <LoadingSpinner />
-            ) : (
-              <DataGrid
-                rows={activeTab === 0 ? filteredMeetings : filteredTasks}
-                columns={activeTab === 0 ? meetingsColumns : tasksColumns}
-                pageSize={10}
-                rowsPerPageOptions={[10, 25, 50]}
-                disableSelectionOnClick
-                autoHeight
-                sx={{
-                  "& .MuiDataGrid-cell:focus": {
-                    outline: "none",
-                  },
-                }}
-              />
-            )}
+            <DataGrid
+              rows={activeTab === 0 ? filteredMeetings : filteredTasks}
+              columns={activeTab === 0 ? meetingsColumns : tasksColumns}
+              pageSize={10}
+              rowsPerPageOptions={[10, 25, 50]}
+              disableSelectionOnClick
+              autoHeight
+              loading={loading}
+              sx={{
+                "& .MuiDataGrid-cell:focus": {
+                  outline: "none",
+                },
+              }}
+            />
           </CardContent>
         </Card>
 
@@ -1007,7 +862,7 @@ const MeetingsPage = () => {
                 <ListItemText>View Details</ListItemText>
               </MenuItem>
 
-              {hasPermission(PERMISSIONS.UPDATE_MEETINGS) && (
+              {hasPermission(MEETING_PERMISSIONS.UPDATE_MEETINGS) && (
                 <MenuItem
                   onClick={() => {
                     handleEditMeeting(selectedItem?.id);
@@ -1049,19 +904,20 @@ const MeetingsPage = () => {
                 </MenuItem>
               )}
 
-              {!selectedItem?.minutes_document_id && (
-                <MenuItem
-                  onClick={() => {
-                    handleUploadMinutes(selectedItem?.id);
-                    handleMenuClose();
-                  }}
-                >
-                  <ListItemIcon>
-                    <MinutesIcon fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText>Upload Minutes</ListItemText>
-                </MenuItem>
-              )}
+              {!selectedItem?.minutes_document_id &&
+                hasPermission(MEETING_PERMISSIONS.UPLOAD_MEETING_MINUTES) && (
+                  <MenuItem
+                    onClick={() => {
+                      handleUploadMinutes(selectedItem?.id);
+                      handleMenuClose();
+                    }}
+                  >
+                    <ListItemIcon>
+                      <MinutesIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>Upload Minutes</ListItemText>
+                  </MenuItem>
+                )}
 
               <MenuItem
                 onClick={() => {
@@ -1075,7 +931,19 @@ const MeetingsPage = () => {
                 <ListItemText>View Tasks</ListItemText>
               </MenuItem>
 
-              {hasPermission(PERMISSIONS.DELETE_MEETINGS) && (
+              <MenuItem
+                onClick={() => {
+                  setNotificationDialogOpen(true);
+                  handleMenuClose();
+                }}
+              >
+                <ListItemIcon>
+                  <NotificationIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Send Notification</ListItemText>
+              </MenuItem>
+
+              {hasPermission(MEETING_PERMISSIONS.DELETE_MEETINGS) && (
                 <MenuItem
                   onClick={() => {
                     handleDeleteMeeting(selectedItem?.id);
@@ -1106,7 +974,7 @@ const MeetingsPage = () => {
                 <ListItemText>View Task</ListItemText>
               </MenuItem>
 
-              {hasPermission(PERMISSIONS.UPDATE_TASK_STATUS) && (
+              {hasPermission(MEETING_PERMISSIONS.UPDATE_TASK_STATUS) && (
                 <MenuItem
                   onClick={() => {
                     navigate(`/meetings/tasks/${selectedItem?.id}/edit`);
@@ -1157,6 +1025,18 @@ const MeetingsPage = () => {
                   <Typography>
                     <strong>Chairperson:</strong> {selectedItem.chairperson}
                   </Typography>
+                  {selectedItem.is_virtual && selectedItem.meeting_link && (
+                    <Typography>
+                      <strong>Meeting Link:</strong>{" "}
+                      <a
+                        href={selectedItem.meeting_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Join Meeting
+                      </a>
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="h6" gutterBottom>
@@ -1164,18 +1044,22 @@ const MeetingsPage = () => {
                   </Typography>
                   <Chip
                     icon={getStatusIcon(selectedItem.status)}
-                    label={selectedItem.status.replace("_", " ")}
+                    label={selectedItem.status?.replace("_", " ")}
                     color={getStatusColor(selectedItem.status)}
                     sx={{ textTransform: "capitalize", mb: 2 }}
                   />
                   <Typography>
-                    <strong>Tasks Created:</strong> {selectedItem.tasks_count}
+                    <strong>Tasks Created:</strong>{" "}
+                    {selectedItem.tasks_count || 0}
                   </Typography>
                   <Typography>
                     <strong>Minutes:</strong>{" "}
                     {selectedItem.minutes_document_id
                       ? "Available"
                       : "Not uploaded"}
+                  </Typography>
+                  <Typography>
+                    <strong>Organizer:</strong> {selectedItem.organizer}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -1186,7 +1070,11 @@ const MeetingsPage = () => {
                     <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
                       {index + 1}. {item}
                     </Typography>
-                  ))}
+                  )) || (
+                    <Typography variant="body2" color="text.secondary">
+                      No agenda items
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>
@@ -1196,7 +1084,7 @@ const MeetingsPage = () => {
                     {selectedItem.attendees?.map((attendee, index) => (
                       <Grid item key={index}>
                         <Chip
-                          avatar={<Avatar>{attendee.name.charAt(0)}</Avatar>}
+                          avatar={<Avatar>{attendee.name?.charAt(0)}</Avatar>}
                           label={`${attendee.name} (${attendee.attendance_status})`}
                           color={
                             attendee.attendance_status === "attended" ||
@@ -1207,16 +1095,113 @@ const MeetingsPage = () => {
                           variant="outlined"
                         />
                       </Grid>
-                    ))}
+                    )) || (
+                      <Typography variant="body2" color="text.secondary">
+                        No attendees
+                      </Typography>
+                    )}
                   </Grid>
                 </Grid>
+                {selectedItem.documents &&
+                  selectedItem.documents.length > 0 && (
+                    <Grid item xs={12}>
+                      <Typography variant="h6" gutterBottom>
+                        Documents
+                      </Typography>
+                      {selectedItem.documents.map((doc, index) => (
+                        <Typography
+                          key={index}
+                          variant="body2"
+                          sx={{ mb: 0.5 }}
+                        >
+                          • {doc.name} <em>(uploaded by {doc.uploaded_by})</em>
+                        </Typography>
+                      ))}
+                    </Grid>
+                  )}
               </Grid>
             )}
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+            {selectedItem &&
+              hasPermission(MEETING_PERMISSIONS.UPDATE_MEETINGS) && (
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    setViewDialogOpen(false);
+                    handleEditMeeting(selectedItem.id);
+                  }}
+                >
+                  Edit Meeting
+                </Button>
+              )}
           </DialogActions>
         </Dialog>
+
+        {/* Notification Dialog */}
+        <Dialog
+          open={notificationDialogOpen}
+          onClose={() => setNotificationDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Send Meeting Notification</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Send notification about "{selectedItem?.meeting_title}" to
+              attendees.
+            </Typography>
+            <TextField
+              fullWidth
+              label="Notification Type"
+              select
+              defaultValue="reminder"
+              sx={{ mb: 2 }}
+            >
+              <MenuItem value="reminder">Meeting Reminder</MenuItem>
+              <MenuItem value="update">Meeting Update</MenuItem>
+              <MenuItem value="cancellation">Meeting Cancellation</MenuItem>
+              <MenuItem value="reschedule">Meeting Reschedule</MenuItem>
+            </TextField>
+            <TextField
+              fullWidth
+              label="Custom Message"
+              multiline
+              rows={3}
+              placeholder="Enter custom message (optional)"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setNotificationDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() =>
+                handleSendNotification(selectedItem?.id, { type: "reminder" })
+              }
+            >
+              Send Notification
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirm Dialog */}
+        {isOpen && (
+          <Dialog open={isOpen} onClose={closeDialog}>
+            <DialogTitle>{config.title}</DialogTitle>
+            <DialogContent>
+              <Typography>{config.message}</Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={closeDialog}>Cancel</Button>
+              <Button onClick={handleConfirm} color="error" variant="contained">
+                Confirm
+              </Button>
+            </DialogActions>
+          </Dialog>
+        )}
       </Box>
     </LocalizationProvider>
   );

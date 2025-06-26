@@ -105,10 +105,25 @@ export const API_ENDPOINTS = {
     // **NEW ENDPOINTS - Meeting Management**
     MEETINGS: '/meetings',
     MEETING_BY_ID: (id) => `/meetings/${id}`,
-    MEETING_TASKS: '/meetings/tasks',
-    MEETING_TASK_BY_ID: (id) => `/meetings/tasks/${id}`,
+    MEETING_STATUS: (id) => `/meetings/${id}/status`,
+    USER_MEETINGS: '/meetings/my-meetings',
+    MEETING_STATISTICS: '/meetings/statistics',
+    MEETING_REPORTS: '/meetings/reports',
+
+    // Meeting Attendees
+    MEETING_ATTENDEES: (meetingId) => `/meetings/${meetingId}/attendees`,
+    MEETING_ATTENDEE_STATUS: (meetingId, attendeeId) => `/meetings/${meetingId}/attendees/${attendeeId}/status`,
+
+    // Meeting Tasks
+    ALL_MEETING_TASKS: '/meetings/tasks',
+    MEETING_TASKS: (meetingId) => `/meetings/${meetingId}/tasks`,
+    MEETING_TASK_BY_ID: (taskId) => `/meetings/tasks/${taskId}`,
+    MEETING_TASK_PROGRESS: (taskId) => `/meetings/tasks/${taskId}/progress`,
+
+    // Meeting Documents & Minutes
+    MEETING_DOCUMENTS: (meetingId) => `/meetings/${meetingId}/documents`,
     MEETING_MINUTES: (meetingId) => `/meetings/${meetingId}/minutes`,
-    ASSIGN_TASK: '/meetings/tasks/assign',
+    MEETING_NOTIFICATIONS: (meetingId) => `/meetings/${meetingId}/notifications`,
 
     // **NEW ENDPOINTS - Travel & Advances**
     TRAVEL_REQUESTS: '/travel/requests',
@@ -256,6 +271,16 @@ export const PERMISSIONS = {
 
     // Dashboard
     DASHBOARD_READ: 'Dashboard:read',
+
+    VIEW_MEETINGS: 'view_meetings',
+    CREATE_MEETINGS: 'create_meetings',
+    UPDATE_MEETINGS: 'update_meetings',
+    DELETE_MEETINGS: 'delete_meetings',
+    MANAGE_MEETING_ATTENDEES: 'manage_meeting_attendees',
+    UPLOAD_MEETING_MINUTES: 'upload_meeting_minutes',
+    CREATE_MEETING_TASKS: 'create_meeting_tasks',
+    UPDATE_TASK_STATUS: 'update_task_status',
+    VIEW_MEETING_REPORTS: 'view_meeting_reports',
 };
 
 // Role Constants
@@ -413,4 +438,16 @@ export const NOTIFICATION_TYPES = {
     ERROR: 'error',
     WARNING: 'warning',
     INFO: 'info',
-  };
+};
+  
+export const MEETING_PERMISSIONS = {
+    VIEW_MEETINGS: 'view_meetings',
+    CREATE_MEETINGS: 'create_meetings',
+    UPDATE_MEETINGS: 'update_meetings',
+    DELETE_MEETINGS: 'delete_meetings',
+    MANAGE_MEETING_ATTENDEES: 'manage_meeting_attendees',
+    UPLOAD_MEETING_MINUTES: 'upload_meeting_minutes',
+    CREATE_MEETING_TASKS: 'create_meeting_tasks',
+    UPDATE_TASK_STATUS: 'update_task_status',
+    VIEW_MEETING_REPORTS: 'view_meeting_reports',
+};
