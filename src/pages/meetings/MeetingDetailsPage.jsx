@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+// Enhanced MeetingDetailsPage.jsx with Full API Integration
+
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Card,
@@ -44,7 +46,9 @@ import {
   AccordionSummary,
   AccordionDetails,
   LinearProgress,
-} from '@mui/material';
+  Breadcrumbs,
+  Link as MUILink,
+} from "@mui/material";
 import {
   ArrowBack as BackIcon,
   Edit as EditIcon,
@@ -76,19 +80,28 @@ import {
   PlayArrow as StartIcon,
   Stop as EndIcon,
   ExpandMore as ExpandMoreIcon,
-} from '@mui/icons-material';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, differenceInMinutes, addMinutes, isBefore, isAfter } from 'date-fns';
-import { useSelector } from 'react-redux';
-import { selectUser } from '../../store/slices/authSlice';
-import { useAuth } from '../../components/features/auth/AuthGuard';
-import { ROUTES, ROLES, PERMISSIONS } from '../../constants';
-import useNotification from '../../hooks/common/useNotification';
-import useConfirmDialog from '../../hooks/common/useConfirmDialog';
-import { LoadingSpinner } from '../../components/common/Loading';
-// import { meetingsAPI } from '../../services/api/meetings.api';
+  Home as HomeIcon,
+  Group as MeetingIcon,
+  Refresh as RefreshIcon,
+} from "@mui/icons-material";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import {
+  format,
+  differenceInMinutes,
+  addMinutes,
+  isBefore,
+  isAfter,
+} from "date-fns";
+import { useSelector } from "react-redux";
+import { selectUser } from "../../store/slices/authSlice";
+import { useAuth } from "../../components/features/auth/AuthGuard";
+import { ROUTES, ROLES, PERMISSIONS } from "../../constants";
+import useNotification from "../../hooks/common/useNotification";
+import useConfirmDialog from "../../hooks/common/useConfirmDialog";
+import { LoadingSpinner } from "../../components/common/Loading";
+import meetingsAPI from "../../services/api/meetings.api";
 
 const MeetingDetailsPage = () => {
   const navigate = useNavigate();
@@ -105,7 +118,9 @@ const MeetingDetailsPage = () => {
   const [agendaItems, setAgendaItems] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [anchorEl, setAnchorEl] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -115,14 +130,17 @@ const MeetingDetailsPage = () => {
 
   // Form states
   const [editForm, setEditForm] = useState({
-    title: "",
+    meeting_title: "",
     description: "",
+    meeting_date: null,
     start_time: null,
-    end_time: "",
+    end_time: null,
     location: "",
     meeting_link: "",
-    meeting_type: "in_person",
-    priority: "medium",
+    meeting_type: "team",
+    is_virtual: false,
+    chairperson: "",
+    organizer: "",
     status: "scheduled",
   });
 
@@ -147,204 +165,15 @@ const MeetingDetailsPage = () => {
     is_action_item: false,
   });
 
-  // Mock data for development
-  const mockMeeting = {
-    id: meetingId || 1,
-    title: "Q3 Budget Review Meeting",
-    description: "Quarterly review of budget performance and planning for Q4",
-    start_time: "2024-07-15T14:00:00",
-    end_time: "2024-07-15T16:00:00",
-    duration: 120,
-    location: "Conference Room A",
-    meeting_link: "https://meet.google.com/abc-defg-hij",
-    meeting_type: "hybrid",
-    priority: "high",
-    status: "completed",
-    organizer: "John Doe",
-    organizer_id: 1,
-    created_by: "John Doe",
-    created_at: "2024-07-10T10:00:00",
-    updated_at: "2024-07-15T16:30:00",
-    is_recurring: false,
-    reminder_sent: true,
-    recording_available: true,
-    attendees_count: 8,
-    agenda_items_count: 5,
-    tasks_count: 3,
-    notes_count: 12,
-  };
-
-  const mockAttendees = [
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john.doe@ghf.org",
-      role: "organizer",
-      department: "Finance",
-      status: "accepted",
-      required: true,
-      joined_at: "2024-07-15T13:58:00",
-      left_at: "2024-07-15T16:02:00",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane.smith@ghf.org",
-      role: "attendee",
-      department: "IT",
-      status: "accepted",
-      required: true,
-      joined_at: "2024-07-15T14:02:00",
-      left_at: "2024-07-15T16:00:00",
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      email: "mike.johnson@ghf.org",
-      role: "attendee",
-      department: "HR",
-      status: "tentative",
-      required: false,
-      joined_at: null,
-      left_at: null,
-    },
-    {
-      id: 4,
-      name: "Sarah Wilson",
-      email: "sarah.wilson@ghf.org",
-      role: "presenter",
-      department: "Operations",
-      status: "accepted",
-      required: true,
-      joined_at: "2024-07-15T14:00:00",
-      left_at: "2024-07-15T15:45:00",
-    },
-  ];
-
-  const mockAgendaItems = [
-    {
-      id: 1,
-      title: "Opening & Welcome",
-      description: "Welcome attendees and review agenda",
-      duration: 10,
-      presenter: "John Doe",
-      order: 1,
-      start_time: "2024-07-15T14:00:00",
-      status: "completed",
-    },
-    {
-      id: 2,
-      title: "Q3 Financial Performance Review",
-      description: "Review of Q3 budget performance against targets",
-      duration: 30,
-      presenter: "Jane Smith",
-      order: 2,
-      start_time: "2024-07-15T14:10:00",
-      status: "completed",
-    },
-    {
-      id: 3,
-      title: "Department Budget Variances",
-      description: "Analysis of significant budget variances by department",
-      duration: 40,
-      presenter: "Sarah Wilson",
-      order: 3,
-      start_time: "2024-07-15T14:40:00",
-      status: "completed",
-    },
-    {
-      id: 4,
-      title: "Q4 Budget Adjustments",
-      description: "Proposed adjustments for Q4 budget allocations",
-      duration: 30,
-      presenter: "Mike Johnson",
-      order: 4,
-      start_time: "2024-07-15T15:20:00",
-      status: "in_progress",
-    },
-    {
-      id: 5,
-      title: "Action Items & Next Steps",
-      description: "Review action items and plan follow-up meetings",
-      duration: 10,
-      presenter: "John Doe",
-      order: 5,
-      start_time: "2024-07-15T15:50:00",
-      status: "pending",
-    },
-  ];
-
-  const mockTasks = [
-    {
-      id: 1,
-      title: "Prepare Q4 budget revision proposal",
-      description:
-        "Create detailed proposal for Q4 budget adjustments based on Q3 performance",
-      assigned_to: "Jane Smith",
-      due_date: "2024-07-22T17:00:00",
-      priority: "high",
-      status: "in_progress",
-      created_from_agenda: "Q4 Budget Adjustments",
-    },
-    {
-      id: 2,
-      title: "Schedule department budget meetings",
-      description: "Coordinate individual meetings with each department head",
-      assigned_to: "Sarah Wilson",
-      due_date: "2024-07-18T12:00:00",
-      priority: "medium",
-      status: "pending",
-      created_from_agenda: "Department Budget Variances",
-    },
-    {
-      id: 3,
-      title: "Update budget monitoring dashboard",
-      description: "Implement real-time budget tracking improvements discussed",
-      assigned_to: "Mike Johnson",
-      due_date: "2024-07-25T17:00:00",
-      priority: "medium",
-      status: "pending",
-      created_from_agenda: "Q3 Financial Performance Review",
-    },
-  ];
-
-  const mockNotes = [
-    {
-      id: 1,
-      content: "Q3 performance exceeded targets by 12% across all departments",
-      note_type: "key_point",
-      created_by: "John Doe",
-      created_at: "2024-07-15T14:15:00",
-      is_action_item: false,
-      agenda_item: "Q3 Financial Performance Review",
-    },
-    {
-      id: 2,
-      content:
-        "IT department under-spent by 15% due to delayed hardware procurement",
-      note_type: "observation",
-      created_by: "Jane Smith",
-      created_at: "2024-07-15T14:45:00",
-      is_action_item: false,
-      agenda_item: "Department Budget Variances",
-    },
-    {
-      id: 3,
-      content:
-        "ACTION: Reallocate unused IT budget to Marketing for Q4 campaign",
-      note_type: "action_item",
-      created_by: "Sarah Wilson",
-      created_at: "2024-07-15T15:30:00",
-      is_action_item: true,
-      agenda_item: "Q4 Budget Adjustments",
-    },
-  ];
-
-  // Meeting types and statuses
+  // Meeting types and statuses based on your DB schema
   const meetingTypes = [
-    { value: "in_person", label: "In Person", icon: <LocationIcon /> },
-    { value: "virtual", label: "Virtual", icon: <VideoIcon /> },
-    { value: "hybrid", label: "Hybrid", icon: <PeopleIcon /> },
+    { value: "board", label: "Board Meeting", icon: <LocationIcon /> },
+    { value: "management", label: "Management", icon: <PeopleIcon /> },
+    { value: "department", label: "Department", icon: <PeopleIcon /> },
+    { value: "team", label: "Team", icon: <PeopleIcon /> },
+    { value: "project", label: "Project", icon: <AgendaIcon /> },
+    { value: "one_on_one", label: "One-on-One", icon: <PersonIcon /> },
+    { value: "client", label: "Client Meeting", icon: <VideoIcon /> },
   ];
 
   const meetingStatuses = [
@@ -352,7 +181,6 @@ const MeetingDetailsPage = () => {
     { value: "in_progress", label: "In Progress", color: "warning" },
     { value: "completed", label: "Completed", color: "success" },
     { value: "cancelled", label: "Cancelled", color: "error" },
-    { value: "postponed", label: "Postponed", color: "default" },
   ];
 
   const attendeeStatuses = [
@@ -362,64 +190,166 @@ const MeetingDetailsPage = () => {
     { value: "pending", label: "Pending", color: "default" },
   ];
 
-  const priorityLevels = [
-    { value: "low", label: "Low", color: "default" },
-    { value: "medium", label: "Medium", color: "primary" },
-    { value: "high", label: "High", color: "warning" },
-    { value: "urgent", label: "Urgent", color: "error" },
-  ];
-
   // Load meeting data
   useEffect(() => {
-    fetchMeetingDetails();
+    if (meetingId) {
+      fetchMeetingDetails();
+    }
   }, [meetingId]);
 
   const fetchMeetingDetails = async () => {
     try {
       setLoading(true);
-      // Replace with actual API calls
-      // const meetingResponse = await meetingsAPI.getMeetingById(meetingId);
-      // const attendeesResponse = await meetingsAPI.getMeetingAttendees(meetingId);
-      // const agendaResponse = await meetingsAPI.getMeetingAgenda(meetingId);
-      // const tasksResponse = await meetingsAPI.getMeetingTasks(meetingId);
-      // const notesResponse = await meetingsAPI.getMeetingNotes(meetingId);
+      console.log(`Fetching meeting details for ID: ${meetingId}`);
 
-      setMeeting(mockMeeting);
-      setAttendees(mockAttendees);
-      setAgendaItems(mockAgendaItems);
-      setTasks(mockTasks);
-      setNotes(mockNotes);
+      // Fetch meeting data
+      const meetingResponse = await meetingsAPI.getMeetingById(meetingId);
+      console.log("Meeting response:", meetingResponse);
+
+      const meetingData = meetingResponse.data?.meeting || meetingResponse.data;
+      setMeeting(meetingData);
+
+      // Fetch related data in parallel
+      await Promise.all([fetchAttendees(), fetchTasks(), fetchDocuments()]);
+
+      // Parse agenda items from JSON if stored in DB
+      if (meetingData.agenda_items) {
+        try {
+          const agenda =
+            typeof meetingData.agenda_items === "string"
+              ? JSON.parse(meetingData.agenda_items)
+              : meetingData.agenda_items;
+          setAgendaItems(Array.isArray(agenda) ? agenda : []);
+        } catch (error) {
+          console.error("Error parsing agenda items:", error);
+          setAgendaItems([]);
+        }
+      }
+
+      console.log("Meeting details loaded successfully");
+      setLoading(false);
     } catch (error) {
-      showError("Failed to fetch meeting details");
+      console.error("Error fetching meeting details:", error);
+      showError(
+        `Failed to fetch meeting details: ${error.response?.data?.message || error.message}`
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchAttendees = async () => {
+    try {
+      console.log(`Fetching attendees for meeting ${meetingId}`);
+      const response = await meetingsAPI.getMeetingAttendees(meetingId);
+      const attendeesData = response.data?.attendees || response.data || [];
+      setAttendees(Array.isArray(attendeesData) ? attendeesData : []);
+      console.log(`Loaded ${attendeesData.length} attendees`);
+    } catch (error) {
+      console.error("Error fetching attendees:", error);
+      // Don't show error for attendees as it might not be implemented yet
+      setAttendees([]);
+    }
+  };
+
+  const fetchTasks = async () => {
+    try {
+      console.log(`Fetching tasks for meeting ${meetingId}`);
+      const response = await meetingsAPI.getMeetingTasks(meetingId);
+      const tasksData = response.data?.tasks || response.data || [];
+      setTasks(Array.isArray(tasksData) ? tasksData : []);
+      console.log(`Loaded ${tasksData.length} tasks`);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      // Don't show error for tasks as it might not be implemented yet
+      setTasks([]);
+    }
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      console.log(`Fetching documents for meeting ${meetingId}`);
+      const response = await meetingsAPI.getMeetingDocuments(meetingId);
+      const documentsData = response.data?.documents || response.data || [];
+      setDocuments(Array.isArray(documentsData) ? documentsData : []);
+      console.log(`Loaded ${documentsData.length} documents`);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      // Don't show error for documents as it might not be implemented yet
+      setDocuments([]);
+    }
+  };
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchMeetingDetails();
+    setRefreshing(false);
+    showSuccess("Meeting data refreshed successfully");
+  };
+
   // Handle meeting actions
   const handleEditMeeting = () => {
+    if (!meeting) return;
+
     setEditForm({
-      title: meeting.title,
-      description: meeting.description,
-      start_time: new Date(meeting.start_time),
-      end_time: meeting.end_time,
-      location: meeting.location,
-      meeting_link: meeting.meeting_link,
-      meeting_type: meeting.meeting_type,
-      priority: meeting.priority,
-      status: meeting.status,
+      meeting_title: meeting.meeting_title || "",
+      description: meeting.description || "",
+      meeting_date: meeting.meeting_date
+        ? new Date(meeting.meeting_date)
+        : null,
+      start_time: meeting.start_time
+        ? new Date(`${meeting.meeting_date}T${meeting.start_time}`)
+        : null,
+      end_time: meeting.end_time
+        ? new Date(`${meeting.meeting_date}T${meeting.end_time}`)
+        : null,
+      location: meeting.location || "",
+      meeting_link: meeting.meeting_link || "",
+      meeting_type: meeting.meeting_type || "team",
+      is_virtual: meeting.is_virtual || false,
+      chairperson: meeting.chairperson || "",
+      organizer: meeting.organizer || "",
+      status: meeting.status || "scheduled",
     });
     setEditDialogOpen(true);
   };
 
   const handleSaveMeeting = async () => {
     try {
-      // await meetingsAPI.updateMeeting(meetingId, editForm);
+      console.log("Updating meeting:", editForm);
+
+      // Format the data according to your DB schema
+      const updateData = {
+        meeting_title: editForm.meeting_title,
+        description: editForm.description,
+        meeting_date: editForm.meeting_date
+          ? format(editForm.meeting_date, "yyyy-MM-dd")
+          : null,
+        start_time: editForm.start_time
+          ? format(editForm.start_time, "HH:mm:ss")
+          : null,
+        end_time: editForm.end_time
+          ? format(editForm.end_time, "HH:mm:ss")
+          : null,
+        location: editForm.location,
+        meeting_link: editForm.meeting_link,
+        meeting_type: editForm.meeting_type,
+        is_virtual: editForm.is_virtual,
+        chairperson: editForm.chairperson,
+        organizer: editForm.organizer,
+        status: editForm.status,
+      };
+
+      await meetingsAPI.updateMeeting(meetingId, updateData);
       showSuccess("Meeting updated successfully");
       setEditDialogOpen(false);
-      fetchMeetingDetails();
+      await fetchMeetingDetails();
     } catch (error) {
-      showError("Failed to update meeting");
+      console.error("Error updating meeting:", error);
+      showError(
+        `Failed to update meeting: ${error.response?.data?.message || error.message}`
+      );
     }
   };
 
@@ -430,11 +360,14 @@ const MeetingDetailsPage = () => {
         "Are you sure you want to delete this meeting? This action cannot be undone.",
       onConfirm: async () => {
         try {
-          // await meetingsAPI.deleteMeeting(meetingId);
+          await meetingsAPI.deleteMeeting(meetingId);
           showSuccess("Meeting deleted successfully");
           navigate("/meetings");
         } catch (error) {
-          showError("Failed to delete meeting");
+          console.error("Error deleting meeting:", error);
+          showError(
+            `Failed to delete meeting: ${error.response?.data?.message || error.message}`
+          );
         }
       },
     });
@@ -442,41 +375,67 @@ const MeetingDetailsPage = () => {
 
   const handleStartMeeting = async () => {
     try {
-      // await meetingsAPI.startMeeting(meetingId);
+      await meetingsAPI.updateMeetingStatus(meetingId, "in_progress");
       showSuccess("Meeting started");
-      fetchMeetingDetails();
+      await fetchMeetingDetails();
     } catch (error) {
-      showError("Failed to start meeting");
+      console.error("Error starting meeting:", error);
+      showError(
+        `Failed to start meeting: ${error.response?.data?.message || error.message}`
+      );
     }
   };
 
   const handleEndMeeting = async () => {
     try {
-      // await meetingsAPI.endMeeting(meetingId);
+      await meetingsAPI.updateMeetingStatus(meetingId, "completed");
       showSuccess("Meeting ended");
-      fetchMeetingDetails();
+      await fetchMeetingDetails();
     } catch (error) {
-      showError("Failed to end meeting");
+      console.error("Error ending meeting:", error);
+      showError(
+        `Failed to end meeting: ${error.response?.data?.message || error.message}`
+      );
     }
   };
 
   // Handle attendee management
   const handleAddAttendee = async () => {
     try {
-      // await meetingsAPI.addAttendee(meetingId, newAttendee);
+      console.log("Adding attendee:", newAttendee);
+      await meetingsAPI.addMeetingAttendee(meetingId, newAttendee);
       showSuccess("Attendee added successfully");
       setAttendeeDialogOpen(false);
       setNewAttendee({ email: "", name: "", role: "attendee", required: true });
-      fetchMeetingDetails();
+      await fetchAttendees();
     } catch (error) {
-      showError("Failed to add attendee");
+      console.error("Error adding attendee:", error);
+      showError(
+        `Failed to add attendee: ${error.response?.data?.message || error.message}`
+      );
     }
   };
 
   // Handle agenda management
   const handleAddAgendaItem = async () => {
     try {
-      // await meetingsAPI.addAgendaItem(meetingId, newAgendaItem);
+      console.log("Adding agenda item:", newAgendaItem);
+
+      // For now, we'll update the agenda_items JSON field
+      const currentAgenda = meeting.agenda_items
+        ? typeof meeting.agenda_items === "string"
+          ? JSON.parse(meeting.agenda_items)
+          : meeting.agenda_items
+        : [];
+
+      const newAgenda = [
+        ...currentAgenda,
+        { ...newAgendaItem, id: Date.now() },
+      ];
+
+      await meetingsAPI.updateMeeting(meetingId, {
+        agenda_items: JSON.stringify(newAgenda),
+      });
       showSuccess("Agenda item added successfully");
       setAgendaDialogOpen(false);
       setNewAgendaItem({
@@ -486,32 +445,40 @@ const MeetingDetailsPage = () => {
         presenter: "",
         order: 1,
       });
-      fetchMeetingDetails();
+      await fetchMeetingDetails();
     } catch (error) {
-      showError("Failed to add agenda item");
+      console.error("Error adding agenda item:", error);
+      showError(
+        `Failed to add agenda item: ${error.response?.data?.message || error.message}`
+      );
     }
   };
 
   // Handle notes management
   const handleAddNote = async () => {
     try {
-      // await meetingsAPI.addNote(meetingId, newNote);
-      showSuccess("Note added successfully");
+      console.log("Adding note:", newNote);
+      // This would require a separate notes API endpoint
+      // For now, we'll show a message that this feature needs backend implementation
+      showError("Notes feature requires backend implementation");
       setNotesDialogOpen(false);
       setNewNote({ content: "", note_type: "general", is_action_item: false });
-      fetchMeetingDetails();
     } catch (error) {
-      showError("Failed to add note");
+      console.error("Error adding note:", error);
+      showError(
+        `Failed to add note: ${error.response?.data?.message || error.message}`
+      );
     }
   };
 
   // Calculate meeting metrics
   const getMeetingDuration = () => {
-    if (!meeting) return 0;
-    return differenceInMinutes(
-      new Date(meeting.end_time),
-      new Date(meeting.start_time)
-    );
+    if (!meeting || !meeting.start_time || !meeting.end_time) return 0;
+
+    const startTime = new Date(`${meeting.meeting_date}T${meeting.start_time}`);
+    const endTime = new Date(`${meeting.meeting_date}T${meeting.end_time}`);
+
+    return differenceInMinutes(endTime, startTime);
   };
 
   const getAttendanceRate = () => {
@@ -532,6 +499,40 @@ const MeetingDetailsPage = () => {
       : 0;
   };
 
+  // Get breadcrumb navigation
+  const getBreadcrumbs = () => {
+    return [
+      {
+        label: "Dashboard",
+        href: "/dashboard",
+        icon: <HomeIcon fontSize="small" />,
+      },
+      {
+        label: "Meetings",
+        href: "/meetings",
+        icon: <MeetingIcon fontSize="small" />,
+      },
+      {
+        label: meeting?.meeting_title || `Meeting ${meetingId}`,
+        current: true,
+        icon: <AgendaIcon fontSize="small" />,
+      },
+    ];
+  };
+
+  // Format date/time for display
+  const formatMeetingDateTime = (date, startTime, endTime) => {
+    if (!date) return "Not specified";
+
+    const meetingDate = format(new Date(date), "dd/MM/yyyy");
+    const start = startTime
+      ? format(new Date(`${date}T${startTime}`), "HH:mm")
+      : "";
+    const end = endTime ? format(new Date(`${date}T${endTime}`), "HH:mm") : "";
+
+    return `${meetingDate} ${start}${end ? ` - ${end}` : ""}`;
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -547,6 +548,36 @@ const MeetingDetailsPage = () => {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ p: 3 }}>
+        {/* Breadcrumb Navigation */}
+        <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
+          {getBreadcrumbs().map((crumb, index) =>
+            crumb.current ? (
+              <Box
+                key={index}
+                sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+              >
+                {crumb.icon}
+                <Typography color="text.primary">{crumb.label}</Typography>
+              </Box>
+            ) : (
+              <MUILink
+                key={index}
+                underline="hover"
+                color="inherit"
+                href={crumb.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(crumb.href);
+                }}
+                sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+              >
+                {crumb.icon}
+                {crumb.label}
+              </MUILink>
+            )
+          )}
+        </Breadcrumbs>
+
         {/* Header */}
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
@@ -554,30 +585,40 @@ const MeetingDetailsPage = () => {
               <BackIcon />
             </IconButton>
             <Typography variant="h4" sx={{ flexGrow: 1 }}>
-              {meeting.title}
+              {meeting.meeting_title}
             </Typography>
             <Box sx={{ display: "flex", gap: 1 }}>
-              {meeting.status === "scheduled" && (
-                <Button
-                  variant="contained"
-                  startIcon={<StartIcon />}
-                  onClick={handleStartMeeting}
-                  color="success"
-                >
-                  Start Meeting
-                </Button>
-              )}
-              {meeting.status === "in_progress" && (
-                <Button
-                  variant="contained"
-                  startIcon={<EndIcon />}
-                  onClick={handleEndMeeting}
-                  color="error"
-                >
-                  End Meeting
-                </Button>
-              )}
-              {hasPermission(PERMISSIONS.MANAGE_MEETINGS) && (
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={handleRefresh}
+                disabled={refreshing}
+              >
+                {refreshing ? "Refreshing..." : "Refresh"}
+              </Button>
+              {meeting.status === "scheduled" &&
+                hasPermission(PERMISSIONS.UPDATE_MEETINGS) && (
+                  <Button
+                    variant="contained"
+                    startIcon={<StartIcon />}
+                    onClick={handleStartMeeting}
+                    color="success"
+                  >
+                    Start Meeting
+                  </Button>
+                )}
+              {meeting.status === "in_progress" &&
+                hasPermission(PERMISSIONS.UPDATE_MEETINGS) && (
+                  <Button
+                    variant="contained"
+                    startIcon={<EndIcon />}
+                    onClick={handleEndMeeting}
+                    color="error"
+                  >
+                    End Meeting
+                  </Button>
+                )}
+              {hasPermission(PERMISSIONS.UPDATE_MEETINGS) && (
                 <Button
                   variant="outlined"
                   startIcon={<EditIcon />}
@@ -590,7 +631,8 @@ const MeetingDetailsPage = () => {
                 variant="outlined"
                 startIcon={<ShareIcon />}
                 onClick={() => {
-                  /* Share meeting */
+                  navigator.clipboard.writeText(window.location.href);
+                  showSuccess("Meeting link copied to clipboard");
                 }}
               >
                 Share
@@ -612,37 +654,41 @@ const MeetingDetailsPage = () => {
           >
             <Chip
               label={
-                meetingStatuses.find((s) => s.value === meeting.status)?.label
+                meetingStatuses.find((s) => s.value === meeting.status)
+                  ?.label || meeting.status
               }
               color={
-                meetingStatuses.find((s) => s.value === meeting.status)?.color
+                meetingStatuses.find((s) => s.value === meeting.status)
+                  ?.color || "default"
               }
               variant="filled"
             />
             <Chip
               label={
-                priorityLevels.find((p) => p.value === meeting.priority)?.label
-              }
-              color={
-                priorityLevels.find((p) => p.value === meeting.priority)?.color
-              }
-              variant="outlined"
-            />
-            <Chip
-              label={
                 meetingTypes.find((t) => t.value === meeting.meeting_type)
-                  ?.label
+                  ?.label || meeting.meeting_type
               }
               icon={
                 meetingTypes.find((t) => t.value === meeting.meeting_type)?.icon
               }
               variant="outlined"
             />
+            {meeting.is_virtual && (
+              <Chip
+                label="Virtual Meeting"
+                icon={<VideoIcon />}
+                color="info"
+                variant="outlined"
+              />
+            )}
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
               <ScheduleIcon fontSize="small" color="action" />
               <Typography variant="body2">
-                {format(new Date(meeting.start_time), "dd/MM/yyyy HH:mm")} -{" "}
-                {format(new Date(meeting.end_time), "HH:mm")}
+                {formatMeetingDateTime(
+                  meeting.meeting_date,
+                  meeting.start_time,
+                  meeting.end_time
+                )}
               </Typography>
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -672,7 +718,7 @@ const MeetingDetailsPage = () => {
                       Attendees
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {getAttendanceRate().toFixed(0)}% accepted
+                      {getAttendanceRate().toFixed(0)}% confirmed
                     </Typography>
                   </Box>
                   <PeopleIcon color="primary" />
@@ -740,16 +786,15 @@ const MeetingDetailsPage = () => {
                   }}
                 >
                   <Box>
-                    <Typography variant="h6">{notes.length}</Typography>
+                    <Typography variant="h6">{documents.length}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Notes
+                      Documents
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {notes.filter((n) => n.is_action_item).length} action
-                      items
+                      Attachments & files
                     </Typography>
                   </Box>
-                  <NotesIcon color="info" />
+                  <AttachmentIcon color="info" />
                 </Box>
               </CardContent>
             </Card>
@@ -764,12 +809,13 @@ const MeetingDetailsPage = () => {
                 <Tabs
                   value={activeTab}
                   onChange={(e, newValue) => setActiveTab(newValue)}
+                  sx={{ borderBottom: 1, borderColor: "divider" }}
                 >
                   <Tab label="Overview" />
                   <Tab label="Agenda" />
                   <Tab label="Attendees" />
-                  <Tab label="Notes" />
                   <Tab label="Tasks" />
+                  <Tab label="Documents" />
                 </Tabs>
 
                 {/* Overview Tab */}
@@ -781,7 +827,7 @@ const MeetingDetailsPage = () => {
                           Meeting Description
                         </Typography>
                         <Typography variant="body1" sx={{ mb: 3 }}>
-                          {meeting.description}
+                          {meeting.description || "No description provided."}
                         </Typography>
                       </Grid>
 
@@ -797,8 +843,19 @@ const MeetingDetailsPage = () => {
                               </Avatar>
                             </ListItemAvatar>
                             <MUIListItemText
+                              primary="Chairperson"
+                              secondary={meeting.chairperson || "Not specified"}
+                            />
+                          </ListItem>
+                          <ListItem>
+                            <ListItemAvatar>
+                              <Avatar sx={{ bgcolor: "info.main" }}>
+                                <PersonIcon />
+                              </Avatar>
+                            </ListItemAvatar>
+                            <MUIListItemText
                               primary="Organizer"
-                              secondary={meeting.organizer}
+                              secondary={meeting.organizer || "Not specified"}
                             />
                           </ListItem>
                           <ListItem>
@@ -809,13 +866,13 @@ const MeetingDetailsPage = () => {
                             </ListItemAvatar>
                             <MUIListItemText
                               primary="Location"
-                              secondary={meeting.location}
+                              secondary={meeting.location || "Not specified"}
                             />
                           </ListItem>
                           {meeting.meeting_link && (
                             <ListItem>
                               <ListItemAvatar>
-                                <Avatar sx={{ bgcolor: "info.main" }}>
+                                <Avatar sx={{ bgcolor: "warning.main" }}>
                                   <LinkIcon />
                                 </Avatar>
                               </ListItemAvatar>
@@ -903,7 +960,7 @@ const MeetingDetailsPage = () => {
                       }}
                     >
                       <Typography variant="h6">Meeting Agenda</Typography>
-                      {hasPermission(PERMISSIONS.MANAGE_MEETINGS) && (
+                      {hasPermission(PERMISSIONS.UPDATE_MEETINGS) && (
                         <Button
                           variant="outlined"
                           startIcon={<AddIcon />}
@@ -914,74 +971,91 @@ const MeetingDetailsPage = () => {
                       )}
                     </Box>
 
-                    <List>
-                      {agendaItems.map((item, index) => (
-                        <React.Fragment key={item.id}>
-                          <ListItem>
-                            <ListItemAvatar>
-                              <Avatar
-                                sx={{
-                                  bgcolor:
-                                    item.status === "completed"
-                                      ? "success.main"
-                                      : item.status === "in_progress"
-                                        ? "warning.main"
-                                        : "grey.400",
-                                }}
-                              >
-                                {index + 1}
-                              </Avatar>
-                            </ListItemAvatar>
-                            <MUIListItemText
-                              primary={
-                                <Box
+                    {agendaItems.length === 0 ? (
+                      <Box sx={{ textAlign: "center", py: 4 }}>
+                        <AgendaIcon
+                          sx={{ fontSize: 60, color: "text.secondary", mb: 2 }}
+                        />
+                        <Typography variant="h6" color="text.secondary">
+                          No agenda items
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Add agenda items to structure your meeting
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <List>
+                        {agendaItems.map((item, index) => (
+                          <React.Fragment key={item.id || index}>
+                            <ListItem>
+                              <ListItemAvatar>
+                                <Avatar
                                   sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1,
+                                    bgcolor:
+                                      item.status === "completed"
+                                        ? "success.main"
+                                        : item.status === "in_progress"
+                                          ? "warning.main"
+                                          : "grey.400",
                                   }}
                                 >
-                                  <Typography variant="subtitle1">
-                                    {item.title}
-                                  </Typography>
-                                  <Chip
-                                    label={`${item.duration} min`}
-                                    size="small"
-                                    variant="outlined"
-                                  />
-                                  <Chip
-                                    label={item.status}
-                                    size="small"
-                                    color={
-                                      item.status === "completed"
-                                        ? "success"
-                                        : item.status === "in_progress"
-                                          ? "warning"
-                                          : "default"
-                                    }
-                                  />
-                                </Box>
-                              }
-                              secondary={
-                                <Box>
-                                  <Typography variant="body2">
-                                    {item.description}
-                                  </Typography>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
+                                  {index + 1}
+                                </Avatar>
+                              </ListItemAvatar>
+                              <MUIListItemText
+                                primary={
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 1,
+                                    }}
                                   >
-                                    Presenter: {item.presenter} | Start:{" "}
-                                    {format(new Date(item.start_time), "HH:mm")}
-                                  </Typography>
-                                </Box>
-                              }
-                            />
-                          </ListItem>
-                          {index < agendaItems.length - 1 && <Divider />}
-                        </React.Fragment>
-                      ))}
-                    </List>
+                                    <Typography variant="subtitle1">
+                                      {item.title}
+                                    </Typography>
+                                    <Chip
+                                      label={`${item.duration || 15} min`}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                    {item.status && (
+                                      <Chip
+                                        label={item.status}
+                                        size="small"
+                                        color={
+                                          item.status === "completed"
+                                            ? "success"
+                                            : item.status === "in_progress"
+                                              ? "warning"
+                                              : "default"
+                                        }
+                                      />
+                                    )}
+                                  </Box>
+                                }
+                                secondary={
+                                  <Box>
+                                    <Typography variant="body2">
+                                      {item.description}
+                                    </Typography>
+                                    {item.presenter && (
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        Presenter: {item.presenter}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                }
+                              />
+                            </ListItem>
+                            {index < agendaItems.length - 1 && <Divider />}
+                          </React.Fragment>
+                        ))}
+                      </List>
+                    )}
                   </Box>
                 )}
 
@@ -997,7 +1071,7 @@ const MeetingDetailsPage = () => {
                       }}
                     >
                       <Typography variant="h6">Meeting Attendees</Typography>
-                      {hasPermission(PERMISSIONS.MANAGE_MEETINGS) && (
+                      {hasPermission(PERMISSIONS.UPDATE_MEETINGS) && (
                         <Button
                           variant="outlined"
                           startIcon={<AddIcon />}
@@ -1008,217 +1082,113 @@ const MeetingDetailsPage = () => {
                       )}
                     </Box>
 
-                    <TableContainer component={Paper} variant="outlined">
-                      <Table>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Name</TableCell>
-                            <TableCell>Email</TableCell>
-                            <TableCell>Department</TableCell>
-                            <TableCell>Role</TableCell>
-                            <TableCell>Status</TableCell>
-                            <TableCell>Attendance</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {attendees.map((attendee) => (
-                            <TableRow key={attendee.id}>
-                              <TableCell>
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1,
-                                  }}
-                                >
-                                  <Avatar
+                    {attendees.length === 0 ? (
+                      <Box sx={{ textAlign: "center", py: 4 }}>
+                        <PeopleIcon
+                          sx={{ fontSize: 60, color: "text.secondary", mb: 2 }}
+                        />
+                        <Typography variant="h6" color="text.secondary">
+                          No attendees added
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Add attendees to invite them to the meeting
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <TableContainer component={Paper} variant="outlined">
+                        <Table>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Name</TableCell>
+                              <TableCell>Email</TableCell>
+                              <TableCell>Role</TableCell>
+                              <TableCell>Status</TableCell>
+                              <TableCell>Required</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {attendees.map((attendee) => (
+                              <TableRow key={attendee.id}>
+                                <TableCell>
+                                  <Box
                                     sx={{
-                                      width: 32,
-                                      height: 32,
-                                      fontSize: "0.875rem",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 1,
                                     }}
                                   >
-                                    {attendee.name.charAt(0)}
-                                  </Avatar>
-                                  <Typography variant="body2">
-                                    {attendee.name}
-                                    {attendee.required && (
-                                      <Chip
-                                        label="Required"
-                                        size="small"
-                                        sx={{ ml: 1 }}
-                                      />
-                                    )}
-                                  </Typography>
-                                </Box>
-                              </TableCell>
-                              <TableCell>{attendee.email}</TableCell>
-                              <TableCell>{attendee.department}</TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={attendee.role}
-                                  size="small"
-                                  variant="outlined"
-                                  color={
-                                    attendee.role === "organizer"
-                                      ? "primary"
-                                      : "default"
-                                  }
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={
-                                    attendeeStatuses.find(
-                                      (s) => s.value === attendee.status
-                                    )?.label
-                                  }
-                                  size="small"
-                                  color={
-                                    attendeeStatuses.find(
-                                      (s) => s.value === attendee.status
-                                    )?.color
-                                  }
-                                />
-                              </TableCell>
-                              <TableCell>
-                                {attendee.joined_at ? (
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="success.main"
+                                    <Avatar
+                                      sx={{
+                                        width: 32,
+                                        height: 32,
+                                        fontSize: "0.875rem",
+                                      }}
                                     >
-                                      Joined:{" "}
-                                      {format(
-                                        new Date(attendee.joined_at),
-                                        "HH:mm"
-                                      )}
+                                      {attendee.name
+                                        ? attendee.name.charAt(0)
+                                        : "U"}
+                                    </Avatar>
+                                    <Typography variant="body2">
+                                      {attendee.name || "Unknown"}
                                     </Typography>
-                                    {attendee.left_at && (
-                                      <Typography
-                                        variant="caption"
-                                        display="block"
-                                      >
-                                        Left:{" "}
-                                        {format(
-                                          new Date(attendee.left_at),
-                                          "HH:mm"
-                                        )}
-                                      </Typography>
-                                    )}
                                   </Box>
-                                ) : (
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                  >
-                                    Did not attend
-                                  </Typography>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Box>
-                )}
-
-                {/* Notes Tab */}
-                {activeTab === 3 && (
-                  <Box sx={{ mt: 3 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 2,
-                      }}
-                    >
-                      <Typography variant="h6">Meeting Notes</Typography>
-                      <Button
-                        variant="outlined"
-                        startIcon={<AddIcon />}
-                        onClick={() => setNotesDialogOpen(true)}
-                      >
-                        Add Note
-                      </Button>
-                    </Box>
-
-                    <List>
-                      {notes.map((note) => (
-                        <React.Fragment key={note.id}>
-                          <ListItem alignItems="flex-start">
-                            <ListItemAvatar>
-                              <Avatar
-                                sx={{
-                                  bgcolor: note.is_action_item
-                                    ? "error.main"
-                                    : "primary.main",
-                                }}
-                              >
-                                {note.is_action_item ? (
-                                  <TaskIcon />
-                                ) : (
-                                  <NotesIcon />
-                                )}
-                              </Avatar>
-                            </ListItemAvatar>
-                            <MUIListItemText
-                              primary={
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1,
-                                  }}
-                                >
-                                  <Typography variant="body1">
-                                    {note.content}
-                                  </Typography>
-                                  {note.is_action_item && (
+                                </TableCell>
+                                <TableCell>{attendee.email}</TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={attendee.role || "attendee"}
+                                    size="small"
+                                    variant="outlined"
+                                    color={
+                                      attendee.role === "organizer"
+                                        ? "primary"
+                                        : "default"
+                                    }
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={
+                                      attendeeStatuses.find(
+                                        (s) => s.value === attendee.status
+                                      )?.label ||
+                                      attendee.status ||
+                                      "pending"
+                                    }
+                                    size="small"
+                                    color={
+                                      attendeeStatuses.find(
+                                        (s) => s.value === attendee.status
+                                      )?.color || "default"
+                                    }
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  {attendee.required ? (
                                     <Chip
-                                      label="Action Item"
+                                      label="Required"
                                       size="small"
                                       color="error"
                                     />
+                                  ) : (
+                                    <Chip
+                                      label="Optional"
+                                      size="small"
+                                      color="default"
+                                    />
                                   )}
-                                </Box>
-                              }
-                              secondary={
-                                <Box>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                  >
-                                    By {note.created_by} •{" "}
-                                    {format(
-                                      new Date(note.created_at),
-                                      "dd/MM/yyyy HH:mm"
-                                    )}
-                                  </Typography>
-                                  {note.agenda_item && (
-                                    <Typography
-                                      variant="caption"
-                                      display="block"
-                                      color="text.secondary"
-                                    >
-                                      Related to: {note.agenda_item}
-                                    </Typography>
-                                  )}
-                                </Box>
-                              }
-                            />
-                          </ListItem>
-                          <Divider />
-                        </React.Fragment>
-                      ))}
-                    </List>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    )}
                   </Box>
                 )}
 
                 {/* Tasks Tab */}
-                {activeTab === 4 && (
+                {activeTab === 3 && (
                   <Box sx={{ mt: 3 }}>
                     <Box
                       sx={{
@@ -1231,96 +1201,195 @@ const MeetingDetailsPage = () => {
                       <Typography variant="h6">Action Items & Tasks</Typography>
                       <Button
                         variant="outlined"
-                        onClick={() => navigate("/meetings/tasks")}
+                        onClick={() => navigate(`/meetings/${meetingId}/tasks`)}
                       >
                         View All Tasks
                       </Button>
                     </Box>
 
-                    <List>
-                      {tasks.map((task) => (
-                        <React.Fragment key={task.id}>
-                          <ListItem alignItems="flex-start">
+                    {tasks.length === 0 ? (
+                      <Box sx={{ textAlign: "center", py: 4 }}>
+                        <TaskIcon
+                          sx={{ fontSize: 60, color: "text.secondary", mb: 2 }}
+                        />
+                        <Typography variant="h6" color="text.secondary">
+                          No tasks created
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Tasks and action items will appear here
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          startIcon={<TaskIcon />}
+                          onClick={() =>
+                            navigate(`/meetings/${meetingId}/tasks`)
+                          }
+                          sx={{ mt: 2 }}
+                        >
+                          Create Tasks
+                        </Button>
+                      </Box>
+                    ) : (
+                      <List>
+                        {tasks.slice(0, 5).map((task) => (
+                          <React.Fragment key={task.id}>
+                            <ListItem alignItems="flex-start">
+                              <ListItemAvatar>
+                                <Avatar
+                                  sx={{
+                                    bgcolor:
+                                      task.status === "completed"
+                                        ? "success.main"
+                                        : task.priority === "high"
+                                          ? "error.main"
+                                          : "warning.main",
+                                  }}
+                                >
+                                  <TaskIcon />
+                                </Avatar>
+                              </ListItemAvatar>
+                              <MUIListItemText
+                                primary={
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 1,
+                                    }}
+                                  >
+                                    <Typography variant="subtitle1">
+                                      {task.title}
+                                    </Typography>
+                                    <Chip
+                                      label={task.priority || "medium"}
+                                      size="small"
+                                      color={
+                                        task.priority === "high"
+                                          ? "error"
+                                          : task.priority === "medium"
+                                            ? "warning"
+                                            : "default"
+                                      }
+                                    />
+                                    <Chip
+                                      label={task.status || "pending"}
+                                      size="small"
+                                      color={
+                                        task.status === "completed"
+                                          ? "success"
+                                          : "default"
+                                      }
+                                    />
+                                  </Box>
+                                }
+                                secondary={
+                                  <Box>
+                                    <Typography variant="body2" sx={{ mb: 1 }}>
+                                      {task.description}
+                                    </Typography>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                    >
+                                      Assigned to:{" "}
+                                      {task.assigned_to || "Unassigned"}
+                                      {task.due_date &&
+                                        ` • Due: ${format(new Date(task.due_date), "dd/MM/yyyy")}`}
+                                    </Typography>
+                                  </Box>
+                                }
+                              />
+                            </ListItem>
+                            <Divider />
+                          </React.Fragment>
+                        ))}
+                        {tasks.length > 5 && (
+                          <ListItem>
+                            <Button
+                              fullWidth
+                              variant="outlined"
+                              onClick={() =>
+                                navigate(`/meetings/${meetingId}/tasks`)
+                              }
+                            >
+                              View All {tasks.length} Tasks
+                            </Button>
+                          </ListItem>
+                        )}
+                      </List>
+                    )}
+                  </Box>
+                )}
+
+                {/* Documents Tab */}
+                {activeTab === 4 && (
+                  <Box sx={{ mt: 3 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 2,
+                      }}
+                    >
+                      <Typography variant="h6">Meeting Documents</Typography>
+                      {hasPermission(PERMISSIONS.UPDATE_MEETINGS) && (
+                        <Button
+                          variant="outlined"
+                          startIcon={<AddIcon />}
+                          onClick={() => {
+                            // TODO: Implement file upload
+                            showError(
+                              "Document upload feature requires implementation"
+                            );
+                          }}
+                        >
+                          Upload Document
+                        </Button>
+                      )}
+                    </Box>
+
+                    {documents.length === 0 ? (
+                      <Box sx={{ textAlign: "center", py: 4 }}>
+                        <AttachmentIcon
+                          sx={{ fontSize: 60, color: "text.secondary", mb: 2 }}
+                        />
+                        <Typography variant="h6" color="text.secondary">
+                          No documents uploaded
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Upload meeting materials, agendas, and minutes
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <List>
+                        {documents.map((doc) => (
+                          <ListItem key={doc.id}>
                             <ListItemAvatar>
-                              <Avatar
-                                sx={{
-                                  bgcolor:
-                                    task.status === "completed"
-                                      ? "success.main"
-                                      : task.priority === "high"
-                                        ? "error.main"
-                                        : "warning.main",
-                                }}
-                              >
-                                <TaskIcon />
+                              <Avatar>
+                                <AttachmentIcon />
                               </Avatar>
                             </ListItemAvatar>
                             <MUIListItemText
-                              primary={
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1,
-                                  }}
-                                >
-                                  <Typography variant="subtitle1">
-                                    {task.title}
-                                  </Typography>
-                                  <Chip
-                                    label={task.priority}
-                                    size="small"
-                                    color={
-                                      task.priority === "high"
-                                        ? "error"
-                                        : task.priority === "medium"
-                                          ? "warning"
-                                          : "default"
-                                    }
-                                  />
-                                  <Chip
-                                    label={task.status}
-                                    size="small"
-                                    color={
-                                      task.status === "completed"
-                                        ? "success"
-                                        : "default"
-                                    }
-                                  />
-                                </Box>
-                              }
-                              secondary={
-                                <Box>
-                                  <Typography variant="body2" sx={{ mb: 1 }}>
-                                    {task.description}
-                                  </Typography>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                  >
-                                    Assigned to: {task.assigned_to} • Due:{" "}
-                                    {format(
-                                      new Date(task.due_date),
-                                      "dd/MM/yyyy"
-                                    )}
-                                  </Typography>
-                                  {task.created_from_agenda && (
-                                    <Typography
-                                      variant="caption"
-                                      display="block"
-                                      color="text.secondary"
-                                    >
-                                      From agenda: {task.created_from_agenda}
-                                    </Typography>
-                                  )}
-                                </Box>
-                              }
+                              primary={doc.name || doc.filename}
+                              secondary={`Uploaded: ${doc.created_at ? format(new Date(doc.created_at), "dd/MM/yyyy") : "Unknown"}`}
                             />
+                            <Button
+                              size="small"
+                              startIcon={<DownloadIcon />}
+                              onClick={() => {
+                                // TODO: Implement document download
+                                showError(
+                                  "Document download requires implementation"
+                                );
+                              }}
+                            >
+                              Download
+                            </Button>
                           </ListItem>
-                          <Divider />
-                        </React.Fragment>
-                      ))}
-                    </List>
+                        ))}
+                      </List>
+                    )}
                   </Box>
                 )}
               </CardContent>
@@ -1355,7 +1424,8 @@ const MeetingDetailsPage = () => {
                       variant="outlined"
                       startIcon={<ShareIcon />}
                       onClick={() => {
-                        /* Share meeting */
+                        navigator.clipboard.writeText(window.location.href);
+                        showSuccess("Link copied to clipboard");
                       }}
                     >
                       Share
@@ -1366,27 +1436,21 @@ const MeetingDetailsPage = () => {
                       fullWidth
                       variant="outlined"
                       startIcon={<PrintIcon />}
-                      onClick={() => {
-                        /* Print agenda */
-                      }}
+                      onClick={() => window.print()}
                     >
                       Print
                     </Button>
                   </Grid>
-                  {meeting.recording_available && (
-                    <Grid item xs={12}>
-                      <Button
-                        fullWidth
-                        variant="outlined"
-                        startIcon={<RecordingIcon />}
-                        onClick={() => {
-                          /* View recording */
-                        }}
-                      >
-                        View Recording
-                      </Button>
-                    </Grid>
-                  )}
+                  <Grid item xs={12}>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      startIcon={<TaskIcon />}
+                      onClick={() => navigate(`/meetings/${meetingId}/tasks`)}
+                    >
+                      Manage Tasks
+                    </Button>
+                  </Grid>
                 </Grid>
               </CardContent>
             </Card>
@@ -1409,26 +1473,11 @@ const MeetingDetailsPage = () => {
                     <MUIListItemText
                       primary="Meeting Scheduled"
                       secondary={format(
-                        new Date(meeting.created_at),
+                        new Date(meeting.created_at || new Date()),
                         "dd/MM/yyyy HH:mm"
                       )}
                     />
                   </ListItem>
-                  {meeting.reminder_sent && (
-                    <ListItem>
-                      <ListItemAvatar>
-                        <Avatar
-                          sx={{ bgcolor: "info.main", width: 32, height: 32 }}
-                        >
-                          <ReminderIcon fontSize="small" />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <MUIListItemText
-                        primary="Reminders Sent"
-                        secondary="24 hours before meeting"
-                      />
-                    </ListItem>
-                  )}
                   {meeting.status === "completed" && (
                     <ListItem>
                       <ListItemAvatar>
@@ -1445,9 +1494,28 @@ const MeetingDetailsPage = () => {
                       <MUIListItemText
                         primary="Meeting Completed"
                         secondary={format(
-                          new Date(meeting.updated_at),
+                          new Date(meeting.updated_at || new Date()),
                           "dd/MM/yyyy HH:mm"
                         )}
+                      />
+                    </ListItem>
+                  )}
+                  {meeting.status === "in_progress" && (
+                    <ListItem>
+                      <ListItemAvatar>
+                        <Avatar
+                          sx={{
+                            bgcolor: "warning.main",
+                            width: 32,
+                            height: 32,
+                          }}
+                        >
+                          <StartIcon fontSize="small" />
+                        </Avatar>
+                      </ListItemAvatar>
+                      <MUIListItemText
+                        primary="Meeting In Progress"
+                        secondary="Currently ongoing"
                       />
                     </ListItem>
                   )}
@@ -1465,17 +1533,21 @@ const MeetingDetailsPage = () => {
         >
           <MenuItem
             onClick={() => {
-              /* Duplicate meeting */
+              navigator.clipboard.writeText(window.location.href);
+              showSuccess("Meeting link copied");
+              setAnchorEl(null);
             }}
           >
             <ListItemIcon>
-              <RecurringIcon fontSize="small" />
+              <LinkIcon fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Duplicate Meeting</ListItemText>
+            <ListItemText>Copy Link</ListItemText>
           </MenuItem>
           <MenuItem
             onClick={() => {
-              /* Export to calendar */
+              setAnchorEl(null);
+              // TODO: Implement calendar export
+              showError("Calendar export requires implementation");
             }}
           >
             <ListItemIcon>
@@ -1483,20 +1555,13 @@ const MeetingDetailsPage = () => {
             </ListItemIcon>
             <ListItemText>Export to Calendar</ListItemText>
           </MenuItem>
-          <MenuItem
-            onClick={() => {
-              /* Download materials */
-            }}
-          >
-            <ListItemIcon>
-              <DownloadIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Download Materials</ListItemText>
-          </MenuItem>
           <Divider />
-          {hasPermission(PERMISSIONS.MANAGE_MEETINGS) && (
+          {hasPermission(PERMISSIONS.DELETE_MEETINGS) && (
             <MenuItem
-              onClick={handleDeleteMeeting}
+              onClick={() => {
+                setAnchorEl(null);
+                handleDeleteMeeting();
+              }}
               sx={{ color: "error.main" }}
             >
               <ListItemIcon>
@@ -1521,9 +1586,9 @@ const MeetingDetailsPage = () => {
                 <TextField
                   fullWidth
                   label="Meeting Title"
-                  value={editForm.title}
+                  value={editForm.meeting_title}
                   onChange={(e) =>
-                    setEditForm({ ...editForm, title: e.target.value })
+                    setEditForm({ ...editForm, meeting_title: e.target.value })
                   }
                   required
                 />
@@ -1542,14 +1607,16 @@ const MeetingDetailsPage = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <DateTimePicker
-                  label="Start Time"
+                  label="Meeting Date & Start Time"
                   value={editForm.start_time}
-                  onChange={(date) =>
-                    setEditForm({ ...editForm, start_time: date })
-                  }
-                  slotProps={{
-                    textField: { fullWidth: true },
+                  onChange={(date) => {
+                    setEditForm({
+                      ...editForm,
+                      start_time: date,
+                      meeting_date: date,
+                    });
                   }}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -1559,9 +1626,7 @@ const MeetingDetailsPage = () => {
                   onChange={(date) =>
                     setEditForm({ ...editForm, end_time: date })
                   }
-                  slotProps={{
-                    textField: { fullWidth: true },
-                  }}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -1603,22 +1668,14 @@ const MeetingDetailsPage = () => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={4}>
-                <FormControl fullWidth>
-                  <InputLabel>Priority</InputLabel>
-                  <Select
-                    value={editForm.priority}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, priority: e.target.value })
-                    }
-                    label="Priority"
-                  >
-                    {priorityLevels.map((priority) => (
-                      <MenuItem key={priority.value} value={priority.value}>
-                        {priority.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <TextField
+                  fullWidth
+                  label="Chairperson"
+                  value={editForm.chairperson}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, chairperson: e.target.value })
+                  }
+                />
               </Grid>
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth>
@@ -1773,7 +1830,7 @@ const MeetingDetailsPage = () => {
                   onChange={(e) =>
                     setNewAgendaItem({
                       ...newAgendaItem,
-                      duration: e.target.value,
+                      duration: parseInt(e.target.value),
                     })
                   }
                 />
@@ -1800,7 +1857,7 @@ const MeetingDetailsPage = () => {
                   onChange={(e) =>
                     setNewAgendaItem({
                       ...newAgendaItem,
-                      order: e.target.value,
+                      order: parseInt(e.target.value),
                     })
                   }
                 />
@@ -1811,72 +1868,6 @@ const MeetingDetailsPage = () => {
             <Button onClick={() => setAgendaDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleAddAgendaItem} variant="contained">
               Add Item
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Add Note Dialog */}
-        <Dialog
-          open={notesDialogOpen}
-          onClose={() => setNotesDialogOpen(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>Add Meeting Note</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Note Content"
-                  value={newNote.content}
-                  onChange={(e) =>
-                    setNewNote({ ...newNote, content: e.target.value })
-                  }
-                  multiline
-                  rows={4}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Note Type</InputLabel>
-                  <Select
-                    value={newNote.note_type}
-                    onChange={(e) =>
-                      setNewNote({ ...newNote, note_type: e.target.value })
-                    }
-                    label="Note Type"
-                  >
-                    <MenuItem value="general">General Note</MenuItem>
-                    <MenuItem value="key_point">Key Point</MenuItem>
-                    <MenuItem value="observation">Observation</MenuItem>
-                    <MenuItem value="action_item">Action Item</MenuItem>
-                    <MenuItem value="decision">Decision</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Action Item</InputLabel>
-                  <Select
-                    value={newNote.is_action_item}
-                    onChange={(e) =>
-                      setNewNote({ ...newNote, is_action_item: e.target.value })
-                    }
-                    label="Action Item"
-                  >
-                    <MenuItem value={false}>Regular Note</MenuItem>
-                    <MenuItem value={true}>Action Item</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setNotesDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddNote} variant="contained">
-              Add Note
             </Button>
           </DialogActions>
         </Dialog>

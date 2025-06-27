@@ -104,11 +104,8 @@ export const API_ENDPOINTS = {
 
     // **NEW ENDPOINTS - Meeting Management**
     MEETINGS: '/meetings',
-    MEETING_BY_ID: (id) => `/meetings/${id}`,
-    MEETING_STATUS: (id) => `/meetings/${id}/status`,
-    USER_MEETINGS: '/meetings/my-meetings',
-    MEETING_STATISTICS: '/meetings/statistics',
-    MEETING_REPORTS: '/meetings/reports',
+    MEETING_BY_ID: (meetingId) => `/meetings/${meetingId}`,
+    MEETING_STATUS: (meetingId) => `/meetings/${meetingId}/status`,
 
     // Meeting Attendees
     MEETING_ATTENDEES: (meetingId) => `/meetings/${meetingId}/attendees`,
@@ -124,6 +121,16 @@ export const API_ENDPOINTS = {
     MEETING_DOCUMENTS: (meetingId) => `/meetings/${meetingId}/documents`,
     MEETING_MINUTES: (meetingId) => `/meetings/${meetingId}/minutes`,
     MEETING_NOTIFICATIONS: (meetingId) => `/meetings/${meetingId}/notifications`,
+
+    // Meeting Reports & Statistics
+    MEETING_REPORTS: '/meetings/reports',
+    MEETING_STATISTICS: '/meetings/statistics',
+    USER_MEETINGS: '/meetings/user',
+
+    // Meeting Actions (these might use the same endpoints as status updates)
+    START_MEETING: (meetingId) => `/meetings/${meetingId}/start`,
+    END_MEETING: (meetingId) => `/meetings/${meetingId}/end`,
+    CANCEL_MEETING: (meetingId) => `/meetings/${meetingId}/cancel`,
 
     // **NEW ENDPOINTS - Travel & Advances**
     TRAVEL_REQUESTS: '/travel/requests',

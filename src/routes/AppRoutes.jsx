@@ -91,6 +91,7 @@ import PerformanceAppraisalsPage from "../pages/procurement/PerformanceAppraisal
 import MeetingsPage from "../pages/meetings/MeetingsPage";
 import MeetingDetailsPage from "../pages/meetings/MeetingDetailsPage";
 import MeetingTasksPage from "../pages/meetings/MeetingTasksPage";
+import MeetingCreatePage from "../pages/meetings/MeetingCreatePage";
 
 // Enhanced Reports
 // import HRReportsPage from "../pages/reports/HRReportsPage";
@@ -526,6 +527,7 @@ const AppRoutes = () => {
           }
         /> */}
         {/* **MEETING MANAGEMENT ROUTES** */}
+        {/* **MEETING MANAGEMENT ROUTES** */}
         <Route
           path="meetings"
           element={
@@ -538,12 +540,22 @@ const AppRoutes = () => {
           path="meetings/create"
           element={
             <PermissionGuard permissions={[PERMISSIONS.CREATE_MEETINGS]}>
-              <MeetingDetailsPage />
+              <MeetingCreatePage />
             </PermissionGuard>
           }
         />
+        {/* All meeting tasks route - should come before specific meeting routes */}
         <Route
           path="meetings/tasks"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.VIEW_MEETING_TASKS]}>
+              <MeetingTasksPage />
+            </PermissionGuard>
+          }
+        />
+        {/* Specific meeting tasks route */}
+        <Route
+          path="meetings/:id/tasks"
           element={
             <PermissionGuard permissions={[PERMISSIONS.VIEW_MEETING_TASKS]}>
               <MeetingTasksPage />
@@ -558,6 +570,15 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
+        <Route
+          path="meetings/:id/edit"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.UPDATE_MEETINGS]}>
+              <MeetingDetailsPage />
+            </PermissionGuard>
+          }
+        />
+
         {/* Documents */}
         <Route
           path="documents"
@@ -686,7 +707,7 @@ const AppRoutes = () => {
             </PermissionGuard>
           }
         />
-        
+
         <Route
           path="/attendance/timesheet/approval"
           element={
