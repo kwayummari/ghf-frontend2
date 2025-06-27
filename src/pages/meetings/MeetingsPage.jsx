@@ -109,16 +109,25 @@ const MeetingsPage = () => {
 
       // Fetch meetings
       const meetingsResponse = await meetingsAPI.getAllMeetings(params);
-      setMeetings(meetingsResponse.data || []);
+      console.log("Meetings Response:", meetingsResponse);
+
+      // FIXED: Access the nested meetings array correctly
+      const meetingsData =
+        meetingsResponse.data?.meetings || meetingsResponse.data || [];
+      setMeetings(Array.isArray(meetingsData) ? meetingsData : []);
 
       // Fetch meeting tasks for the tasks tab
       if (activeTab === 1) {
         const tasksResponse = await meetingsAPI.getMeetingTasks();
-        setMeetingTasks(tasksResponse.data || []);
+        const tasksData = tasksResponse.data?.tasks || tasksResponse.data || [];
+        setMeetingTasks(Array.isArray(tasksData) ? tasksData : []);
       }
     } catch (error) {
       console.error("Error fetching meetings:", error);
       showError(error.response?.data?.message || "Failed to fetch meetings");
+      // Set empty arrays on error to prevent filter issues
+      setMeetings([]);
+      setMeetingTasks([]);
     } finally {
       setLoading(false);
     }
@@ -127,24 +136,26 @@ const MeetingsPage = () => {
   const fetchMeetingTasks = async () => {
     try {
       const response = await meetingsAPI.getMeetingTasks();
-      setMeetingTasks(response.data || []);
+      const tasksData = response.data?.tasks || response.data || [];
+      setMeetingTasks(Array.isArray(tasksData) ? tasksData : []);
     } catch (error) {
       console.error("Error fetching meeting tasks:", error);
       showError("Failed to fetch meeting tasks");
+      setMeetingTasks([]);
     }
   };
 
   const fetchMeetingStatistics = async () => {
     try {
       const response = await meetingsAPI.getMeetingStatistics();
-      setStatistics(
+      const statsData = response.data?.statistics ||
         response.data || {
           total_meetings: 0,
           todays_meetings: 0,
           pending_tasks: 0,
           meetings_with_minutes: 0,
-        }
-      );
+        };
+      setStatistics(statsData);
     } catch (error) {
       console.error("Error fetching meeting statistics:", error);
       // Don't show error for statistics as it's not critical
@@ -167,7 +178,8 @@ const MeetingsPage = () => {
   const handleViewMeeting = async (meetingId) => {
     try {
       const response = await meetingsAPI.getMeetingById(meetingId);
-      setSelectedItem(response.data);
+      const meetingData = response.data?.meeting || response.data;
+      setSelectedItem(meetingData);
       setViewDialogOpen(true);
     } catch (error) {
       showError("Failed to fetch meeting details");
@@ -581,20 +593,30 @@ const MeetingsPage = () => {
     },
   ];
 
-  // Filter data
-  const filteredMeetings = meetings.filter(
-    (meeting) =>
-      meeting.meeting_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      meeting.meeting_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      meeting.chairperson?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter data - Added safety checks
+  const filteredMeetings = Array.isArray(meetings)
+    ? meetings.filter(
+        (meeting) =>
+          meeting.meeting_title
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          meeting.meeting_type
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          meeting.chairperson?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
-  const filteredTasks = meetingTasks.filter(
-    (task) =>
-      task.task_description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.assigned_to?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.meeting_title?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTasks = Array.isArray(meetingTasks)
+    ? meetingTasks.filter(
+        (task) =>
+          task.task_description
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          task.assigned_to?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          task.meeting_title?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   if (loading && !refreshing) {
     return <LoadingSpinner />;
@@ -1066,11 +1088,13 @@ const MeetingsPage = () => {
                   <Typography variant="h6" gutterBottom>
                     Agenda Items
                   </Typography>
-                  {selectedItem.agenda_items?.map((item, index) => (
-                    <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
-                      {index + 1}. {item}
-                    </Typography>
-                  )) || (
+                  {Array.isArray(selectedItem.agenda_items) ? (
+                    selectedItem.agenda_items.map((item, index) => (
+                      <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
+                        {index + 1}. {item}
+                      </Typography>
+                    ))
+                  ) : (
                     <Typography variant="body2" color="text.secondary">
                       No agenda items
                     </Typography>
@@ -1081,21 +1105,23 @@ const MeetingsPage = () => {
                     Attendees
                   </Typography>
                   <Grid container spacing={1}>
-                    {selectedItem.attendees?.map((attendee, index) => (
-                      <Grid item key={index}>
-                        <Chip
-                          avatar={<Avatar>{attendee.name?.charAt(0)}</Avatar>}
-                          label={`${attendee.name} (${attendee.attendance_status})`}
-                          color={
-                            attendee.attendance_status === "attended" ||
-                            attendee.attendance_status === "confirmed"
-                              ? "success"
-                              : "default"
-                          }
-                          variant="outlined"
-                        />
-                      </Grid>
-                    )) || (
+                    {Array.isArray(selectedItem.attendees) ? (
+                      selectedItem.attendees.map((attendee, index) => (
+                        <Grid item key={index}>
+                          <Chip
+                            avatar={<Avatar>{attendee.name?.charAt(0)}</Avatar>}
+                            label={`${attendee.name} (${attendee.attendance_status})`}
+                            color={
+                              attendee.attendance_status === "attended" ||
+                              attendee.attendance_status === "confirmed"
+                                ? "success"
+                                : "default"
+                            }
+                            variant="outlined"
+                          />
+                        </Grid>
+                      ))
+                    ) : (
                       <Typography variant="body2" color="text.secondary">
                         No attendees
                       </Typography>
