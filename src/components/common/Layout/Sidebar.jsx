@@ -321,35 +321,28 @@ const Sidebar = ({ collapsed, onItemClick }) => {
           borderColor: "divider",
         }}
       >
-        <Avatar
-          sx={{
-            bgcolor: "primary.main",
-            width: collapsed ? 40 : 48,
-            height: collapsed ? 40 : 48,
-            fontSize: collapsed ? "1rem" : "1.25rem",
-            fontWeight: "bold",
-          }}
-        >
-          GHF
-        </Avatar>
-
         {!collapsed && (
           <Box sx={{ ml: 2 }}>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: "bold", color: "primary.main" }}
-            >
-              GH Foundation
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Office System
-            </Typography>
+            <img
+              src="./assets/images/logo.png"
+              alt="Logo"
+              style={{
+                // width: 100,
+                height: 50,
+                objectFit: "cover",
+              }}
+            />
           </Box>
         )}
       </Box>
 
       {/* Navigation Menu */}
-      <Box sx={{ flex: 1, overflow: "auto", backgroundColor: "#000000", color: "#ffffff" }}>
+      <Box
+        sx={{
+          flex: 1,
+          overflow: "auto",
+        }}
+      >
         <List
           component="nav"
           sx={{

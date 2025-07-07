@@ -2,10 +2,10 @@
 import React from "react";
 import { Box, Grid } from "@mui/material";
 import DashboardStats from "../../components/features/dashboard/DashboardStats";
-import DashboardRecentActivity from "../../components/features/dashboard/DashboardRecentActivity";
-import AttendanceWidget from "../../components/features/dashboard/AttendanceWidget";
-import LeaveWidget from "../../components/features/dashboard/LeaveWidget";
-import TaskWidget from "../../components/features/dashboard/TaskWidget";
+// import DashboardRecentActivity from "../../components/features/dashboard/DashboardRecentActivity";
+// import AttendanceWidget from "../../components/features/dashboard/AttendanceWidget";
+// import LeaveWidget from "../../components/features/dashboard/LeaveWidget";
+// import TaskWidget from "../../components/features/dashboard/TaskWidget";
 
 const DashboardPage = () => {
   return (
@@ -14,7 +14,7 @@ const DashboardPage = () => {
       <DashboardStats />
 
       {/* Additional Widgets */}
-      <Grid container spacing={3} sx={{ mt: 3 }}>
+      {/* <Grid container spacing={3} sx={{ mt: 3 }}>
         <Grid item xs={12} md={4}>
           <AttendanceWidget />
         </Grid>
@@ -24,7 +24,7 @@ const DashboardPage = () => {
         <Grid item xs={12} md={4}>
           <TaskWidget />
         </Grid>
-      </Grid>
+      </Grid> */}
     </Box>
   );
 };
