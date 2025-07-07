@@ -80,7 +80,6 @@ const Sidebar = ({ collapsed, onItemClick }) => {
       (!userMenus || userMenus.length === 0) &&
       !menuLoading
     ) {
-      console.log("Sidebar: User authenticated but no menus, fetching...");
       dispatch(getUserMenus());
     }
   }, [dispatch, isAuthenticated, user, userMenus, menuLoading]);
@@ -349,56 +348,8 @@ const Sidebar = ({ collapsed, onItemClick }) => {
         )}
       </Box>
 
-      {/* User Profile Section */}
-      {!collapsed && user && (
-        <Box
-          sx={{
-            p: 2,
-            borderBottom: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Avatar
-              sx={{
-                bgcolor: "secondary.main",
-                width: 40,
-                height: 40,
-              }}
-            >
-              {getUserInitials()}
-            </Avatar>
-
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography
-                variant="subtitle2"
-                sx={{
-                  fontWeight: 600,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {getUserDisplayName()}
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {getUserRole()}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-      )}
-
       {/* Navigation Menu */}
-      <Box sx={{ flex: 1, overflow: "auto" }}>
+      <Box sx={{ flex: 1, overflow: "auto", backgroundColor: "#000000", color: "#ffffff" }}>
         <List
           component="nav"
           sx={{

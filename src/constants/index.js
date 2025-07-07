@@ -207,6 +207,15 @@ export const API_ENDPOINTS = {
     EMAIL_TEMPLATES: '/settings/email-templates',
     NOTIFICATION_SETTINGS: '/settings/notifications',
 
+    SYSTEM_LOGS: '/settings/logs',
+    SYSTEM_LOGS_STATS: '/settings/logs/stats',
+    SYSTEM_LOGS_RECENT: '/settings/logs/recent',
+    SYSTEM_LOGS_EXPORT: '/settings/logs/export',
+    SYSTEM_LOGS_SECURITY: '/settings/logs/security',
+    SYSTEM_LOGS_AUDIT_TRAIL: '/settings/logs/audit-trail',
+    SYSTEM_LOGS_USER_ACTION: '/settings/logs/user-action',
+    AUDIT_LOGS: '/audit/logs',
+
     // Timesheet Management
     TIMESHEETS: '/timesheets',
     TIMESHEET_BY_ID: (id) => `/timesheets/${id}`,
@@ -357,6 +366,19 @@ export const ROUTES = {
     ROLES_SETTINGS: '/settings/roles',
     MENUS_SETTINGS: '/settings/menus',
     USERS_SETTINGS: '/settings/users',
+
+    SETTINGS_AUDIT: '/settings/audit',
+    SETTINGS_BACKUP: '/settings/backup',
+    SETTINGS_COMPANY: '/settings/company',
+    SETTINGS_EMAIL: '/settings/email',
+    SETTINGS_NOTIFICATIONS: '/settings/notifications',
+    SETTINGS_SECURITY: '/settings/security',
+    SETTINGS_INTEGRATIONS: '/settings/integrations',
+
+    // **ACTIVITY LOGS ROUTES**
+    ACTIVITY_LOGS: '/settings/audit',
+    AUDIT_TRAIL: '/audit/trail',
+    SECURITY_LOGS: '/security/logs',
 
     // Profile routes
     PROFILE: '/profile',
