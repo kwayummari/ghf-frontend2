@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useQuery } from "@tanstack/react-query";
@@ -30,51 +30,79 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
-  Divider,
-  Tooltip,
   IconButton,
-  Badge,
-  Tabs,
-  Tab,
   Pagination,
   Stack,
 } from "@mui/material";
 import {
   Search as SearchIcon,
-  FilterList as FilterIcon,
   Download as DownloadIcon,
-  History as HistoryIcon,
-  Person as PersonIcon,
-  Business as BusinessIcon,
-  Security as SecurityIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon,
   Visibility as VisibilityIcon,
   Create as CreateIcon,
   Delete as DeleteIcon,
   Update as UpdateIcon,
   Login as LoginIcon,
   Logout as LogoutIcon,
-  Settings as SettingsIcon,
-  Dashboard as DashboardIcon,
-  Refresh as RefreshIcon,
+  Info as InfoIcon,
+  Error as ErrorIcon,
   Close as CloseIcon,
 } from "@mui/icons-material";
 import { selectUser } from "../../store/slices/authSlice";
 import { useAuth } from "../../components/features/auth/AuthGuard";
-import { useNotification } from "../../components/common/NotificationProvider";
+// import { useNotification } from "../../components/common/NotificationProvider";
 import activityLogsAPI from "../../services/api/activityLogs.api";
-import apiClient from "../../services/api/axios.config";
-import { API_ENDPOINTS } from "../../constants";
 
+// Activity Icon Component
+const ActivityIcon = ({ action, status }) => {
+  if (status === "failed" || status === "error") {
+    return <ErrorIcon fontSize="small" />;
+  }
+
+  switch (action?.toLowerCase()) {
+    case "create":
+      return <CreateIcon fontSize="small" />;
+    case "update":
+    case "edit":
+      return <UpdateIcon fontSize="small" />;
+    case "delete":
+      return <DeleteIcon fontSize="small" />;
+    case "view":
+    case "read":
+      return <VisibilityIcon fontSize="small" />;
+    case "login":
+      return <LoginIcon fontSize="small" />;
+    case "logout":
+      return <LogoutIcon fontSize="small" />;
+    default:
+      return <InfoIcon fontSize="small" />;
+  }
+};
+
+// Status Chip Component
+const StatusChip = ({ status }) => {
+  switch (status?.toLowerCase()) {
+    case "success":
+    case "completed":
+      return <Chip label="Success" color="success" size="small" />;
+    case "failed":
+    case "error":
+      return <Chip label="Failed" color="error" size="small" />;
+    case "pending":
+      return <Chip label="Pending" color="warning" size="small" />;
+    case "approved":
+      return <Chip label="Approved" color="success" size="small" />;
+    case "rejected":
+      return <Chip label="Rejected" color="error" size="small" />;
+    default:
+      return <Chip label={status || "Unknown"} color="default" size="small" />;
+  }
+};
 
 const ActivityLogsPage = () => {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
   const { hasPermission } = useAuth();
-  const { showSuccess, showError } = useNotification();
+//   const { showSuccess, showError } = useNotification();
 
   // State management
   const [page, setPage] = useState(1);
@@ -83,9 +111,6 @@ const ActivityLogsPage = () => {
   const [actionFilter, setActionFilter] = useState("");
   const [moduleFilter, setModuleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [userFilter, setUserFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
@@ -97,9 +122,6 @@ const ActivityLogsPage = () => {
     action: actionFilter,
     module: moduleFilter,
     status: statusFilter,
-    user: userFilter,
-    date_from: dateFrom,
-    date_to: dateTo,
   };
 
   // Fetch activities with React Query
@@ -166,9 +188,6 @@ const ActivityLogsPage = () => {
     setActionFilter("");
     setModuleFilter("");
     setStatusFilter("");
-    setUserFilter("");
-    setDateFrom("");
-    setDateTo("");
     setPage(1);
   };
 
@@ -410,9 +429,6 @@ const ActivityLogsPage = () => {
                           <Typography variant="body2">
                             {activity.user_name || "System"}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {activity.user_role || ""}
-                          </Typography>
                         </TableCell>
                         <TableCell>
                           <Chip
@@ -501,8 +517,7 @@ const ActivityLogsPage = () => {
                   User
                 </Typography>
                 <Typography variant="body2" sx={{ mb: 2 }}>
-                  {selectedActivity.user_name || "System"} (
-                  {selectedActivity.user_role || "Unknown"})
+                  {selectedActivity.user_name || "System"}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -568,109 +583,4 @@ const ActivityLogsPage = () => {
   );
 };
 
-// Activity Icon Component
-const ActivityIcon = ({ action, status }) => {
-  if (status === "failed" || status === "error") {
-    return <ErrorIcon fontSize="small" />;
-  }
-
-  switch (action?.toLowerCase()) {
-    case "create":
-      return <CreateIcon fontSize="small" />;
-    case "update":
-    case "edit":
-      return <UpdateIcon fontSize="small" />;
-    case "delete":
-      return <DeleteIcon fontSize="small" />;
-    case "view":
-    case "read":
-      return <VisibilityIcon fontSize="small" />;
-    case "login":
-      return <LoginIcon fontSize="small" />;
-    case "logout":
-      return <LogoutIcon fontSize="small" />;
-    default:
-      return <InfoIcon fontSize="small" />;
-  }
-};
-
-// Status Chip Component
-const StatusChip = ({ status }) => {
-  switch (status?.toLowerCase()) {
-    case "success":
-    case "completed":
-      return <Chip label="Success" color="success" size="small" />;
-    case "failed":
-    case "error":
-      return <Chip label="Failed" color="error" size="small" />;
-    case "pending":
-      return <Chip label="Pending" color="warning" size="small" />;
-    case "approved":
-      return <Chip label="Approved" color="success" size="small" />;
-    case "rejected":
-      return <Chip label="Rejected" color="error" size="small" />;
-    default:
-      return <Chip label={status || "Unknown"} color="default" size="small" />;
-  }
-};
-
-// Export components for use
-export { DashboardRecentActivity, ActivityLogsPage, activityLogsAPI };
-
-// Main component
-export default function App() {
-  const [currentView, setCurrentView] = useState("dashboard");
-
-  return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "grey.50" }}>
-      <Box
-        sx={{ p: 2, bgcolor: "white", borderBottom: 1, borderColor: "divider" }}
-      >
-        <Stack direction="row" spacing={2}>
-          <Button
-            variant={currentView === "dashboard" ? "contained" : "outlined"}
-            onClick={() => setCurrentView("dashboard")}
-            startIcon={<DashboardIcon />}
-          >
-            Dashboard View
-          </Button>
-          <Button
-            variant={currentView === "logs" ? "contained" : "outlined"}
-            onClick={() => setCurrentView("logs")}
-            startIcon={<HistoryIcon />}
-          >
-            Full Activity Logs
-          </Button>
-        </Stack>
-      </Box>
-
-      {currentView === "dashboard" ? (
-        <Box sx={{ p: 3 }}>
-          <Typography variant="h5" sx={{ mb: 3 }}>
-            Dashboard - Recent Activity Demo
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={8}>
-              <DashboardRecentActivity limit={5} showViewAll={true} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    Quick Stats
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    The View All button now properly navigates to the full
-                    activity logs page.
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </Box>
-      ) : (
-        <ActivityLogsPage />
-      )}
-    </Box>
-  );
-}
+export default ActivityLogsPage;

@@ -106,6 +106,7 @@ import SalaryScaleSettingsPage from "../pages/settings/SalaryScaleSettingsPage";
 import LeaveTypeSettingsPage from "../pages/settings/LeaveTypeSettingsPage";
 import HolidaySettingsPage from "../pages/settings/HolidaySettingsPage";
 import SupervisorTimesheetApproval from "../components/features/attendance/SupervisorTimesheetApproval";
+import ActivityLogsPage from "../pages/settings/ActivityLogsPage";
 
 const AppRoutes = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -725,6 +726,15 @@ const AppRoutes = () => {
 
       {/* Fallback for unauthenticated users */}
       <Route path="*" element={<Navigate to={ROUTES.LOGIN} replace />} />
+
+      <Route
+        path="settings/audit"
+        element={
+          <PermissionGuard permissions={["VIEW_AUDIT_LOGS"]}>
+            <ActivityLogsPage />
+          </PermissionGuard>
+        }
+      />
     </Routes>
   );
 };
