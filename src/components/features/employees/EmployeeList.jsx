@@ -109,9 +109,10 @@ const EmployeeList = () => {
         id: emp.id, // <-- or whatever unique ID field you're using
       }))
     : [];
+  
+  console.log(employeesResponse.data.data.length);
 
-  const totalEmployees =
-    employeesResponse?.data?.total || employeesResponse?.total || 0;
+  const totalEmployees = employeesResponse.data.data.length || 0;
   
     const departments = Array.isArray(departmentsResponse?.data)
       ? departmentsResponse.data
