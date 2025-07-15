@@ -654,7 +654,16 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   };
 
   const handleNext = async () => {
-    // Check if user has unsaved changes in edit mode
+    // Skip save check for the last step since it's the final submission
+    if (activeStep === steps.length - 1) {
+      const isStepValid = await validateCurrentStep();
+      if (isStepValid) {
+        await handleSubmit(formik.values);
+      }
+      return;
+    }
+
+    // Check for unsaved changes only for non-final steps
     if (editMode && hasUnsavedChanges && !savedSteps.has(activeStep)) {
       showError("Please save your changes before moving to the next step");
       return;
@@ -662,13 +671,9 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
 
     const isStepValid = await validateCurrentStep();
     if (isStepValid) {
-      if (activeStep === steps.length - 1) {
-        await handleSubmit(formik.values);
-      } else {
-        setFormData(formik.values);
-        setActiveStep((prev) => prev + 1);
-        setHasUnsavedChanges(false);
-      }
+      setFormData(formik.values);
+      setActiveStep((prev) => prev + 1);
+      setHasUnsavedChanges(false);
     }
   };
 
@@ -827,7 +832,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
                     : "Create Employee"
                   : "Next"}
               </LoadingButton>
-            </Box>
+            </Box> 
           </Box>
         </CardContent>
       </Card>
