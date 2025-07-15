@@ -121,12 +121,10 @@ const LeaveApprovalsPage = () => {
         params.type_id = typeFilter;
       }
 
-      console.log("Fetching leaves with params:", params);
-
       const response = await leavesAPI.getAll(params);
 
       if (response && response.success) {
-        const leavesData = response.data || [];
+        const leavesData = response.data.applications || [];
         const metaData = response.meta || {};
 
         // Filter leaves based on user's approval authority
@@ -240,7 +238,6 @@ const LeaveApprovalsPage = () => {
           `${approvalAction === "approve" ? "Approved" : "Rejected"} by ${user.first_name} ${user.sur_name}`,
       };
 
-      console.log("Updating leave status:", statusData);
 
       const response = await leavesAPI.updateStatus(
         selectedLeave.id,

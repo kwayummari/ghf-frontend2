@@ -1,154 +1,212 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
   CardContent,
   Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Button,
-  TextField,
-  MenuItem,
-  InputAdornment,
   Chip,
   IconButton,
   Menu,
+  MenuItem,
   ListItemIcon,
   ListItemText,
-  Tabs,
-  Tab,
-  Alert,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   DialogContentText,
+  DialogActions,
+  TextField,
+  InputAdornment,
+  CircularProgress,
+  Alert,
+  Tabs,
+  Tab,
+  Tooltip,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
+import { LoadingButton } from "@mui/lab";
 import {
   Add as AddIcon,
-  Search as SearchIcon,
-  FilterList as FilterIcon,
-  MoreVert as MoreVertIcon,
-  Edit as EditIcon,
-  Visibility as ViewIcon,
-  Delete as DeleteIcon,
-  CheckCircle as ApproveIcon,
-  Cancel as RejectIcon,
+  MoreVert as MoreIcon,
   Refresh as RefreshIcon,
+  Search as SearchIcon,
+  Visibility as ViewIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Download as DownloadIcon,
 } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 import { selectUser } from "../../../store/slices/authSlice";
-import { useAuth } from "../auth/AuthGuard";
-import { ROUTES, LEAVE_STATUS, ROLES } from "../../../constants";
+import { ROUTES } from "../../../constants";
 import { leavesAPI } from "../../../services/api/leaves.api";
+import { documentsAPI } from "../../../services/api/documents.api";
 import useNotification from "../../../hooks/common/useNotification";
 
+// =============================================================================
+// UTILITY FUNCTIONS
+// =============================================================================
+const getStatusColor = (status) => {
+  switch (status?.toLowerCase()) {
+    case "approved":
+      return "success";
+    case "pending":
+      return "warning";
+    case "approved by supervisor":
+      return "info";
+    case "approved by hr":
+      return "primary";
+    case "rejected":
+      return "error";
+    case "draft":
+      return "secondary";
+    default:
+      return "default";
+  }
+};
+
+const formatStatus = (status) => {
+  if (!status) return "Unknown";
+  return status
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+const formatDate = (dateString) => {
+  return new Date(dateString).toLocaleDateString("en-GB");
+};
+
+const calculateDays = (startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  return diffDays;
+};
+
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
 const LeaveList = () => {
+  // ---------------------------------------------------------------------------
+  // HOOKS & STATE
+  // ---------------------------------------------------------------------------
   const navigate = useNavigate();
   const user = useSelector(selectUser);
-  const { hasAnyRole, hasRole } = useAuth();
-  const { showSuccess, showError, showWarning } = useNotification();
+  const { showSuccess, showError } = useNotification();
 
-  // State management
+  // Data state
   const [leaves, setLeaves] = useState([]);
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+
+  // UI state
   const [activeTab, setActiveTab] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+
+  // Menu state
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedLeave, setSelectedLeave] = useState(null);
+  const selectedLeaveRef = useRef(null);
+
+  // Dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
-  const [approvalAction, setApprovalAction] = useState(null);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    totalItems: 0,
-    totalPages: 0,
-  });
 
-  // Initialize data on component mount
-  useEffect(() => {
-    loadInitialData();
-  }, [activeTab, pagination.page, pagination.limit]);
+  // ---------------------------------------------------------------------------
+  // COMPUTED VALUES
+  // ---------------------------------------------------------------------------
+  const tabLabels = [
+    "My Applications",
+    "Drafts",
+    "Pending",
+    "Approved",
+    "Rejected",
+  ];
 
-  const loadInitialData = async () => {
-    await Promise.all([fetchLeaves(), fetchLeaveTypes()]);
+  const statuses = [
+    "draft",
+    "pending",
+    "approved by supervisor",
+    "approved by hr",
+    "approved",
+    "rejected",
+  ];
+
+  const getTabFilteredLeaves = (tabIndex) => {
+    const myLeaves = leaves.filter((leave) => leave.user_id === user.id);
+
+    switch (tabIndex) {
+      case 0: // My Applications - All my leaves
+        return myLeaves;
+      case 1: // Drafts - Only my drafts
+        return myLeaves.filter((leave) => leave.approval_status === "draft");
+      case 2: // Pending - My pending applications
+        return myLeaves.filter((leave) =>
+          ["pending", "approved by supervisor", "approved by hr"].includes(
+            leave.approval_status
+          )
+        );
+      case 3: // Approved - My approved leaves
+        return myLeaves.filter((leave) => leave.approval_status === "approved");
+      case 4: // Rejected - My rejected leaves
+        return myLeaves.filter((leave) => leave.approval_status === "rejected");
+      default:
+        return myLeaves;
+    }
   };
 
+  const tabCounts = tabLabels.map(
+    (_, index) => getTabFilteredLeaves(index).length
+  );
+
+  const filteredLeaves = leaves.filter((leave) => {
+    // Only show user's own leaves
+    const isMyLeave = leave.user_id === user.id;
+    if (!isMyLeave) return false;
+
+    const matchesSearch =
+      leave.leaveType?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      leave.comment?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesType = !typeFilter || leave.type_id === parseInt(typeFilter);
+    const matchesStatus =
+      !statusFilter || leave.approval_status === statusFilter;
+    const matchesTab = getTabFilteredLeaves(activeTab).includes(leave);
+
+    return matchesSearch && matchesType && matchesStatus && matchesTab;
+  });
+
+  // ---------------------------------------------------------------------------
+  // EFFECTS
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    fetchLeaves();
+    fetchLeaveTypes();
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // DATA FETCHING FUNCTIONS
+  // ---------------------------------------------------------------------------
   const fetchLeaves = async () => {
     try {
       setLoading(true);
-
-      // Build query parameters based on user role and active tab
-      const isManager = hasAnyRole([
-        ROLES.ADMIN,
-        ROLES.HR_MANAGER,
-        ROLES.DEPARTMENT_HEAD,
-      ]);
-      const params = {
-        page: pagination.page,
-        limit: pagination.limit,
-      };
-
-      // Add status filter based on active tab
-      switch (activeTab) {
-        case 1: // Pending Approvals (managers) or Pending (employees)
-          if (isManager) {
-            params.status = "pending,approved by supervisor";
-          } else {
-            params.status = "pending,draft,approved by supervisor";
-          }
-          break;
-        case 2: // Approved
-          params.status = "approved";
-          break;
-        default: // All leaves
-          // For non-managers, we'll filter on frontend since backend filters by role
-          break;
-      }
-
-      // Add additional filters
-      if (statusFilter) {
-        params.status = statusFilter;
-      }
-      if (typeFilter) {
-        params.type_id = typeFilter;
-      }
-
-      // Call the appropriate API endpoint
-      const response = await leavesAPI.getAll(params);
-
-      console.log("API Response:", response); // Debug log
-
-      // Handle different response structures
+      const response = await leavesAPI.getAll();
       if (response && response.success) {
-        const leavesData = response.data || [];
-        const metaData = response.meta || {};
-
-        setLeaves(Array.isArray(leavesData) ? leavesData : []);
-        setPagination((prev) => ({
-          ...prev,
-          totalItems:
-            metaData.totalItems || metaData.total || leavesData.length,
-          totalPages:
-            metaData.totalPages ||
-            Math.ceil((metaData.total || leavesData.length) / pagination.limit),
-        }));
-      } else if (response && response.data) {
-        // Handle direct data response
-        setLeaves(Array.isArray(response.data) ? response.data : []);
-      } else {
-        throw new Error("Invalid response format");
+        setLeaves(response.data.applications || []);
       }
     } catch (error) {
       console.error("Error fetching leaves:", error);
       showError("Failed to load leave applications");
-      setLeaves([]);
     } finally {
       setLoading(false);
     }
@@ -157,12 +215,8 @@ const LeaveList = () => {
   const fetchLeaveTypes = async () => {
     try {
       const response = await leavesAPI.getTypes();
-      console.log("Leave Types Response:", response); // Debug log
-
       if (response && response.success) {
         setLeaveTypes(response.data || []);
-      } else if (response && response.data) {
-        setLeaveTypes(Array.isArray(response.data) ? response.data : []);
       }
     } catch (error) {
       console.error("Error fetching leave types:", error);
@@ -170,6 +224,9 @@ const LeaveList = () => {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // EVENT HANDLERS
+  // ---------------------------------------------------------------------------
   const handleRefresh = async () => {
     await fetchLeaves();
     showSuccess("Leave applications refreshed");
@@ -178,11 +235,14 @@ const LeaveList = () => {
   const handleMenuOpen = (event, leave) => {
     setAnchorEl(event.currentTarget);
     setSelectedLeave(leave);
+    selectedLeaveRef.current = leave;
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setSelectedLeave(null);
+    if (!deleteDialogOpen) {
+      setSelectedLeave(null);
+    }
   };
 
   const handleViewLeave = () => {
@@ -200,319 +260,147 @@ const LeaveList = () => {
   };
 
   const handleDeleteLeave = () => {
+    selectedLeaveRef.current = selectedLeave;
     setDeleteDialogOpen(true);
     handleMenuClose();
   };
 
   const confirmDeleteLeave = async () => {
-    if (!selectedLeave) return;
+    const leaveToDelete = selectedLeaveRef.current;
+
+    if (!leaveToDelete) {
+      console.log("No selected leave in ref, returning");
+      return;
+    }
 
     try {
       setActionLoading(true);
 
-      // For draft applications, we can delete them directly
-      // For other statuses, we should cancel them
-      let response;
-      if (selectedLeave.approval_status === "draft") {
-        // Delete endpoint might not exist, so we'll try cancel first
-        response = await leavesAPI.cancel(selectedLeave.id, {
-          comment: "Deleted by user",
-        });
-      } else {
-        response = await leavesAPI.cancel(selectedLeave.id, {
-          comment: "Cancelled by user",
-        });
-      }
+      // Only delete draft applications (no cancel functionality in personal list)
+      if (leaveToDelete.approval_status === "draft") {
+        const response = await leavesAPI.delete(leaveToDelete.id);
 
-      if (response && response.success) {
-        showSuccess("Leave application removed successfully");
-        await fetchLeaves(); // Refresh the list
+        if (response && response.success) {
+          showSuccess("Leave application deleted successfully");
+          await fetchLeaves();
+        } else {
+          throw new Error(
+            response?.message || "Failed to delete leave application"
+          );
+        }
       } else {
-        throw new Error(
-          response?.message || "Failed to remove leave application"
+        showError(
+          "Only draft applications can be deleted. Submitted applications require approval to cancel."
         );
       }
     } catch (error) {
-      console.error("Error removing leave:", error);
-      showError("Failed to remove leave application");
+      console.error("Error deleting leave:", error);
+      showError(error.message || "Failed to delete leave application");
     } finally {
       setActionLoading(false);
       setDeleteDialogOpen(false);
       setSelectedLeave(null);
+      selectedLeaveRef.current = null;
     }
   };
 
-  const handleApprovalAction = (action) => {
-    setApprovalAction(action);
-    setApprovalDialogOpen(true);
-    handleMenuClose();
-  };
-
-  const confirmApprovalAction = async () => {
-    if (!selectedLeave || !approvalAction) return;
+  const handleDownloadAttachment = async (leave) => {
+    if (!leave.attachment) return;
 
     try {
-      setActionLoading(true);
+      const blob = await documentsAPI.download(leave.attachment.id);
 
-      const statusData = {
-        status:
-          approvalAction === "approve" ? "approved by supervisor" : "rejected",
-        comment: "", // You might want to add a comment field
-      };
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = leave.attachment.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
-      const response = await leavesAPI.updateStatus(
-        selectedLeave.id,
-        statusData
-      );
-
-      if (response && response.success) {
-        showSuccess(
-          `Leave application ${approvalAction === "approve" ? "approved" : "rejected"} successfully`
-        );
-        await fetchLeaves(); // Refresh the list
-      } else {
-        throw new Error(response?.message || "Failed to update leave status");
-      }
+      showSuccess("Document downloaded successfully");
     } catch (error) {
-      console.error("Error updating leave status:", error);
-      showError("Failed to update leave application status");
-    } finally {
-      setActionLoading(false);
-      setApprovalDialogOpen(false);
-      setApprovalAction(null);
-      setSelectedLeave(null);
+      console.error("Download error:", error);
+      showError("Failed to download document");
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "approved":
-        return "success";
-      case "pending":
-      case "approved by supervisor":
-      case "approved by hr":
-        return "warning";
-      case "rejected":
-        return "error";
-      case "draft":
-        return "default";
-      default:
-        return "default";
-    }
-  };
-
-  const formatStatus = (status) => {
-    if (!status) return "Unknown";
-    return status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ");
-  };
-
+  // ---------------------------------------------------------------------------
+  // PERMISSION CHECKS
+  // ---------------------------------------------------------------------------
   const canEdit = (leave) => {
-    const isOwner = leave.user_id === user.id;
-    const isDraft = leave.approval_status === "draft";
-    const isPending = leave.approval_status === "pending";
-
-    return isOwner && (isDraft || isPending);
-  };
-
-  const canApprove = (leave) => {
-    const isManager = hasAnyRole([
-      ROLES.ADMIN,
-      ROLES.HR_MANAGER,
-      ROLES.DEPARTMENT_HEAD,
-    ]);
-    const isPending =
-      leave.approval_status === "pending" ||
-      leave.approval_status === "approved by supervisor";
-
-    return isManager && isPending && leave.user_id !== user.id;
+    return leave.user_id === user.id && leave.approval_status === "draft";
   };
 
   const canDelete = (leave) => {
-    const isOwner = leave.user_id === user.id;
-    const isDraft = leave.approval_status === "draft";
-
-    return isOwner && isDraft;
+    if (!leave || !user) return false;
+    // Only allow deletion of own draft applications
+    return leave.user_id === user.id && leave.approval_status === "draft";
   };
 
-  const canCancel = (leave) => {
-    const isOwner = leave.user_id === user.id;
-    const isManager = hasAnyRole([ROLES.ADMIN, ROLES.HR_MANAGER]);
-    const isPending = leave.approval_status === "pending";
+  // ---------------------------------------------------------------------------
+  // RENDER FUNCTIONS
+  // ---------------------------------------------------------------------------
+  const renderStatusChip = (status) => (
+    <Chip
+      label={formatStatus(status)}
+      color={getStatusColor(status)}
+      size="small"
+      variant="filled"
+    />
+  );
 
-    return (isOwner && isPending) || isManager;
-  };
+  const renderActionMenu = () => (
+    <Menu
+      anchorEl={anchorEl}
+      open={Boolean(anchorEl)}
+      onClose={handleMenuClose}
+      transformOrigin={{ horizontal: "right", vertical: "top" }}
+      anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+    >
+      <MenuItem onClick={handleViewLeave}>
+        <ListItemIcon>
+          <ViewIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText>View Details</ListItemText>
+      </MenuItem>
 
-  const columns = [
-    {
-      field: "user_name",
-      headerName: "Employee",
-      flex: 1,
-      minWidth: 150,
-      renderCell: (params) => {
-        const user = params.row.user;
-        const fullName = user
-          ? `${user.first_name || ""} ${user.middle_name || ""} ${user.sur_name || ""}`.trim()
-          : "Unknown User";
+      {selectedLeave && canEdit(selectedLeave) && (
+        <MenuItem onClick={handleEditLeave}>
+          <ListItemIcon>
+            <EditIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Edit</ListItemText>
+        </MenuItem>
+      )}
 
-        return (
-          <Box>
-            <Typography variant="body2" fontWeight="medium">
-              {fullName}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {user?.email || ""}
-            </Typography>
-          </Box>
-        );
-      },
-    },
-    {
-      field: "leave_type",
-      headerName: "Leave Type",
-      width: 130,
-      renderCell: (params) => (
-        <Chip
-          label={params.row.leaveType?.name || params.row.type || "Unknown"}
-          size="small"
-          variant="outlined"
-          color="primary"
-        />
-      ),
-    },
-    {
-      field: "date_range",
-      headerName: "Date Range",
-      width: 200,
-      renderCell: (params) => (
-        <Box>
-          <Typography variant="body2">
-            {new Date(params.row.starting_date).toLocaleDateString()} -
-          </Typography>
-          <Typography variant="body2">
-            {new Date(params.row.end_date).toLocaleDateString()}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      field: "validity_check",
-      headerName: "Days",
-      width: 80,
-      renderCell: (params) => {
-        const days = params.value ? params.value.split(" ")[0] : "0";
-        return (
-          <Chip
-            label={`${days} days`}
-            size="small"
-            color="info"
-            variant="outlined"
-          />
-        );
-      },
-    },
-    {
-      field: "approval_status",
-      headerName: "Status",
-      width: 150,
-      renderCell: (params) => (
-        <Chip
-          label={formatStatus(params.value)}
-          color={getStatusColor(params.value)}
-          size="small"
-        />
-      ),
-    },
-    {
-      field: "created_at",
-      headerName: "Applied",
-      width: 120,
-      renderCell: (params) => new Date(params.value).toLocaleDateString(),
-    },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 80,
-      sortable: false,
-      renderCell: (params) => (
-        <IconButton
-          onClick={(event) => handleMenuOpen(event, params.row)}
-          size="small"
-        >
-          <MoreVertIcon />
-        </IconButton>
-      ),
-    },
-  ];
+      {selectedLeave && selectedLeave.attachment && (
+        <MenuItem onClick={() => handleDownloadAttachment(selectedLeave)}>
+          <ListItemIcon>
+            <DownloadIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Download Attachment</ListItemText>
+        </MenuItem>
+      )}
 
-  // Filter data based on search and filters
-  const getFilteredLeaves = () => {
-    let filtered = leaves;
+      {selectedLeave && canDelete(selectedLeave) && (
+        <MenuItem onClick={handleDeleteLeave} sx={{ color: "error.main" }}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText>Delete Draft</ListItemText>
+        </MenuItem>
+      )}
+    </Menu>
+  );
 
-    // Apply search filter
-    if (searchTerm) {
-      filtered = filtered.filter((leave) => {
-        const user = leave.user;
-        const fullName = user
-          ? `${user.first_name || ""} ${user.middle_name || ""} ${user.sur_name || ""}`.toLowerCase()
-          : "";
-        const leaveTypeName = (
-          leave.leaveType?.name ||
-          leave.type ||
-          ""
-        ).toLowerCase();
-        const comment = (leave.comment || "").toLowerCase();
-
-        return (
-          fullName.includes(searchTerm.toLowerCase()) ||
-          leaveTypeName.includes(searchTerm.toLowerCase()) ||
-          comment.includes(searchTerm.toLowerCase())
-        );
-      });
-    }
-
-    // For employees, filter to show only their leaves if not manager
-    if (!hasAnyRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.DEPARTMENT_HEAD])) {
-      filtered = filtered.filter((leave) => leave.user_id === user.id);
-    }
-
-    return filtered;
-  };
-
-  const filteredLeaves = getFilteredLeaves();
-
-  // Get unique statuses from current data
-  const statuses = [
-    ...new Set(leaves.map((leave) => leave.approval_status)),
-  ].filter(Boolean);
-
-  // Get leave type IDs for filter
-  const availableTypeIds = leaveTypes.map((type) => type.id);
-
-  const tabLabels = hasAnyRole([
-    ROLES.ADMIN,
-    ROLES.HR_MANAGER,
-    ROLES.DEPARTMENT_HEAD,
-  ])
-    ? ["All Leaves", "Pending Approvals", "Approved"]
-    : ["My Leaves", "Pending", "Approved"];
-
-  // Get tab counts
-  const getTabCounts = () => {
-    const allCount = filteredLeaves.length;
-    const pendingCount = filteredLeaves.filter((l) =>
-      ["pending", "approved by supervisor", "draft"].includes(l.approval_status)
-    ).length;
-    const approvedCount = filteredLeaves.filter(
-      (l) => l.approval_status === "approved"
-    ).length;
-
-    return [allCount, pendingCount, approvedCount];
-  };
-
-  const tabCounts = getTabCounts();
-
+  // ---------------------------------------------------------------------------
+  // MAIN RENDER
+  // ---------------------------------------------------------------------------
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
       <Box
         sx={{
@@ -523,13 +411,11 @@ const LeaveList = () => {
         }}
       >
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
-            Leave Management
+          <Typography variant="h4" gutterBottom>
+            My Leave Applications
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            {hasAnyRole([ROLES.ADMIN, ROLES.HR_MANAGER, ROLES.DEPARTMENT_HEAD])
-              ? "Manage leave applications and approvals"
-              : "View and manage your leave requests"}
+            View and manage your leave requests
           </Typography>
         </Box>
 
@@ -630,7 +516,8 @@ const LeaveList = () => {
               color="text.secondary"
               sx={{ ml: "auto" }}
             >
-              Showing {filteredLeaves.length} of {leaves.length} applications
+              Showing {filteredLeaves.length} of{" "}
+              {getTabFilteredLeaves(0).length} applications
             </Typography>
           </Box>
         </CardContent>
@@ -639,176 +526,181 @@ const LeaveList = () => {
       {/* Leave Table */}
       <Card>
         {filteredLeaves.length === 0 && !loading ? (
-          <Box sx={{ p: 4, textAlign: "center" }}>
+          <CardContent>
             <Alert severity="info">
-              {searchTerm || statusFilter || typeFilter
-                ? "No leave applications match your current filters."
-                : "No leave applications found."}
+              {searchTerm || typeFilter || statusFilter
+                ? "No leave applications match your search criteria."
+                : activeTab === 0
+                  ? "You haven't applied for any leave yet."
+                  : `No ${tabLabels[activeTab].toLowerCase()} found.`}
             </Alert>
-          </Box>
+          </CardContent>
         ) : (
-          <Box sx={{ height: 600 }}>
-            <DataGrid
-              rows={filteredLeaves}
-              columns={columns}
-              loading={loading}
-              pageSize={pagination.limit}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              disableSelectionOnClick
-              sx={{
-                border: "none",
-                "& .MuiDataGrid-cell:focus": {
-                  outline: "none",
-                },
-              }}
-              getRowId={(row) => row.id}
-              onPageSizeChange={(newPageSize) => {
-                setPagination((prev) => ({
-                  ...prev,
-                  limit: newPageSize,
-                  page: 1,
-                }));
-              }}
-              page={pagination.page - 1} // DataGrid uses 0-based pages
-              onPageChange={(newPage) => {
-                setPagination((prev) => ({ ...prev, page: newPage + 1 }));
-              }}
-              rowCount={pagination.totalItems}
-              paginationMode="server"
-            />
-          </Box>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Leave Type</TableCell>
+                  <TableCell>Date Range</TableCell>
+                  <TableCell>Duration</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Applied On</TableCell>
+                  <TableCell>Attachment</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading
+                  ? Array.from({ length: 5 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <CircularProgress size={20} />
+                        </TableCell>
+                        <TableCell>
+                          <CircularProgress size={20} />
+                        </TableCell>
+                        <TableCell>
+                          <CircularProgress size={20} />
+                        </TableCell>
+                        <TableCell>
+                          <CircularProgress size={20} />
+                        </TableCell>
+                        <TableCell>
+                          <CircularProgress size={20} />
+                        </TableCell>
+                        <TableCell>
+                          <CircularProgress size={20} />
+                        </TableCell>
+                        <TableCell>
+                          <CircularProgress size={20} />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  : filteredLeaves.map((leave) => (
+                      <TableRow key={leave.id} hover>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2" fontWeight="medium">
+                              {leave.leaveType?.name}
+                            </Typography>
+                            {leave.comment && (
+                              <Tooltip title={leave.comment}>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  noWrap
+                                >
+                                  {leave.comment.length > 30
+                                    ? `${leave.comment.substring(0, 30)}...`
+                                    : leave.comment}
+                                </Typography>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {formatDate(leave.starting_date)} -{" "}
+                            {formatDate(leave.end_date)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {calculateDays(leave.starting_date, leave.end_date)}{" "}
+                            day
+                            {calculateDays(
+                              leave.starting_date,
+                              leave.end_date
+                            ) !== 1
+                              ? "s"
+                              : ""}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {renderStatusChip(leave.approval_status)}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {formatDate(leave.created_at)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {leave.attachment ? (
+                            <Tooltip title={leave.attachment.name}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDownloadAttachment(leave)}
+                              >
+                                <DownloadIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleMenuOpen(e, leave)}
+                          >
+                            <MoreIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </Card>
 
       {/* Action Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={handleViewLeave}>
-          <ListItemIcon>
-            <ViewIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>View Details</ListItemText>
-        </MenuItem>
+      {renderActionMenu()}
 
-        {selectedLeave && canEdit(selectedLeave) && (
-          <MenuItem onClick={handleEditLeave}>
-            <ListItemIcon>
-              <EditIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Edit Application</ListItemText>
-          </MenuItem>
-        )}
-
-        {selectedLeave &&
-          canApprove(selectedLeave) && [
-            <MenuItem
-              key="approve"
-              onClick={() => handleApprovalAction("approve")}
-            >
-              <ListItemIcon>
-                <ApproveIcon fontSize="small" color="success" />
-              </ListItemIcon>
-              <ListItemText>Approve</ListItemText>
-            </MenuItem>,
-            <MenuItem
-              key="reject"
-              onClick={() => handleApprovalAction("reject")}
-            >
-              <ListItemIcon>
-                <RejectIcon fontSize="small" color="error" />
-              </ListItemIcon>
-              <ListItemText>Reject</ListItemText>
-            </MenuItem>,
-          ]}
-
-        {selectedLeave && canDelete(selectedLeave) && (
-          <MenuItem onClick={handleDeleteLeave} sx={{ color: "error.main" }}>
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" color="error" />
-            </ListItemIcon>
-            <ListItemText>Delete Draft</ListItemText>
-          </MenuItem>
-        )}
-
-        {selectedLeave && canCancel(selectedLeave) && (
-          <MenuItem onClick={handleDeleteLeave} sx={{ color: "warning.main" }}>
-            <ListItemIcon>
-              <RejectIcon fontSize="small" color="warning" />
-            </ListItemIcon>
-            <ListItemText>Cancel Application</ListItemText>
-          </MenuItem>
-        )}
-      </Menu>
-
-      {/* Delete/Cancel Confirmation Dialog */}
+      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onClose={() => !actionLoading && setDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
       >
-        <DialogTitle>
-          {selectedLeave?.approval_status === "draft" ? "Delete" : "Cancel"}{" "}
-          Leave Application
-        </DialogTitle>
+        <DialogTitle>Delete Leave Application</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to{" "}
-            {selectedLeave?.approval_status === "draft" ? "delete" : "cancel"}{" "}
-            this leave application? This action cannot be undone.
+            Are you sure you want to delete this draft leave application? This
+            action cannot be undone.
+            {selectedLeave && (
+              <>
+                <br />
+                <br />
+                <strong>Leave Details:</strong>
+                <br />
+                Type: {selectedLeave.leaveType?.name}
+                <br />
+                Dates: {formatDate(selectedLeave.starting_date)} -{" "}
+                {formatDate(selectedLeave.end_date)}
+              </>
+            )}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
           <Button
-            onClick={confirmDeleteLeave}
+            onClick={() => setDeleteDialogOpen(false)}
+            disabled={actionLoading}
+          >
+            Cancel
+          </Button>
+          <LoadingButton
+            variant="contained"
             color="error"
-            variant="contained"
-            disabled={actionLoading}
+            loading={actionLoading}
+            onClick={confirmDeleteLeave}
+            startIcon={!actionLoading && <DeleteIcon />}
           >
-            {actionLoading ? (
-              <CircularProgress size={16} />
-            ) : selectedLeave?.approval_status === "draft" ? (
-              "Delete"
-            ) : (
-              "Cancel"
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Approval Confirmation Dialog */}
-      <Dialog
-        open={approvalDialogOpen}
-        onClose={() => setApprovalDialogOpen(false)}
-      >
-        <DialogTitle>
-          {approvalAction === "approve" ? "Approve" : "Reject"} Leave
-          Application
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to {approvalAction} this leave application for{" "}
-            {selectedLeave?.user?.first_name || "this employee"}?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setApprovalDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={confirmApprovalAction}
-            color={approvalAction === "approve" ? "success" : "error"}
-            variant="contained"
-            disabled={actionLoading}
-          >
-            {actionLoading ? (
-              <CircularProgress size={16} />
-            ) : approvalAction === "approve" ? (
-              "Approve"
-            ) : (
-              "Reject"
-            )}
-          </Button>
+            Delete Application
+          </LoadingButton>
         </DialogActions>
       </Dialog>
     </Box>

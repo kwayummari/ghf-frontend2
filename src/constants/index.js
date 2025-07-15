@@ -27,6 +27,9 @@ export const API_ENDPOINTS = {
     LEAVE_STATUS: (id) => `/leaves/${id}/status`,
     LEAVE_APPROVALS: '/leaves/approvals',
     MY_LEAVES: '/leaves/my',
+    LEAVE_BALANCE: '/leaves/balance',
+    LEAVE_BALANCE_BY_USER: (userId) => `/leaves/balance/${userId}`,
+    LEAVE_CHECK_BALANCE: '/leaves/check-balance',
 
     LEAVE_BALANCE: '/leaves/balance',
     LEAVE_BALANCE_BY_USER: (userId) => `/leaves/balance/${userId}`,
