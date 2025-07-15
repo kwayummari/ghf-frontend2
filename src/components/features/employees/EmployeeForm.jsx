@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
+import { departmentsAPI } from "../../../services/api/departments.api";
 import {
   Box,
   Card,
@@ -17,7 +18,13 @@ import {
   Alert,
   Divider,
   CircularProgress,
-  Snackbar,
+  IconButton,
+  Paper,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  FormHelperText,
 } from "@mui/material";
 import {
   Person as PersonIcon,
@@ -27,11 +34,11 @@ import {
   Security as SecurityIcon,
   Save as SaveIcon,
   CheckCircle as CheckCircleIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  NavigateNext as NavigateNextIcon,
+  NavigateBefore as NavigateBeforeIcon,
 } from "@mui/icons-material";
-import BasicInfoForm from "./forms/BasicInfoForm";
-import PersonalInfoForm from "./forms/PersonalInfoForm";
-import BioDataForm from "./forms/BioDataForm";
-import EmploymentDataForm from "./forms/EmploymentDataForm";
 import { ROUTES } from "../../../constants";
 import { employeesAPI } from "../../../services/api/employees.api";
 import rolesAPI from "../../../services/api/roles.api";
@@ -58,16 +65,58 @@ const LoadingButton = ({
       disabled={disabled || loading}
       onClick={onClick}
       startIcon={loading ? <CircularProgress size={16} /> : startIcon}
-      sx={{
-        position: "relative",
-        ...sx,
-      }}
+      sx={{ position: "relative", ...sx }}
       {...props}
     >
       {children}
     </Button>
   );
 };
+
+// Format salary with comma separators
+const formatSalary = (value) => {
+  if (!value) return "";
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+};
+
+// Parse salary removing commas
+const parseSalary = (value) => {
+  if (!value) return "";
+  return value.replace(/,/g, "");
+};
+
+// Format NIDA with proper separators
+const formatNIDA = (value) => {
+  if (!value) return "";
+  // Remove all non-digits
+  const digits = value.replace(/\D/g, "");
+
+  // Tanzania NIDA format: 20000424-15112-0000-123
+  if (digits.length <= 8) {
+    return digits;
+  } else if (digits.length <= 13) {
+    return `${digits.slice(0, 8)}-${digits.slice(8)}`;
+  } else if (digits.length <= 17) {
+    return `${digits.slice(0, 8)}-${digits.slice(8, 13)}-${digits.slice(13)}`;
+  } else {
+    return `${digits.slice(0, 8)}-${digits.slice(8, 13)}-${digits.slice(13, 17)}-${digits.slice(17, 20)}`;
+  }
+};
+
+
+// Validate NIDA format
+const validateNIDA = (value) => {
+  if (!value) return false;
+  const digits = value.replace(/\D/g, "");
+  return digits.length === 20;
+};
+
+// Required field label component
+const RequiredLabel = ({ children }) => (
+  <span>
+    {children} <span style={{ color: "red" }}>***</span>
+  </span>
+);
 
 const steps = [
   {
@@ -97,25 +146,25 @@ const steps = [
   },
 ];
 
-// Updated validation schemas
+// Updated validation schemas with required fields
 const basicInfoSchema = Yup.object({
   first_name: Yup.string().required("First name is required"),
-  middle_name: Yup.string(),
   sur_name: Yup.string().required("Surname is required"),
   email: Yup.string().email("Invalid email").required("Email is required"),
   phone_number: Yup.string().required("Phone number is required"),
   gender: Yup.string().required("Gender is required"),
-  status: Yup.string().required("Status is required"),
 });
 
 const bioDataSchema = Yup.object({
   bioData: Yup.object({
     dob: Yup.date().required("Date of birth is required"),
-    marital_status: Yup.string(),
-    blood_group: Yup.string(),
-    national_id: Yup.string(),
-    fingerprint_id: Yup.string(),
-    signature: Yup.string(),
+    national_id: Yup.string()
+      .test(
+        "nida-format",
+        "Invalid NIDA format. Must be 20 digits",
+        validateNIDA
+      )
+      .required("National ID is required"),
   }),
 });
 
@@ -125,18 +174,17 @@ const personalDataSchema = Yup.object({
     education_level: Yup.string().required("Education level is required"),
   }),
   address: Yup.string().required("Address is required"),
-  emergency_contact_name: Yup.string().required(
-    "Emergency contact name is required"
-  ),
-  emergency_contact_phone: Yup.string().required(
-    "Emergency contact phone is required"
-  ),
-  emergency_contact_relationship: Yup.string().required(
-    "Relationship is required"
-  ),
-  next_of_kin_name: Yup.string(),
-  next_of_kin_phone: Yup.string(),
-  next_of_kin_relationship: Yup.string(),
+  emergency_contacts: Yup.array()
+    .of(
+      Yup.object({
+        name: Yup.string().required("Emergency contact name is required"),
+        phone_number: Yup.string().required(
+          "Emergency contact phone is required"
+        ),
+        relationship: Yup.string().required("Relationship is required"),
+      })
+    )
+    .min(1, "At least one emergency contact is required"),
 });
 
 const employmentDataSchema = Yup.object({
@@ -148,13 +196,13 @@ const employmentDataSchema = Yup.object({
       .required("Salary is required"),
     date_joined: Yup.date().required("Date joined is required"),
     employment_type: Yup.string().required("Employment type is required"),
-    registration_number: Yup.string(),
-    supervisor_id: Yup.number(),
-    status: Yup.string().required("Employment status is required"),
-    nida: Yup.string().required("NIDA number is required"),
-    nssf: Yup.string(),
-    bima: Yup.string(),
-    helsb: Yup.string(),
+    nida: Yup.string()
+      .test(
+        "nida-format",
+        "Invalid NIDA format. Must be 20 digits",
+        validateNIDA
+      )
+      .required("NIDA number is required"),
     bank_name: Yup.string().required("Bank name is required"),
     account_number: Yup.string().required("Account number is required"),
   }),
@@ -167,6 +215,770 @@ const roleAssignmentSchema = Yup.object({
     .required("Role assignment is required"),
 });
 
+// Emergency Contact Component
+const EmergencyContactSection = ({ formik }) => {
+  const addEmergencyContact = () => {
+    const currentContacts = formik.values.emergency_contacts || [];
+    formik.setFieldValue("emergency_contacts", [
+      ...currentContacts,
+      { name: "", phone_number: "", relationship: "" },
+    ]);
+  };
+
+  const removeEmergencyContact = (index) => {
+    const currentContacts = formik.values.emergency_contacts || [];
+    const updatedContacts = currentContacts.filter((_, i) => i !== index);
+    formik.setFieldValue("emergency_contacts", updatedContacts);
+  };
+
+  const updateEmergencyContact = (index, field, value) => {
+    const currentContacts = formik.values.emergency_contacts || [];
+    const updatedContacts = [...currentContacts];
+    updatedContacts[index] = { ...updatedContacts[index], [field]: value };
+    formik.setFieldValue("emergency_contacts", updatedContacts);
+  };
+
+  const emergencyContacts = formik.values.emergency_contacts || [
+    { name: "", phone_number: "", relationship: "" },
+  ];
+
+  return (
+    <Box>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2,
+        }}
+      >
+        <Typography variant="h6">
+          <RequiredLabel>Emergency Contacts</RequiredLabel>
+        </Typography>
+        <Button
+          startIcon={<AddIcon />}
+          onClick={addEmergencyContact}
+          variant="outlined"
+          size="small"
+        >
+          Add Contact
+        </Button>
+      </Box>
+
+      {emergencyContacts.map((contact, index) => (
+        <Paper key={index} sx={{ p: 2, mb: 2, border: "1px solid #e0e0e0" }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <Typography variant="subtitle2">
+              Emergency Contact {index + 1}
+            </Typography>
+            {emergencyContacts.length > 1 && (
+              <IconButton
+                onClick={() => removeEmergencyContact(index)}
+                color="error"
+                size="small"
+              >
+                <DeleteIcon />
+              </IconButton>
+            )}
+          </Box>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label={<RequiredLabel>Full Name</RequiredLabel>}
+                value={contact.name || ""}
+                onChange={(e) =>
+                  updateEmergencyContact(index, "name", e.target.value)
+                }
+                error={
+                  formik.touched.emergency_contacts?.[index]?.name &&
+                  Boolean(formik.errors.emergency_contacts?.[index]?.name)
+                }
+                helperText={
+                  formik.touched.emergency_contacts?.[index]?.name &&
+                  formik.errors.emergency_contacts?.[index]?.name
+                }
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label={<RequiredLabel>Phone Number</RequiredLabel>}
+                value={contact.phone_number || ""}
+                onChange={(e) =>
+                  updateEmergencyContact(index, "phone_number", e.target.value)
+                }
+                error={
+                  formik.touched.emergency_contacts?.[index]?.phone_number &&
+                  Boolean(
+                    formik.errors.emergency_contacts?.[index]?.phone_number
+                  )
+                }
+                helperText={
+                  formik.touched.emergency_contacts?.[index]?.phone_number &&
+                  formik.errors.emergency_contacts?.[index]?.phone_number
+                }
+                required
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth required>
+                <InputLabel>
+                  <RequiredLabel>Relationship</RequiredLabel>
+                </InputLabel>
+                <Select
+                  value={contact.relationship || ""}
+                  onChange={(e) =>
+                    updateEmergencyContact(
+                      index,
+                      "relationship",
+                      e.target.value
+                    )
+                  }
+                  label="Relationship"
+                  error={
+                    formik.touched.emergency_contacts?.[index]?.relationship &&
+                    Boolean(
+                      formik.errors.emergency_contacts?.[index]?.relationship
+                    )
+                  }
+                >
+                  <MenuItem value="spouse">Spouse</MenuItem>
+                  <MenuItem value="parent">Parent</MenuItem>
+                  <MenuItem value="sibling">Sibling</MenuItem>
+                  <MenuItem value="child">Child</MenuItem>
+                  <MenuItem value="friend">Friend</MenuItem>
+                  <MenuItem value="colleague">Colleague</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+                {formik.touched.emergency_contacts?.[index]?.relationship &&
+                  formik.errors.emergency_contacts?.[index]?.relationship && (
+                    <FormHelperText error>
+                      {formik.errors.emergency_contacts?.[index]?.relationship}
+                    </FormHelperText>
+                  )}
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
+      ))}
+    </Box>
+  );
+};
+
+// Next of Kin Component
+const NextOfKinSection = ({ formik }) => {
+  const addNextOfKin = () => {
+    const currentKin = formik.values.next_of_kin || [];
+    formik.setFieldValue("next_of_kin", [
+      ...currentKin,
+      { name: "", phone_number: "", relationship: "", percentage: 0 },
+    ]);
+  };
+
+  const removeNextOfKin = (index) => {
+    const currentKin = formik.values.next_of_kin || [];
+    const updatedKin = currentKin.filter((_, i) => i !== index);
+    formik.setFieldValue("next_of_kin", updatedKin);
+  };
+
+  const updateNextOfKin = (index, field, value) => {
+    const currentKin = formik.values.next_of_kin || [];
+    const updatedKin = [...currentKin];
+    updatedKin[index] = { ...updatedKin[index], [field]: value };
+    formik.setFieldValue("next_of_kin", updatedKin);
+  };
+
+  const nextOfKin = formik.values.next_of_kin || [
+    { name: "", phone_number: "", relationship: "", percentage: 100 },
+  ];
+  const totalPercentage = nextOfKin.reduce(
+    (sum, kin) => sum + (parseFloat(kin.percentage) || 0),
+    0
+  );
+
+  return (
+    <Box>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2,
+        }}
+      >
+        <Typography variant="h6">Next of Kin</Typography>
+        <Button
+          startIcon={<AddIcon />}
+          onClick={addNextOfKin}
+          variant="outlined"
+          size="small"
+        >
+          Add Next of Kin
+        </Button>
+      </Box>
+
+      {totalPercentage !== 100 && nextOfKin.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Total percentage must equal 100%. Current total: {totalPercentage}%
+        </Alert>
+      )}
+
+      {nextOfKin.map((kin, index) => (
+        <Paper key={index} sx={{ p: 2, mb: 2, border: "1px solid #e0e0e0" }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <Typography variant="subtitle2">Next of Kin {index + 1}</Typography>
+            {nextOfKin.length > 1 && (
+              <IconButton
+                onClick={() => removeNextOfKin(index)}
+                color="error"
+                size="small"
+              >
+                <DeleteIcon />
+              </IconButton>
+            )}
+          </Box>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                label="Full Name"
+                value={kin.name || ""}
+                onChange={(e) => updateNextOfKin(index, "name", e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                label="Phone Number"
+                value={kin.phone_number || ""}
+                onChange={(e) =>
+                  updateNextOfKin(index, "phone_number", e.target.value)
+                }
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Relationship</InputLabel>
+                <Select
+                  value={kin.relationship || ""}
+                  onChange={(e) =>
+                    updateNextOfKin(index, "relationship", e.target.value)
+                  }
+                  label="Relationship"
+                >
+                  <MenuItem value="spouse">Spouse</MenuItem>
+                  <MenuItem value="parent">Parent</MenuItem>
+                  <MenuItem value="sibling">Sibling</MenuItem>
+                  <MenuItem value="child">Child</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                label="Percentage (%)"
+                type="number"
+                value={kin.percentage || ""}
+                onChange={(e) =>
+                  updateNextOfKin(
+                    index,
+                    "percentage",
+                    parseFloat(e.target.value) || 0
+                  )
+                }
+                inputProps={{ min: 0, max: 100 }}
+              />
+            </Grid>
+          </Grid>
+        </Paper>
+      ))}
+    </Box>
+  );
+};
+
+// Basic Info Form Component
+const BasicInfoForm = ({ formik }) => (
+  <Grid container spacing={3}>
+    <Grid item xs={12} md={4}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>First Name</RequiredLabel>}
+        name="first_name"
+        value={formik.values.first_name}
+        onChange={formik.handleChange}
+        error={formik.touched.first_name && Boolean(formik.errors.first_name)}
+        helperText={formik.touched.first_name && formik.errors.first_name}
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={4}>
+      <TextField
+        fullWidth
+        label="Middle Name"
+        name="middle_name"
+        value={formik.values.middle_name}
+        onChange={formik.handleChange}
+      />
+    </Grid>
+    <Grid item xs={12} md={4}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Surname</RequiredLabel>}
+        name="sur_name"
+        value={formik.values.sur_name}
+        onChange={formik.handleChange}
+        error={formik.touched.sur_name && Boolean(formik.errors.sur_name)}
+        helperText={formik.touched.sur_name && formik.errors.sur_name}
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Email</RequiredLabel>}
+        name="email"
+        type="email"
+        value={formik.values.email}
+        onChange={formik.handleChange}
+        error={formik.touched.email && Boolean(formik.errors.email)}
+        helperText={formik.touched.email && formik.errors.email}
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Phone Number</RequiredLabel>}
+        name="phone_number"
+        value={formik.values.phone_number}
+        onChange={formik.handleChange}
+        error={
+          formik.touched.phone_number && Boolean(formik.errors.phone_number)
+        }
+        helperText={formik.touched.phone_number && formik.errors.phone_number}
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <FormControl fullWidth required>
+        <InputLabel>
+          <RequiredLabel>Gender</RequiredLabel>
+        </InputLabel>
+        <Select
+          name="gender"
+          value={formik.values.gender}
+          onChange={formik.handleChange}
+          error={formik.touched.gender && Boolean(formik.errors.gender)}
+          label="Gender"
+        >
+          <MenuItem value="Male">Male</MenuItem>
+          <MenuItem value="Female">Female</MenuItem>
+        </Select>
+        {formik.touched.gender && formik.errors.gender && (
+          <FormHelperText error>{formik.errors.gender}</FormHelperText>
+        )}
+      </FormControl>
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <FormControl fullWidth>
+        <InputLabel>Status</InputLabel>
+        <Select
+          name="status"
+          value={formik.values.status}
+          onChange={formik.handleChange}
+          label="Status"
+        >
+          <MenuItem value="active">Active</MenuItem>
+          <MenuItem value="inactive">Inactive</MenuItem>
+        </Select>
+      </FormControl>
+    </Grid>
+  </Grid>
+);
+
+// Bio Data Form Component
+const BioDataForm = ({ formik }) => (
+  <Grid container spacing={3}>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Date of Birth</RequiredLabel>}
+        name="bioData.dob"
+        type="date"
+        value={formik.values.bioData?.dob || ""}
+        onChange={formik.handleChange}
+        error={
+          formik.touched.bioData?.dob && Boolean(formik.errors.bioData?.dob)
+        }
+        helperText={formik.touched.bioData?.dob && formik.errors.bioData?.dob}
+        InputLabelProps={{ shrink: true }}
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <FormControl fullWidth>
+        <InputLabel>Marital Status</InputLabel>
+        <Select
+          name="bioData.marital_status"
+          value={formik.values.bioData?.marital_status || ""}
+          onChange={formik.handleChange}
+          label="Marital Status"
+        >
+          <MenuItem value="single">Single</MenuItem>
+          <MenuItem value="married">Married</MenuItem>
+          <MenuItem value="divorced">Divorced</MenuItem>
+          <MenuItem value="widowed">Widowed</MenuItem>
+        </Select>
+      </FormControl>
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <FormControl fullWidth>
+        <InputLabel>Blood Group</InputLabel>
+        <Select
+          name="bioData.blood_group"
+          value={formik.values.bioData?.blood_group || ""}
+          onChange={formik.handleChange}
+          label="Blood Group"
+        >
+          <MenuItem value="">Select Blood Group</MenuItem>
+          <MenuItem value="A+">A+</MenuItem>
+          <MenuItem value="A-">A-</MenuItem>
+          <MenuItem value="B+">B+</MenuItem>
+          <MenuItem value="B-">B-</MenuItem>
+          <MenuItem value="AB+">AB+</MenuItem>
+          <MenuItem value="AB-">AB-</MenuItem>
+          <MenuItem value="O+">O+</MenuItem>
+          <MenuItem value="O-">O-</MenuItem>
+        </Select>
+      </FormControl>
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>National ID (NIDA)</RequiredLabel>}
+        name="bioData.national_id"
+        value={formik.values.bioData?.national_id || ""}
+        onChange={(e) => {
+          const formatted = formatNIDA(e.target.value);
+          formik.setFieldValue("bioData.national_id", formatted);
+        }}
+        error={
+          formik.touched.bioData?.national_id &&
+          Boolean(formik.errors.bioData?.national_id)
+        }
+        helperText={
+          formik.touched.bioData?.national_id &&
+          formik.errors.bioData?.national_id
+        }
+        placeholder="20000424-15112-0000-123"
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label="Fingerprint ID"
+        name="bioData.fingerprint_id"
+        value={formik.values.bioData?.fingerprint_id || ""}
+        onChange={formik.handleChange}
+      />
+    </Grid>
+  </Grid>
+);
+
+// Personal Info Form Component
+const PersonalInfoForm = ({ formik }) => (
+  <Box>
+    <Grid container spacing={3}>
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label={<RequiredLabel>Location</RequiredLabel>}
+          name="personalEmployeeData.location"
+          value={formik.values.personalEmployeeData?.location || ""}
+          onChange={formik.handleChange}
+          error={
+            formik.touched.personalEmployeeData?.location &&
+            Boolean(formik.errors.personalEmployeeData?.location)
+          }
+          helperText={
+            formik.touched.personalEmployeeData?.location &&
+            formik.errors.personalEmployeeData?.location
+          }
+          required
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <FormControl fullWidth required>
+          <InputLabel>
+            <RequiredLabel>Education Level</RequiredLabel>
+          </InputLabel>
+          <Select
+            name="personalEmployeeData.education_level"
+            value={formik.values.personalEmployeeData?.education_level || ""}
+            onChange={formik.handleChange}
+            label="Education Level"
+          >
+            <MenuItem value="">Select Education Level</MenuItem>
+            <MenuItem value="Primary">Primary</MenuItem>
+            <MenuItem value="Secondary">Secondary</MenuItem>
+            <MenuItem value="Certificate">Certificate</MenuItem>
+            <MenuItem value="Diploma">Diploma</MenuItem>
+            <MenuItem value="Bachelor">Bachelor</MenuItem>
+            <MenuItem value="Master">Master</MenuItem>
+            <MenuItem value="PhD">PhD</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+      <Grid item xs={12}>
+        <TextField
+          fullWidth
+          label={<RequiredLabel>Address</RequiredLabel>}
+          name="address"
+          multiline
+          rows={2}
+          value={formik.values.address || ""}
+          onChange={formik.handleChange}
+          error={formik.touched.address && Boolean(formik.errors.address)}
+          helperText={formik.touched.address && formik.errors.address}
+          required
+        />
+      </Grid>
+    </Grid>
+
+    <Divider sx={{ my: 3 }} />
+    <EmergencyContactSection formik={formik} />
+
+    <Divider sx={{ my: 3 }} />
+    <NextOfKinSection formik={formik} />
+  </Box>
+);
+
+// Employment Data Form Component
+const EmploymentDataForm = ({ formik, departments, departmentsLoading }) => (
+  <Grid container spacing={3}>
+    <Grid item xs={12} md={6}>
+      <FormControl fullWidth required>
+        <InputLabel>
+          <RequiredLabel>Department</RequiredLabel>
+        </InputLabel>
+        <Select
+          name="basicEmployeeData.department_id"
+          value={formik.values.basicEmployeeData?.department_id || ""}
+          onChange={formik.handleChange}
+          label="Department"
+          disabled={departmentsLoading}
+        >
+          <MenuItem value="">Select Department</MenuItem>
+          {departments.map((dept) => (
+            <MenuItem key={dept.id} value={dept.id}>
+              {dept.department_name || dept.name}
+            </MenuItem>
+          ))}
+        </Select>
+        {departmentsLoading && (
+          <FormHelperText>Loading departments...</FormHelperText>
+        )}
+      </FormControl>
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Designation</RequiredLabel>}
+        name="basicEmployeeData.designation"
+        value={formik.values.basicEmployeeData?.designation || ""}
+        onChange={formik.handleChange}
+        error={
+          formik.touched.basicEmployeeData?.designation &&
+          Boolean(formik.errors.basicEmployeeData?.designation)
+        }
+        helperText={
+          formik.touched.basicEmployeeData?.designation &&
+          formik.errors.basicEmployeeData?.designation
+        }
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Salary</RequiredLabel>}
+        name="basicEmployeeData.salary"
+        value={formatSalary(formik.values.basicEmployeeData?.salary || "")}
+        onChange={(e) => {
+          const parsed = parseSalary(e.target.value);
+          formik.setFieldValue("basicEmployeeData.salary", parsed);
+        }}
+        error={
+          formik.touched.basicEmployeeData?.salary &&
+          Boolean(formik.errors.basicEmployeeData?.salary)
+        }
+        helperText={
+          formik.touched.basicEmployeeData?.salary &&
+          formik.errors.basicEmployeeData?.salary
+        }
+        InputProps={{
+          startAdornment: <InputAdornment position="start">TZS</InputAdornment>,
+        }}
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Date Joined</RequiredLabel>}
+        name="basicEmployeeData.date_joined"
+        type="date"
+        value={formik.values.basicEmployeeData?.date_joined || ""}
+        onChange={formik.handleChange}
+        error={
+          formik.touched.basicEmployeeData?.date_joined &&
+          Boolean(formik.errors.basicEmployeeData?.date_joined)
+        }
+        helperText={
+          formik.touched.basicEmployeeData?.date_joined &&
+          formik.errors.basicEmployeeData?.date_joined
+        }
+        InputLabelProps={{ shrink: true }}
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <FormControl fullWidth required>
+        <InputLabel>
+          <RequiredLabel>Employment Type</RequiredLabel>
+        </InputLabel>
+        <Select
+          name="basicEmployeeData.employment_type"
+          value={formik.values.basicEmployeeData?.employment_type || ""}
+          onChange={formik.handleChange}
+          error={
+            formik.touched.basicEmployeeData?.employment_type &&
+            Boolean(formik.errors.basicEmployeeData?.employment_type)
+          }
+          label="Employment Type"
+        >
+          <MenuItem value="full time">Full Time</MenuItem>
+          <MenuItem value="part time">Part Time</MenuItem>
+          <MenuItem value="contract">Contract</MenuItem>
+          <MenuItem value="intern">Intern</MenuItem>
+          <MenuItem value="volunteer">Volunteer</MenuItem>
+        </Select>
+        {formik.touched.basicEmployeeData?.employment_type &&
+          formik.errors.basicEmployeeData?.employment_type && (
+            <FormHelperText error>
+              {formik.errors.basicEmployeeData?.employment_type}
+            </FormHelperText>
+          )}
+      </FormControl>
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>NIDA Number</RequiredLabel>}
+        name="basicEmployeeData.nida"
+        value={formik.values.basicEmployeeData?.nida || ""}
+        onChange={(e) => {
+          const formatted = formatNIDA(e.target.value);
+          formik.setFieldValue("basicEmployeeData.nida", formatted);
+        }}
+        error={
+          formik.touched.basicEmployeeData?.nida &&
+          Boolean(formik.errors.basicEmployeeData?.nida)
+        }
+        helperText={
+          formik.touched.basicEmployeeData?.nida &&
+          formik.errors.basicEmployeeData?.nida
+        }
+        placeholder="20000424-15112-0000-123"
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label="NSSF Number"
+        name="basicEmployeeData.nssf"
+        value={formik.values.basicEmployeeData?.nssf || ""}
+        onChange={formik.handleChange}
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label="BIMA Number"
+        name="basicEmployeeData.bima"
+        value={formik.values.basicEmployeeData?.bima || ""}
+        onChange={formik.handleChange}
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label="HELSB Number"
+        name="basicEmployeeData.helsb"
+        value={formik.values.basicEmployeeData?.helsb || ""}
+        onChange={formik.handleChange}
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Bank Name</RequiredLabel>}
+        name="basicEmployeeData.bank_name"
+        value={formik.values.basicEmployeeData?.bank_name || ""}
+        onChange={formik.handleChange}
+        error={
+          formik.touched.basicEmployeeData?.bank_name &&
+          Boolean(formik.errors.basicEmployeeData?.bank_name)
+        }
+        helperText={
+          formik.touched.basicEmployeeData?.bank_name &&
+          formik.errors.basicEmployeeData?.bank_name
+        }
+        required
+      />
+    </Grid>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Account Number</RequiredLabel>}
+        name="basicEmployeeData.account_number"
+        value={formik.values.basicEmployeeData?.account_number || ""}
+        onChange={formik.handleChange}
+        error={
+          formik.touched.basicEmployeeData?.account_number &&
+          Boolean(formik.errors.basicEmployeeData?.account_number)
+        }
+        helperText={
+          formik.touched.basicEmployeeData?.account_number &&
+          formik.errors.basicEmployeeData?.account_number
+        }
+        required
+      />
+    </Grid>
+  </Grid>
+);
+
 // Role Assignment Form Component
 const RoleAssignmentForm = ({ formik, availableRoles }) => {
   const handleRoleChange = (event) => {
@@ -177,7 +989,7 @@ const RoleAssignmentForm = ({ formik, availableRoles }) => {
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Role Assignment
+        <RequiredLabel>Role Assignment</RequiredLabel>
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Assign system roles to define the employee's access permissions.
@@ -189,7 +1001,7 @@ const RoleAssignmentForm = ({ formik, availableRoles }) => {
           <TextField
             fullWidth
             select
-            label="Select Roles"
+            label={<RequiredLabel>Select Roles</RequiredLabel>}
             name="role_ids"
             value={formik.values.role_ids || []}
             onChange={handleRoleChange}
@@ -246,12 +1058,31 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [error, setError] = useState(null);
   const [savedSteps, setSavedSteps] = useState(new Set());
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // State for roles
   const [availableRoles, setAvailableRoles] = useState([]);
   const [rolesLoading, setRolesLoading] = useState(true);
   const [userRoles, setUserRoles] = useState([]);
+
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        setDepartmentsLoading(true);
+        const response = await departmentsAPI.getAllDepartments();
+        setDepartments(response.data || []);
+      } catch (error) {
+        console.error("Failed to fetch departments:", error);
+        showError("Failed to load departments");
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   // Fetch available roles on component mount
   useEffect(() => {
@@ -322,13 +1153,12 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
             initialData.personalEmployeeData?.education_level || "",
         },
         address: initialData.address || "",
-        emergency_contact_name: initialData.emergency_contact_name || "",
-        emergency_contact_phone: initialData.emergency_contact_phone || "",
-        emergency_contact_relationship:
-          initialData.emergency_contact_relationship || "",
-        next_of_kin_name: initialData.next_of_kin_name || "",
-        next_of_kin_phone: initialData.next_of_kin_phone || "",
-        next_of_kin_relationship: initialData.next_of_kin_relationship || "",
+        emergency_contacts: initialData.emergency_contacts || [
+          { name: "", phone_number: "", relationship: "" },
+        ],
+        next_of_kin: initialData.next_of_kin || [
+          { name: "", phone_number: "", relationship: "", percentage: 100 },
+        ],
 
         // Employment Data
         basicEmployeeData: {
@@ -380,12 +1210,10 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         education_level: "",
       },
       address: "",
-      emergency_contact_name: "",
-      emergency_contact_phone: "",
-      emergency_contact_relationship: "",
-      next_of_kin_name: "",
-      next_of_kin_phone: "",
-      next_of_kin_relationship: "",
+      emergency_contacts: [{ name: "", phone_number: "", relationship: "" }],
+      next_of_kin: [
+        { name: "", phone_number: "", relationship: "", percentage: 100 },
+      ],
 
       // Employment Data
       basicEmployeeData: {
@@ -443,13 +1271,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       }
     },
   });
-
-  // Track unsaved changes
-  useEffect(() => {
-    if (editMode && !savedSteps.has(activeStep)) {
-      setHasUnsavedChanges(true);
-    }
-  }, [formik.values, activeStep, editMode, savedSteps]);
 
   // Update validation schema when step changes
   useEffect(() => {
@@ -521,16 +1342,10 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     setError(null);
 
     try {
-      // Prepare data for current step
       const currentStepData = getCurrentStepData();
-
-      // Call API to save only current step data
       await employeesAPI.updatePartial(initialData.id, currentStepData);
 
-      // Mark step as saved
       setSavedSteps((prev) => new Set([...prev, activeStep]));
-      setHasUnsavedChanges(false);
-
       showSuccess(`${steps[activeStep].label} saved successfully`);
     } catch (err) {
       console.error("Error saving step:", err);
@@ -564,13 +1379,8 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         return {
           personalEmployeeData: formik.values.personalEmployeeData,
           address: formik.values.address,
-          emergency_contact_name: formik.values.emergency_contact_name,
-          emergency_contact_phone: formik.values.emergency_contact_phone,
-          emergency_contact_relationship:
-            formik.values.emergency_contact_relationship,
-          next_of_kin_name: formik.values.next_of_kin_name,
-          next_of_kin_phone: formik.values.next_of_kin_phone,
-          next_of_kin_relationship: formik.values.next_of_kin_relationship,
+          emergency_contacts: formik.values.emergency_contacts,
+          next_of_kin: formik.values.next_of_kin,
         };
       case 3:
         return {
@@ -591,7 +1401,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     setError(null);
 
     try {
-      // Prepare API data
       const apiData = {
         first_name: values.first_name,
         middle_name: values.middle_name,
@@ -610,21 +1419,8 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
             : null,
         },
         personal_employee_data: values.personalEmployeeData,
-        emergency_contacts: [
-          {
-            name: values.emergency_contact_name,
-            phone_number: values.emergency_contact_phone,
-            relationship: values.emergency_contact_relationship,
-          },
-        ].filter((contact) => contact.name && contact.phone_number),
-        next_of_kin: [
-          {
-            name: values.next_of_kin_name,
-            phone_number: values.next_of_kin_phone,
-            relationship: values.next_of_kin_relationship,
-            percentage: 100,
-          },
-        ].filter((kin) => kin.name && kin.phone_number),
+        emergency_contacts: values.emergency_contacts,
+        next_of_kin: values.next_of_kin,
         roles: values.role_ids || [],
       };
 
@@ -653,8 +1449,13 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     }
   };
 
+  // Allow direct navigation to any step
+  const handleStepClick = (stepIndex) => {
+    setActiveStep(stepIndex);
+  };
+
   const handleNext = async () => {
-    // Skip save check for the last step since it's the final submission
+    // For last step, always proceed to submit
     if (activeStep === steps.length - 1) {
       const isStepValid = await validateCurrentStep();
       if (isStepValid) {
@@ -663,18 +1464,9 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       return;
     }
 
-    // Check for unsaved changes only for non-final steps
-    if (editMode && hasUnsavedChanges && !savedSteps.has(activeStep)) {
-      showError("Please save your changes before moving to the next step");
-      return;
-    }
-
-    const isStepValid = await validateCurrentStep();
-    if (isStepValid) {
-      setFormData(formik.values);
-      setActiveStep((prev) => prev + 1);
-      setHasUnsavedChanges(false);
-    }
+    // For other steps, just move to next without validation requirement
+    setFormData(formik.values);
+    setActiveStep((prev) => prev + 1);
   };
 
   const handleBack = () => {
@@ -695,7 +1487,13 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       case 2:
         return <PersonalInfoForm formik={formik} />;
       case 3:
-        return <EmploymentDataForm formik={formik} />;
+        return (
+          <EmploymentDataForm
+            formik={formik}
+            departments={departments}
+            departmentsLoading={departmentsLoading}
+          />
+        );
       case 4:
         return rolesLoading ? (
           <Box display="flex" justifyContent="center" p={4}>
@@ -731,13 +1529,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         </Alert>
       )}
 
-      {/* Unsaved Changes Warning */}
-      {editMode && hasUnsavedChanges && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          You have unsaved changes. Please save before moving to the next step.
-        </Alert>
-      )}
-
       <Card>
         <CardContent sx={{ p: 4 }}>
           {/* Stepper */}
@@ -766,6 +1557,8 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
                       )}
                     </Typography>
                   }
+                  onClick={() => handleStepClick(index)}
+                  sx={{ cursor: "pointer" }}
                 >
                   {step.label}
                 </StepLabel>
@@ -791,15 +1584,19 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
                 Cancel
               </Button>
               {activeStep > 0 && (
-                <Button onClick={handleBack} variant="outlined">
+                <Button
+                  onClick={handleBack}
+                  variant="outlined"
+                  startIcon={<NavigateBeforeIcon />}
+                >
                   Back
                 </Button>
               )}
             </Box>
 
             <Box sx={{ display: "flex", gap: 2 }}>
-              {/* Save Button - Only show in edit mode and not on the last step */}
-              {editMode && activeStep < steps.length - 1 && (
+              {/* Save Button - Show in edit mode for all steps */}
+              {editMode && (
                 <LoadingButton
                   variant="outlined"
                   onClick={handleSaveStep}
@@ -825,6 +1622,9 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
                 onClick={handleNext}
                 loading={loading && activeStep === steps.length - 1}
                 disabled={loading || (activeStep === 4 && rolesLoading)}
+                endIcon={
+                  activeStep === steps.length - 1 ? null : <NavigateNextIcon />
+                }
               >
                 {activeStep === steps.length - 1
                   ? editMode
@@ -832,7 +1632,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
                     : "Create Employee"
                   : "Next"}
               </LoadingButton>
-            </Box> 
+            </Box>
           </Box>
         </CardContent>
       </Card>
