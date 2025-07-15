@@ -639,7 +639,7 @@ const MeetingsPage = () => {
               Meeting Management
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Schedule, manage, and track meetings and action items
+              Manage, and track meetings and action items
             </Typography>
           </Box>
           <Box sx={{ display: "flex", gap: 1 }}>
@@ -653,15 +653,6 @@ const MeetingsPage = () => {
             >
               {refreshing ? "Refreshing..." : "Refresh"}
             </Button>
-            {hasPermission(MEETING_PERMISSIONS.CREATE_MEETINGS) && (
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleCreateMeeting}
-              >
-                Schedule Meeting
-              </Button>
-            )}
           </Box>
         </Box>
 
@@ -822,7 +813,7 @@ const MeetingsPage = () => {
                         onChange={(e) => setStatusFilter(e.target.value)}
                       >
                         <MenuItem value="">All Status</MenuItem>
-                        <MenuItem value="scheduled">Scheduled</MenuItem>
+                        {/* <MenuItem value="scheduled">Scheduled</MenuItem> */}
                         <MenuItem value="in_progress">In Progress</MenuItem>
                         <MenuItem value="completed">Completed</MenuItem>
                         <MenuItem value="cancelled">Cancelled</MenuItem>
@@ -898,19 +889,7 @@ const MeetingsPage = () => {
                 </MenuItem>
               )}
 
-              {selectedItem?.status === "scheduled" && (
-                <MenuItem
-                  onClick={() => {
-                    handleStartMeeting(selectedItem?.id);
-                    handleMenuClose();
-                  }}
-                >
-                  <ListItemIcon>
-                    <ScheduleIcon fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText>Start Meeting</ListItemText>
-                </MenuItem>
-              )}
+             
 
               {selectedItem?.status === "in_progress" && (
                 <MenuItem
@@ -1188,7 +1167,7 @@ const MeetingsPage = () => {
               <MenuItem value="reminder">Meeting Reminder</MenuItem>
               <MenuItem value="update">Meeting Update</MenuItem>
               <MenuItem value="cancellation">Meeting Cancellation</MenuItem>
-              <MenuItem value="reschedule">Meeting Reschedule</MenuItem>
+              {/* <MenuItem value="reschedule">Meeting Reschedule</MenuItem> */}
             </TextField>
             <TextField
               fullWidth
