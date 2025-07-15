@@ -341,6 +341,52 @@ class LeavesAPI {
             throw new Error(error.response?.data?.message || error.message || 'Failed to fetch leaves for approval');
         }
     }
+
+    /**
+ * Create leave type
+ * @param {Object} leaveTypeData - Leave type data
+ * @returns {Promise<Object>} - Created leave type
+ */
+    async createLeaveType(leaveTypeData) {
+        try {
+            const response = await apiClient.post(`${API_ENDPOINTS.LEAVE_TYPES}`, leaveTypeData);
+            return response.data;
+        } catch (error) {
+            console.error('Create leave type error:', error);
+            throw new Error(error.response?.data?.message || error.message || 'Failed to create leave type');
+        }
+    }
+
+    /**
+     * Update leave type
+     * @param {number} id - Leave type ID
+     * @param {Object} leaveTypeData - Updated leave type data
+     * @returns {Promise<Object>} - Updated leave type
+     */
+    async updateLeaveType(id, leaveTypeData) {
+        try {
+            const response = await apiClient.put(`${API_ENDPOINTS.LEAVE_TYPES}/${id}`, leaveTypeData);
+            return response.data;
+        } catch (error) {
+            console.error('Update leave type error:', error);
+            throw new Error(error.response?.data?.message || error.message || 'Failed to update leave type');
+        }
+    }
+
+    /**
+     * Delete leave type
+     * @param {number} id - Leave type ID
+     * @returns {Promise<Object>} - Delete result
+     */
+    async deleteLeaveType(id) {
+        try {
+            const response = await apiClient.delete(`${API_ENDPOINTS.LEAVE_TYPES}/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error('Delete leave type error:', error);
+            throw new Error(error.response?.data?.message || error.message || 'Failed to delete leave type');
+        }
+    }
 }
 
 // Create and export a singleton instance
