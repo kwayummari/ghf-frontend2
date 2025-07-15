@@ -17,6 +17,7 @@ import {
   Alert,
   Divider,
   CircularProgress,
+  Snackbar,
 } from "@mui/material";
 import {
   Person as PersonIcon,
@@ -24,6 +25,8 @@ import {
   Work as WorkIcon,
   Assignment as AssignmentIcon,
   Security as SecurityIcon,
+  Save as SaveIcon,
+  CheckCircle as CheckCircleIcon,
 } from "@mui/icons-material";
 import BasicInfoForm from "./forms/BasicInfoForm";
 import PersonalInfoForm from "./forms/PersonalInfoForm";
@@ -34,7 +37,7 @@ import { employeesAPI } from "../../../services/api/employees.api";
 import rolesAPI from "../../../services/api/roles.api";
 import useNotification from "../../../hooks/common/useNotification";
 
-// Custom LoadingButton component to replace @mui/lab
+// Custom LoadingButton component
 const LoadingButton = ({
   loading,
   children,
@@ -94,7 +97,7 @@ const steps = [
   },
 ];
 
-// Updated validation schemas to include role validation
+// Updated validation schemas
 const basicInfoSchema = Yup.object({
   first_name: Yup.string().required("First name is required"),
   middle_name: Yup.string(),
@@ -157,7 +160,6 @@ const employmentDataSchema = Yup.object({
   }),
 });
 
-// Role assignment validation schema
 const roleAssignmentSchema = Yup.object({
   role_ids: Yup.array()
     .of(Yup.number())
@@ -182,12 +184,12 @@ const RoleAssignmentForm = ({ formik, availableRoles }) => {
         Multiple roles can be assigned.
       </Typography>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid item xs={12}>
           <TextField
-            select
             fullWidth
-            label="System Roles"
+            select
+            label="Select Roles"
             name="role_ids"
             value={formik.values.role_ids || []}
             onChange={handleRoleChange}
@@ -195,26 +197,17 @@ const RoleAssignmentForm = ({ formik, availableRoles }) => {
             helperText={formik.touched.role_ids && formik.errors.role_ids}
             SelectProps={{
               multiple: true,
-              renderValue: (selected) => {
-                const selectedRoles = availableRoles.filter((role) =>
-                  selected.includes(role.id)
-                );
-                return selectedRoles.map((role) => role.role_name).join(", ");
-              },
+              displayEmpty: true,
             }}
+            required
           >
+            <MenuItem value="" disabled>
+              Select roles for this employee
+            </MenuItem>
             {availableRoles.map((role) => (
               <MenuItem key={role.id} value={role.id}>
-                <Box>
-                  <Typography variant="body1" fontWeight="medium">
-                    {role.role_name}
-                  </Typography>
-                  {role.description && (
-                    <Typography variant="body2" color="text.secondary">
-                      {role.description}
-                    </Typography>
-                  )}
-                </Box>
+                {role.role_name}
+                {role.description && ` - ${role.description}`}
               </MenuItem>
             ))}
           </TextField>
@@ -222,10 +215,10 @@ const RoleAssignmentForm = ({ formik, availableRoles }) => {
 
         {formik.values.role_ids && formik.values.role_ids.length > 0 && (
           <Grid item xs={12}>
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Selected Roles:
-              </Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Selected Roles:
+            </Typography>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
               {formik.values.role_ids.map((roleId) => {
                 const role = availableRoles.find((r) => r.id === roleId);
                 return role ? (
@@ -250,7 +243,10 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   const { showSuccess, showError } = useNotification();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [savedSteps, setSavedSteps] = useState(new Set());
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // State for roles
   const [availableRoles, setAvailableRoles] = useState([]);
@@ -296,11 +292,11 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     }
   }, [editMode, initialData, availableRoles]);
 
-  // Initialize form data with proper structure
+  // Initialize form data
   const getInitialFormData = () => {
     if (editMode && initialData) {
       return {
-        // Basic Info (root level)
+        // Basic Info
         first_name: initialData.first_name || "",
         middle_name: initialData.middle_name || "",
         sur_name: initialData.sur_name || "",
@@ -309,7 +305,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         gender: initialData.gender || "",
         status: initialData.status || "active",
 
-        // Bio Data (nested)
+        // Bio Data
         bioData: {
           dob: initialData.bioData?.dob || "",
           marital_status: initialData.bioData?.marital_status || "",
@@ -319,16 +315,13 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           signature: initialData.bioData?.signature || "",
         },
 
-        // Personal Employee Data (nested)
+        // Personal Data
         personalEmployeeData: {
           location: initialData.personalEmployeeData?.location || "",
           education_level:
             initialData.personalEmployeeData?.education_level || "",
         },
-
         address: initialData.address || "",
-
-        // Emergency contacts (root level)
         emergency_contact_name: initialData.emergency_contact_name || "",
         emergency_contact_phone: initialData.emergency_contact_phone || "",
         emergency_contact_relationship:
@@ -337,16 +330,16 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         next_of_kin_phone: initialData.next_of_kin_phone || "",
         next_of_kin_relationship: initialData.next_of_kin_relationship || "",
 
-        // Basic Employee Data (nested)
+        // Employment Data
         basicEmployeeData: {
           department_id: initialData.basicEmployeeData?.department_id || "",
           designation: initialData.basicEmployeeData?.designation || "",
+          salary: initialData.basicEmployeeData?.salary || "",
+          date_joined: initialData.basicEmployeeData?.date_joined || "",
           employment_type: initialData.basicEmployeeData?.employment_type || "",
           registration_number:
             initialData.basicEmployeeData?.registration_number || "",
           supervisor_id: initialData.basicEmployeeData?.supervisor_id || "",
-          date_joined: initialData.basicEmployeeData?.date_joined || "",
-          salary: initialData.basicEmployeeData?.salary || "",
           status: initialData.basicEmployeeData?.status || "active",
           nida: initialData.basicEmployeeData?.nida || "",
           nssf: initialData.basicEmployeeData?.nssf || "",
@@ -356,12 +349,11 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           account_number: initialData.basicEmployeeData?.account_number || "",
         },
 
-        // Role assignment
-        role_ids: initialData.roles?.map((role) => role.id) || userRoles || [],
+        // Role Assignment
+        role_ids: userRoles || [],
       };
     }
 
-    // Default empty structure for new employee
     return {
       // Basic Info
       first_name: "",
@@ -382,15 +374,12 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         signature: "",
       },
 
-      // Personal Employee Data
+      // Personal Data
       personalEmployeeData: {
         location: "",
         education_level: "",
       },
-
       address: "",
-
-      // Emergency contacts
       emergency_contact_name: "",
       emergency_contact_phone: "",
       emergency_contact_relationship: "",
@@ -398,15 +387,15 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       next_of_kin_phone: "",
       next_of_kin_relationship: "",
 
-      // Basic Employee Data
+      // Employment Data
       basicEmployeeData: {
         department_id: "",
         designation: "",
-        employment_type: "full time",
+        salary: "",
+        date_joined: "",
+        employment_type: "",
         registration_number: "",
         supervisor_id: "",
-        date_joined: "",
-        salary: "",
         status: "active",
         nida: "",
         nssf: "",
@@ -416,13 +405,14 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         account_number: "",
       },
 
-      // Role assignment - default to Employee role (ID: 5)
-      role_ids: [5],
+      // Role Assignment
+      role_ids: [],
     };
   };
 
   const [formData, setFormData] = useState(getInitialFormData());
 
+  // Get validation schema for current step
   const getValidationSchema = () => {
     switch (activeStep) {
       case 0:
@@ -445,19 +435,21 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     validationSchema: getValidationSchema(),
     enableReinitialize: true,
     onSubmit: async (values) => {
-      console.log("Form submission triggered for step:", activeStep);
-      console.log("Current form values:", values);
-
       if (activeStep === steps.length - 1) {
-        // Final submission
         await handleSubmit(values);
       } else {
-        // Move to next step
         setFormData(values);
         setActiveStep((prev) => prev + 1);
       }
     },
   });
+
+  // Track unsaved changes
+  useEffect(() => {
+    if (editMode && !savedSteps.has(activeStep)) {
+      setHasUnsavedChanges(true);
+    }
+  }, [formik.values, activeStep, editMode, savedSteps]);
 
   // Update validation schema when step changes
   useEffect(() => {
@@ -490,19 +482,15 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         const path = error.path;
         if (path.includes(".")) {
           const pathParts = path.split(".");
-          let errorRef = errors;
-          let touchedRef = touched;
-
-          for (let i = 0; i < pathParts.length - 1; i++) {
-            const part = pathParts[i];
-            if (!errorRef[part]) errorRef[part] = {};
-            if (!touchedRef[part]) touchedRef[part] = {};
-            errorRef = errorRef[part];
-            touchedRef = touchedRef[part];
+          if (!errors[pathParts[0]]) {
+            errors[pathParts[0]] = {};
           }
+          errors[pathParts[0]][pathParts[1]] = error.message;
 
-          errorRef[pathParts[pathParts.length - 1]] = error.message;
-          touchedRef[pathParts[pathParts.length - 1]] = true;
+          if (!touched[pathParts[0]]) {
+            touched[pathParts[0]] = {};
+          }
+          touched[pathParts[0]][pathParts[1]] = true;
         } else {
           errors[path] = error.message;
           touched[path] = true;
@@ -515,97 +503,140 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     }
   };
 
-  const handleSubmit = async (finalData) => {
+  // Save current step data
+  const handleSaveStep = async () => {
+    const isStepValid = await validateCurrentStep();
+
+    if (!isStepValid) {
+      showError("Please fix the errors before saving");
+      return;
+    }
+
+    if (!editMode) {
+      showError("Save is only available in edit mode");
+      return;
+    }
+
+    setSaveLoading(true);
+    setError(null);
+
+    try {
+      // Prepare data for current step
+      const currentStepData = getCurrentStepData();
+
+      // Call API to save only current step data
+      await employeesAPI.updatePartial(initialData.id, currentStepData);
+
+      // Mark step as saved
+      setSavedSteps((prev) => new Set([...prev, activeStep]));
+      setHasUnsavedChanges(false);
+
+      showSuccess(`${steps[activeStep].label} saved successfully`);
+    } catch (err) {
+      console.error("Error saving step:", err);
+      const errorMessage =
+        err.response?.data?.message || "Failed to save step data";
+      setError(errorMessage);
+      showError(errorMessage);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  // Get current step data for partial update
+  const getCurrentStepData = () => {
+    switch (activeStep) {
+      case 0:
+        return {
+          first_name: formik.values.first_name,
+          middle_name: formik.values.middle_name,
+          sur_name: formik.values.sur_name,
+          email: formik.values.email,
+          phone_number: formik.values.phone_number,
+          gender: formik.values.gender,
+          status: formik.values.status,
+        };
+      case 1:
+        return {
+          bioData: formik.values.bioData,
+        };
+      case 2:
+        return {
+          personalEmployeeData: formik.values.personalEmployeeData,
+          address: formik.values.address,
+          emergency_contact_name: formik.values.emergency_contact_name,
+          emergency_contact_phone: formik.values.emergency_contact_phone,
+          emergency_contact_relationship:
+            formik.values.emergency_contact_relationship,
+          next_of_kin_name: formik.values.next_of_kin_name,
+          next_of_kin_phone: formik.values.next_of_kin_phone,
+          next_of_kin_relationship: formik.values.next_of_kin_relationship,
+        };
+      case 3:
+        return {
+          basicEmployeeData: formik.values.basicEmployeeData,
+        };
+      case 4:
+        return {
+          role_ids: formik.values.role_ids,
+        };
+      default:
+        return {};
+    }
+  };
+
+  // Handle final submission
+  const handleSubmit = async (values) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Extract role_ids for separate handling
-      const { role_ids, ...employeeData } = finalData;
-
-      // FIXED: Transform data to match backend API expectations
+      // Prepare API data
       const apiData = {
-        // Basic info (root level) - matches backend structure
-        first_name: employeeData.first_name,
-        middle_name: employeeData.middle_name,
-        sur_name: employeeData.sur_name,
-        email: employeeData.email,
-        phone_number: employeeData.phone_number,
-        gender: employeeData.gender,
-        status: employeeData.status,
+        first_name: values.first_name,
+        middle_name: values.middle_name,
+        sur_name: values.sur_name,
+        email: values.email,
+        phone_number: values.phone_number,
+        gender: values.gender,
+        status: values.status,
+        address: values.address,
 
-        // FIXED: Transform nested objects to backend format
-        basic_employee_data: {
-          department_id: employeeData.basicEmployeeData.department_id || null,
-          designation: employeeData.basicEmployeeData.designation,
-          employment_type: employeeData.basicEmployeeData.employment_type,
-          registration_number:
-            employeeData.basicEmployeeData.registration_number,
-          supervisor_id: employeeData.basicEmployeeData.supervisor_id || null,
-          date_joined: employeeData.basicEmployeeData.date_joined ? new Date(employeeData.basicEmployeeData.date_joined).toISOString().split('T')[0] : null,
-          salary: employeeData.basicEmployeeData.salary,
-          status: employeeData.basicEmployeeData.status,
-          nida: employeeData.basicEmployeeData.nida,
-          nssf: employeeData.basicEmployeeData.nssf,
-          bima: employeeData.basicEmployeeData.bima,
-          helsb: employeeData.basicEmployeeData.helsb,
-          bank_name: employeeData.basicEmployeeData.bank_name,
-          account_number: employeeData.basicEmployeeData.account_number,
-        },
-
+        basic_employee_data: values.basicEmployeeData,
         bio_data: {
-          dob: employeeData.bioData.dob
-            ? new Date(employeeData.bioData.dob).toISOString().split("T")[0]
+          ...values.bioData,
+          dob: values.bioData.dob
+            ? new Date(values.bioData.dob).toISOString().split("T")[0]
             : null,
-          marital_status: employeeData.bioData.marital_status,
-          blood_group: employeeData.bioData.blood_group,
-          national_id: employeeData.bioData.national_id,
-          fingerprint_id: employeeData.bioData.fingerprint_id,
-          signature: employeeData.bioData.signature,
         },
-
-        personal_employee_data: {
-          location: employeeData.personalEmployeeData.location,
-          education_level: employeeData.personalEmployeeData.education_level,
-        },
-
-        // FIXED: Transform emergency contacts to array format expected by backend
+        personal_employee_data: values.personalEmployeeData,
         emergency_contacts: [
           {
-            name: employeeData.emergency_contact_name,
-            phone_number: employeeData.emergency_contact_phone,
-            relationship: employeeData.emergency_contact_relationship,
+            name: values.emergency_contact_name,
+            phone_number: values.emergency_contact_phone,
+            relationship: values.emergency_contact_relationship,
           },
-        ].filter((contact) => contact.name && contact.phone_number), // Only include if data exists
-
-        // FIXED: Transform next of kin to array format expected by backend
+        ].filter((contact) => contact.name && contact.phone_number),
         next_of_kin: [
           {
-            name: employeeData.next_of_kin_name,
-            phone_number: employeeData.next_of_kin_phone,
-            relationship: employeeData.next_of_kin_relationship,
-            percentage: 100, // Default to 100% for single next of kin
+            name: values.next_of_kin_name,
+            phone_number: values.next_of_kin_phone,
+            relationship: values.next_of_kin_relationship,
+            percentage: 100,
           },
-        ].filter((kin) => kin.name && kin.phone_number), // Only include if data exists
-
-        // FIXED: Include roles in the main payload for backend processing
-        roles: role_ids || [],
+        ].filter((kin) => kin.name && kin.phone_number),
+        roles: values.role_ids || [],
       };
-
-      console.log("API Data being sent:", apiData);
 
       let response;
       if (editMode && initialData?.id) {
-        // Update employee - backend handles role assignment internally
         response = await employeesAPI.update(initialData.id, apiData);
         showSuccess("Employee updated successfully");
       } else {
-        // Create employee - backend handles role assignment internally
         response = await employeesAPI.create(apiData);
         showSuccess("Employee created successfully");
       }
 
-      // Call onSuccess callback if provided
       if (onSuccess && response.data) {
         onSuccess(response.data.data || response.data);
       } else {
@@ -613,26 +644,8 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       }
     } catch (err) {
       console.error("Error saving employee:", err);
-      console.error("Error details:", err.response?.data);
-
-      // Better error handling
-      let errorMessage = "Failed to save employee data";
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.response?.data?.errors) {
-        // Handle validation errors
-        const validationErrors = err.response.data.errors;
-        if (Array.isArray(validationErrors) && validationErrors.length > 0) {
-          errorMessage = validationErrors
-            .map((e) => e.message || e.msg)
-            .join(", ");
-        }
-      } else if (err.userMessage) {
-        errorMessage = err.userMessage;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
+      const errorMessage =
+        err.response?.data?.message || "Failed to save employee data";
       setError(errorMessage);
       showError(errorMessage);
     } finally {
@@ -641,17 +654,20 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   };
 
   const handleNext = async () => {
-    console.log("Next button clicked for step:", activeStep);
+    // Check if user has unsaved changes in edit mode
+    if (editMode && hasUnsavedChanges && !savedSteps.has(activeStep)) {
+      showError("Please save your changes before moving to the next step");
+      return;
+    }
 
     const isStepValid = await validateCurrentStep();
-    console.log("Step validation result:", isStepValid);
-
     if (isStepValid) {
       if (activeStep === steps.length - 1) {
         await handleSubmit(formik.values);
       } else {
         setFormData(formik.values);
         setActiveStep((prev) => prev + 1);
+        setHasUnsavedChanges(false);
       }
     }
   };
@@ -710,6 +726,13 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         </Alert>
       )}
 
+      {/* Unsaved Changes Warning */}
+      {editMode && hasUnsavedChanges && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          You have unsaved changes. Please save before moving to the next step.
+        </Alert>
+      )}
+
       <Card>
         <CardContent sx={{ p: 4 }}>
           {/* Stepper */}
@@ -717,10 +740,25 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
             {steps.map((step, index) => (
               <Step key={step.label}>
                 <StepLabel
-                  icon={step.icon}
+                  icon={
+                    savedSteps.has(index) && editMode ? (
+                      <CheckCircleIcon color="success" />
+                    ) : (
+                      step.icon
+                    )
+                  }
                   optional={
                     <Typography variant="caption" color="text.secondary">
                       {step.description}
+                      {savedSteps.has(index) && editMode && (
+                        <Typography
+                          variant="caption"
+                          color="success.main"
+                          sx={{ ml: 1 }}
+                        >
+                          ✓ Saved
+                        </Typography>
+                      )}
                     </Typography>
                   }
                 >
@@ -736,7 +774,13 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           <Divider sx={{ mb: 3 }} />
 
           {/* Navigation Buttons */}
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <Box>
               <Button variant="outlined" onClick={handleCancel} sx={{ mr: 2 }}>
                 Cancel
@@ -748,18 +792,42 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
               )}
             </Box>
 
-            <LoadingButton
-              variant="contained"
-              onClick={handleNext}
-              loading={loading && activeStep === steps.length - 1}
-              disabled={loading || (activeStep === 4 && rolesLoading)}
-            >
-              {activeStep === steps.length - 1
-                ? editMode
-                  ? "Update Employee"
-                  : "Create Employee"
-                : "Next"}
-            </LoadingButton>
+            <Box sx={{ display: "flex", gap: 2 }}>
+              {/* Save Button - Only show in edit mode and not on the last step */}
+              {editMode && activeStep < steps.length - 1 && (
+                <LoadingButton
+                  variant="outlined"
+                  onClick={handleSaveStep}
+                  loading={saveLoading}
+                  startIcon={<SaveIcon />}
+                  disabled={loading}
+                  sx={{
+                    color: savedSteps.has(activeStep)
+                      ? "success.main"
+                      : "primary.main",
+                    borderColor: savedSteps.has(activeStep)
+                      ? "success.main"
+                      : "primary.main",
+                  }}
+                >
+                  {savedSteps.has(activeStep) ? "Saved" : "Save"}
+                </LoadingButton>
+              )}
+
+              {/* Next/Submit Button */}
+              <LoadingButton
+                variant="contained"
+                onClick={handleNext}
+                loading={loading && activeStep === steps.length - 1}
+                disabled={loading || (activeStep === 4 && rolesLoading)}
+              >
+                {activeStep === steps.length - 1
+                  ? editMode
+                    ? "Update Employee"
+                    : "Create Employee"
+                  : "Next"}
+              </LoadingButton>
+            </Box>
           </Box>
         </CardContent>
       </Card>

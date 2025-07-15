@@ -1,3 +1,5 @@
+// services/api/employees.api.js - Updated with your existing structure
+
 import apiClient from './axios.config';
 import { API_ENDPOINTS } from '../../constants';
 
@@ -10,4 +12,7 @@ export const employeesAPI = {
     uploadDocument: (id, formData) => apiClient.post(`${API_ENDPOINTS.EMPLOYEE_BY_ID(id)}/documents`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     }),
+
+    // Partial update method for saving individual steps
+    updatePartial: (id, data) => apiClient.patch(`${API_ENDPOINTS.EMPLOYEE_BY_ID(id)}/partial`, data),
 };
