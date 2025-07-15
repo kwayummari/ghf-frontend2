@@ -77,10 +77,11 @@ const ClockInOut = () => {
       const today = new Date().toISOString().split("T")[0];
       const response = await attendanceAPI.getMyAttendance({
         date: today,
+        limit: 1,
       });
 
-      if (response.success && response.data) {
-        const attendance = response.data;
+      if (response.success && response.data && response.data.length > 0) {
+        const attendance = response.data[0]; // ✅ Get first item from array
 
         // Check attendance status based on API response
         if (attendance.arrival_time && !attendance.departure_time) {
@@ -173,11 +174,7 @@ const ClockInOut = () => {
     setLoading(true);
     try {
       const clockInData = {
-        arrival_time: new Date().toISOString(),
-        date: new Date().toISOString().split("T")[0],
         activity: "Office work",
-        location: "Office Location",
-        notes: "Clocked in via web application",
       };
 
       const response = await attendanceAPI.clockIn(clockInData);
@@ -211,8 +208,8 @@ const ClockInOut = () => {
     setLoading(true);
     try {
       const clockOutData = {
-        departure_time: new Date().toISOString(),
-        notes: "Clocked out via web application",
+        activity: todayAttendance.activity || "Completed work",
+        description: "Clocked out via web application",
       };
 
       const response = await attendanceAPI.clockOut(clockOutData);
@@ -243,13 +240,18 @@ const ClockInOut = () => {
     const arrival = new Date(todayAttendance.arrival_time);
     const departure = todayAttendance.departure_time
       ? new Date(todayAttendance.departure_time)
-      : currentTime;
+      : new Date(); // Use current time if not clocked out yet
 
     const diffMs = departure - arrival;
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    return `${hours}h ${minutes}m`;
+    if (diffHours > 0) {
+      return diffMinutes > 0
+        ? `${diffHours}h ${diffMinutes}m`
+        : `${diffHours}h`;
+    }
+    return `${diffMinutes}m`;
   };
 
   // Get working hours progress (out of 8 hours)
