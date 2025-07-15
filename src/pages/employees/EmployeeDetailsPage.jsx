@@ -20,7 +20,13 @@ import {
   Menu,
   MenuItem,
   Alert,
-  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -32,19 +38,16 @@ import {
   Work as WorkIcon,
   School as SchoolIcon,
   AccountBalance as BankIcon,
-  Assignment as AssignmentIcon,
   Person as PersonIcon,
-  ContactPhone as ContactPhoneIcon,
-  Bloodtype,
-  Fingerprint,
+  ArrowBack as ArrowBackIcon,
+  Badge as BadgeIcon,
+  CalendarToday as CalendarIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../components/features/auth/AuthGuard";
 import { ROUTES, ROLES } from "../../constants";
 import { employeesAPI } from "../../services/api/employees.api";
 import useNotification from "../../hooks/common/useNotification";
 import useConfirmDialog from "../../hooks/common/useConfirmDialog";
-import { LoadingSpinner } from "../../components/common/Loading";
-import { ErrorMessage } from "../../components/common/Error";
 import { ConfirmDialog } from "../../components/common/Modals";
 import EmployeeForm from "../../components/features/employees/EmployeeForm";
 
@@ -57,7 +60,6 @@ const EmployeeDetailsPage = () => {
   const { isOpen, config, openDialog, closeDialog, handleConfirm } =
     useConfirmDialog();
 
-  // State management
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -67,7 +69,6 @@ const EmployeeDetailsPage = () => {
 
   const isEditMode = location.pathname.includes("/edit");
 
-  // Fetch employee data on component mount
   useEffect(() => {
     const fetchEmployee = async () => {
       if (!id) {
@@ -76,18 +77,11 @@ const EmployeeDetailsPage = () => {
         return;
       }
 
-      setLoading(true);
-      setError(null);
-
       try {
-        const response = await employeesAPI.getById(id)
-        if (response.status === 200 && response.data) {
-          setEmployee(response.data.data);
-        } else {
-          setError("Employee not found");
-        }
+        setLoading(true);
+        const response = await employeesAPI.getById(id);
+        setEmployee(response.data.data || response.data);
       } catch (err) {
-        console.error("Error fetching employee:", err);
         setError(err.userMessage || "Failed to fetch employee details");
       } finally {
         setLoading(false);
@@ -97,39 +91,25 @@ const EmployeeDetailsPage = () => {
     fetchEmployee();
   }, [id]);
 
-  // Handle menu actions
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
+  const handleEdit = () => {
+    navigate(`${ROUTES.EMPLOYEES}/${id}/edit`);
     setAnchorEl(null);
   };
 
-  const handleEdit = () => {
-    navigate(`${ROUTES.EMPLOYEES}/${id}/edit`);
-    handleMenuClose();
-  };
-
   const handleDelete = () => {
-    handleMenuClose();
-
+    setAnchorEl(null);
     openDialog({
       title: "Delete Employee",
-      message: `Are you sure you want to delete ${employee?.first_name} ${employee?.sur_name}? This action cannot be undone.`,
+      message: `Are you sure you want to delete ${employee?.first_name} ${employee?.sur_name}?`,
       variant: "error",
-      confirmText: "Delete",
-      cancelText: "Cancel",
       onConfirm: async () => {
         setDeleteLoading(true);
-
         try {
           await employeesAPI.delete(id);
           showSuccess("Employee deleted successfully");
           navigate(ROUTES.EMPLOYEES);
         } catch (err) {
-          console.error("Error deleting employee:", err);
-          showError(err.userMessage || "Failed to delete employee");
+          showError("Failed to delete employee");
         } finally {
           setDeleteLoading(false);
         }
@@ -137,9 +117,14 @@ const EmployeeDetailsPage = () => {
     });
   };
 
-  // Utility functions
-  const getInitials = (firstName, surname) => {
-    return `${firstName?.charAt(0) || ""}${surname?.charAt(0) || ""}`.toUpperCase();
+  const formatCurrency = (amount) => {
+    if (!amount) return "Not provided";
+    return new Intl.NumberFormat().format(amount);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not provided";
+    return new Date(dateString).toLocaleDateString();
   };
 
   const getStatusColor = (status) => {
@@ -148,98 +133,14 @@ const EmployeeDetailsPage = () => {
         return "success";
       case "inactive":
         return "error";
-      case "on leave":
-        return "warning";
       default:
         return "default";
     }
   };
 
-  const formatCurrency = (amount) => {
-    if (!amount) return "Not provided";
-    return new Intl.NumberFormat("en-TZ", {
-      style: "currency",
-      currency: "TZS",
-    }).format(amount);
-  };
+  if (loading) return <Typography>Loading...</Typography>;
+  if (error) return <Alert severity="error">{error}</Alert>;
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "Not provided";
-    try {
-      return new Date(dateString).toLocaleDateString("en-GB");
-    } catch {
-      return "Invalid date";
-    }
-  };
-
-  const getFullName = () => {
-    if (!employee) return "";
-    const { first_name, middle_name, sur_name } = employee;
-    return `${first_name || ""} ${middle_name || ""} ${sur_name || ""}`.trim();
-  };
-
-  // Loading state
-  if (loading) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 3 }}>
-              <Skeleton variant="circular" width={80} height={80} />
-              <Box>
-                <Skeleton variant="text" width={200} height={40} />
-                <Skeleton variant="text" width={150} height={30} />
-                <Skeleton variant="text" width={100} height={20} />
-              </Box>
-            </Box>
-          </Grid>
-          <Grid item xs={12}>
-            <Skeleton variant="rectangular" height={400} />
-          </Grid>
-        </Grid>
-      </Box>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <ErrorMessage
-          error={error}
-          title="Failed to load employee"
-          showRefresh
-          onRefresh={() => window.location.reload()}
-        />
-        <Button
-          onClick={() => navigate(ROUTES.EMPLOYEES)}
-          sx={{ mt: 2 }}
-          variant="outlined"
-        >
-          Back to Employees
-        </Button>
-      </Box>
-    );
-  }
-
-  // Employee not found
-  if (!employee) {
-    return (
-      <Box sx={{ textAlign: "center", py: 4 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Employee not found
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          The employee you're looking for doesn't exist or has been removed.
-        </Typography>
-        <Button onClick={() => navigate(ROUTES.EMPLOYEES)} variant="contained">
-          Back to Employees
-        </Button>
-      </Box>
-    );
-  }
-
-  // Edit mode
   if (isEditMode) {
     return (
       <EmployeeForm
@@ -254,25 +155,21 @@ const EmployeeDetailsPage = () => {
     );
   }
 
-  // Tab panels configuration
-  const tabPanels = [
+  const tabs = [
     {
       label: "Basic Info",
       content: (
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
+            <Typography variant="h6" gutterBottom>
               Contact Information
             </Typography>
-            <List>
+            <List dense>
               <ListItem>
                 <ListItemIcon>
                   <EmailIcon />
                 </ListItemIcon>
-                <ListItemText
-                  primary="Email"
-                  secondary={employee.email || "Not provided"}
-                />
+                <ListItemText primary="Email" secondary={employee.email} />
               </ListItem>
               <ListItem>
                 <ListItemIcon>
@@ -280,80 +177,78 @@ const EmployeeDetailsPage = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Phone"
-                  secondary={employee.phone_number || "Not provided"}
+                  secondary={employee.phone_number}
                 />
               </ListItem>
               <ListItem>
                 <ListItemIcon>
                   <PersonIcon />
+                </ListItemIcon>
+                <ListItemText primary="Gender" secondary={employee.gender} />
+              </ListItem>
+              <ListItem>
+                <ListItemIcon>
+                  <LocationIcon />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Gender"
-                  secondary={employee.gender || "Not provided"}
+                  primary="Address"
+                  secondary={employee.address || "Not provided"}
                 />
               </ListItem>
+            </List>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6" gutterBottom>
+              Account Information
+            </Typography>
+            <List dense>
               <ListItem>
-                <ListItemIcon>
-                  <PersonIcon />
-                </ListItemIcon>
                 <ListItemText
                   primary="Status"
                   secondary={
                     <Chip
-                      label={employee.status || "Active"}
+                      label={employee.status}
                       color={getStatusColor(employee.status)}
                       size="small"
                     />
                   }
                 />
               </ListItem>
-            </List>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Account Information
-            </Typography>
-            <List>
+              <ListItem>
+                <ListItemText
+                  primary="Roles"
+                  secondary={
+                    employee.roles?.map((role) => role.role_name).join(", ") ||
+                    "No roles"
+                  }
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Created"
+                  secondary={formatDate(employee.created_at)}
+                />
+              </ListItem>
               <ListItem>
                 <ListItemText
                   primary="Last Login"
                   secondary={formatDate(employee.last_login)}
                 />
               </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Account Created"
-                  secondary={formatDate(employee.created_at)}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Last Updated"
-                  secondary={formatDate(employee.updated_at)}
-                />
-              </ListItem>
-              <ListItemText
-                primary="Roles"
-                secondary={
-                  Array.isArray(employee.roles) && employee.roles.length > 0
-                    ? employee.roles.map((role) => role.name).join(", ")
-                    : "No roles assigned"
-                }
-              />
             </List>
           </Grid>
         </Grid>
       ),
     },
     {
-      label: "Bio Data",
+      label: "Personal Info",
       content: (
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
+            <Typography variant="h6" gutterBottom>
               Personal Details
             </Typography>
-            <List>
+            <List dense>
               <ListItem>
                 <ListItemText
                   primary="Date of Birth"
@@ -378,57 +273,7 @@ const EmployeeDetailsPage = () => {
                   secondary={employee.bioData?.national_id || "Not provided"}
                 />
               </ListItem>
-            </List>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Biometric Information
-            </Typography>
-            <List>
               <ListItem>
-                <ListItemText
-                  primary="Fingerprint ID"
-                  secondary={employee.bioData?.fingerprint_id || "Not provided"}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Signature"
-                  secondary={
-                    employee.bioData?.signature ? "Available" : "Not provided"
-                  }
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Bio Data Created"
-                  secondary={formatDate(employee.bioData?.created_at)}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Bio Data Updated"
-                  secondary={formatDate(employee.bioData?.updated_at)}
-                />
-              </ListItem>
-            </List>
-          </Grid>
-        </Grid>
-      ),
-    },
-    {
-      label: "Personal Data",
-      content: (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Personal Information
-            </Typography>
-            <List>
-              <ListItem>
-                <ListItemIcon>
-                  <LocationIcon />
-                </ListItemIcon>
                 <ListItemText
                   primary="Location"
                   secondary={
@@ -437,11 +282,8 @@ const EmployeeDetailsPage = () => {
                 />
               </ListItem>
               <ListItem>
-                <ListItemIcon>
-                  <SchoolIcon />
-                </ListItemIcon>
                 <ListItemText
-                  primary="Education Level"
+                  primary="Education"
                   secondary={
                     employee.personalEmployeeData?.education_level ||
                     "Not provided"
@@ -451,44 +293,49 @@ const EmployeeDetailsPage = () => {
             </List>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Record Information
+            <Typography variant="h6" gutterBottom>
+              Emergency Contacts
             </Typography>
-            <List>
-              <ListItem>
-                <ListItemText
-                  primary="Personal Data Created"
-                  secondary={formatDate(
-                    employee.personalEmployeeData?.created_at
-                  )}
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Personal Data Updated"
-                  secondary={formatDate(
-                    employee.personalEmployeeData?.updated_at
-                  )}
-                />
-              </ListItem>
-            </List>
+            {employee.emergencyContacts?.length > 0 ? (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Phone</TableCell>
+                      <TableCell>Relationship</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {employee.emergencyContacts.map((contact, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{contact.name}</TableCell>
+                        <TableCell>{contact.phone_number}</TableCell>
+                        <TableCell>{contact.relationship}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Typography color="text.secondary">
+                No emergency contacts
+              </Typography>
+            )}
           </Grid>
         </Grid>
       ),
     },
     {
-      label: "Employment Data",
+      label: "Employment",
       content: (
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
+            <Typography variant="h6" gutterBottom>
               Job Information
             </Typography>
-            <List>
+            <List dense>
               <ListItem>
-                <ListItemIcon>
-                  <WorkIcon />
-                </ListItemIcon>
                 <ListItemText
                   primary="Department"
                   secondary={
@@ -498,9 +345,6 @@ const EmployeeDetailsPage = () => {
                 />
               </ListItem>
               <ListItem>
-                <ListItemIcon>
-                  <AssignmentIcon />
-                </ListItemIcon>
                 <ListItemText
                   primary="Designation"
                   secondary={
@@ -519,32 +363,6 @@ const EmployeeDetailsPage = () => {
               </ListItem>
               <ListItem>
                 <ListItemText
-                  primary="Registration Number"
-                  secondary={
-                    employee.basicEmployeeData?.registration_number ||
-                    "Not provided"
-                  }
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Supervisor"
-                  secondary={
-                    employee.basicEmployeeData?.supervisor
-                      ? `${employee.basicEmployeeData.supervisor.first_name || ""} ${employee.basicEmployeeData.supervisor.middle_name || ""} ${employee.basicEmployeeData.supervisor.sur_name || ""}`.trim()
-                      : "Not assigned"
-                  }
-                />
-              </ListItem>
-            </List>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Employment Details
-            </Typography>
-            <List>
-              <ListItem>
-                <ListItemText
                   primary="Date Joined"
                   secondary={formatDate(
                     employee.basicEmployeeData?.date_joined
@@ -554,37 +372,26 @@ const EmployeeDetailsPage = () => {
               <ListItem>
                 <ListItemText
                   primary="Salary"
-                  secondary={formatCurrency(employee.basicEmployeeData?.salary)}
+                  secondary={`TZS ${formatCurrency(employee.basicEmployeeData?.salary)}`}
                 />
               </ListItem>
               <ListItem>
                 <ListItemText
-                  primary="Employment Status"
+                  primary="Supervisor"
                   secondary={
-                    <Chip
-                      label={employee.basicEmployeeData?.status || "Active"}
-                      color={getStatusColor(employee.basicEmployeeData?.status)}
-                      size="small"
-                    />
-                  }
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemText
-                  primary="Signature"
-                  secondary={
-                    employee.basicEmployeeData?.signature
-                      ? "Available"
-                      : "Not provided"
+                    employee.basicEmployeeData?.supervisor
+                      ? `${employee.basicEmployeeData.supervisor.first_name} ${employee.basicEmployeeData.supervisor.sur_name}`
+                      : "Not assigned"
                   }
                 />
               </ListItem>
             </List>
-
-            <Typography variant="h6" sx={{ mb: 2, mt: 3 }}>
-              Government IDs
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6" gutterBottom>
+              IDs & Banking
             </Typography>
-            <List>
+            <List dense>
               <ListItem>
                 <ListItemText
                   primary="NIDA"
@@ -605,24 +412,15 @@ const EmployeeDetailsPage = () => {
               </ListItem>
               <ListItem>
                 <ListItemText
-                  primary="HESLB"
+                  primary="HELSB"
                   secondary={
                     employee.basicEmployeeData?.helsb || "Not provided"
                   }
                 />
               </ListItem>
-            </List>
-
-            <Typography variant="h6" sx={{ mb: 2, mt: 3 }}>
-              Banking Information
-            </Typography>
-            <List>
               <ListItem>
-                <ListItemIcon>
-                  <BankIcon />
-                </ListItemIcon>
                 <ListItemText
-                  primary="Bank Name"
+                  primary="Bank"
                   secondary={
                     employee.basicEmployeeData?.bank_name || "Not provided"
                   }
@@ -641,120 +439,147 @@ const EmployeeDetailsPage = () => {
         </Grid>
       ),
     },
+    {
+      label: "Next of Kin",
+      content: (
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              Next of Kin
+            </Typography>
+            {employee.nextOfKin?.length > 0 ? (
+              <TableContainer component={Paper} variant="outlined">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Phone</TableCell>
+                      <TableCell>Relationship</TableCell>
+                      <TableCell>Percentage</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {employee.nextOfKin.map((kin, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{kin.name}</TableCell>
+                        <TableCell>{kin.phone_number}</TableCell>
+                        <TableCell>{kin.relationship}</TableCell>
+                        <TableCell>{kin.percentage}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Typography color="text.secondary">
+                No next of kin information
+              </Typography>
+            )}
+          </Grid>
+        </Grid>
+      ),
+    },
   ];
 
   return (
-    <Box>
+    <Box p={3}>
       {/* Header */}
       <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          mb: 3,
-        }}
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={3}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <Avatar
-            sx={{
-              width: 80,
-              height: 80,
-              bgcolor: "primary.main",
-              fontSize: "2rem",
-            }}
+        <Box display="flex" alignItems="center" gap={2}>
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate(ROUTES.EMPLOYEES)}
+            variant="outlined"
           >
-            {getInitials(employee.first_name, employee.sur_name)}
-          </Avatar>
-
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
-              {getFullName()}
-            </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-              {employee.basicEmployeeData?.designation ||
-                "No position assigned"}
-            </Typography>
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-              <Chip
-                label={
-                  employee.basicEmployeeData?.department?.department_name ||
-                  "No department"
-                }
-                color="primary"
-                variant="outlined"
-              />
-              <Chip
-                label={employee.status || "Active"}
-                color={getStatusColor(employee.status)}
-                size="small"
-              />
-            </Box>
-          </Box>
+            Back
+          </Button>
+          <Typography variant="h4">Employee Details</Typography>
         </Box>
-
         {hasAnyRole([ROLES.ADMIN, ROLES.HR_MANAGER]) && (
-          <Box sx={{ display: "flex", gap: 1 }}>
+          <Box display="flex" gap={1}>
             <Button
               variant="contained"
               startIcon={<EditIcon />}
               onClick={handleEdit}
-              disabled={deleteLoading}
             >
               Edit
             </Button>
-
-            <IconButton onClick={handleMenuOpen} disabled={deleteLoading}>
+            <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>
               <MoreVertIcon />
             </IconButton>
           </Box>
         )}
       </Box>
 
-      {/* Employee Details */}
+      {/* Employee Summary */}
       <Card>
-        <CardContent sx={{ p: 0 }}>
+        <CardContent>
+          <Box display="flex" alignItems="center" gap={3} mb={3}>
+            <Avatar sx={{ width: 60, height: 60, bgcolor: "primary.main" }}>
+              {employee.first_name?.charAt(0)}
+              {employee.sur_name?.charAt(0)}
+            </Avatar>
+            <Box>
+              <Typography variant="h5">
+                {employee.first_name} {employee.middle_name} {employee.sur_name}
+              </Typography>
+              <Typography color="text.secondary">
+                {employee.basicEmployeeData?.designation} •{" "}
+                {employee.basicEmployeeData?.department?.department_name}
+              </Typography>
+              <Box display="flex" gap={1} mt={1}>
+                <Chip
+                  label={employee.status}
+                  color={getStatusColor(employee.status)}
+                  size="small"
+                />
+                <Chip label={employee.email} variant="outlined" size="small" />
+                <Chip
+                  label={employee.phone_number}
+                  variant="outlined"
+                  size="small"
+                />
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Tabs */}
           <Tabs
             value={activeTab}
             onChange={(e, newValue) => setActiveTab(newValue)}
-            sx={{ borderBottom: 1, borderColor: "divider" }}
           >
-            {tabPanels.map((tab, index) => (
+            {tabs.map((tab, index) => (
               <Tab key={index} label={tab.label} />
             ))}
           </Tabs>
-
-          <Box sx={{ p: 3 }}>{tabPanels[activeTab]?.content}</Box>
+          <Divider />
+          <Box mt={3}>{tabs[activeTab]?.content}</Box>
         </CardContent>
       </Card>
 
-      {/* Action Menu */}
+      {/* Menu */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
+        onClose={() => setAnchorEl(null)}
       >
         <MenuItem onClick={handleEdit}>
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          Edit Employee
+          <EditIcon fontSize="small" />
+          &nbsp;Edit
         </MenuItem>
-
         {hasRole(ROLES.ADMIN) && (
-          <MenuItem
-            onClick={handleDelete}
-            sx={{ color: "error.main" }}
-            disabled={deleteLoading}
-          >
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" color="error" />
-            </ListItemIcon>
-            Delete Employee
+          <MenuItem onClick={handleDelete} sx={{ color: "error.main" }}>
+            <DeleteIcon fontSize="small" />
+            &nbsp;Delete
           </MenuItem>
         )}
       </Menu>
 
-      {/* Confirm Dialog */}
       <ConfirmDialog
         open={isOpen}
         onClose={closeDialog}

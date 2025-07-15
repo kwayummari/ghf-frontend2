@@ -220,9 +220,8 @@ const EmployeeList = () => {
   };
 
   const handleViewEmployee = () => {
-    console.log("Selected Employee:", selectedEmployee);
     if (selectedEmployee) {
-      setViewDialogOpen(true);
+      navigate(`${ROUTES.EMPLOYEES}/${selectedEmployee.id}`);
     }
     handleMenuClose();
   };
