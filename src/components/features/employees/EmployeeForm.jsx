@@ -114,7 +114,7 @@ const validateNIDA = (value) => {
 // Required field label component
 const RequiredLabel = ({ children }) => (
   <span>
-    {children} <span style={{ color: "red" }}>***</span>
+    {children} <span style={{ color: "red" }}>*</span>
   </span>
 );
 
@@ -122,27 +122,27 @@ const steps = [
   {
     label: "Basic Information",
     icon: <PersonIcon />,
-    description: "Names, Gender, Contact Details",
+    description: "",
   },
   {
     label: "Bio Data",
     icon: <ContactIcon />,
-    description: "Personal Details, DOB, Marital Status",
+    description: "",
   },
   {
     label: "Personal Data",
     icon: <ContactIcon />,
-    description: "Location, Education, Emergency Contacts",
+    description: "",
   },
   {
     label: "Employment Data",
     icon: <WorkIcon />,
-    description: "Job Details, Salary, Banking, Government IDs",
+    description: "",
   },
   {
     label: "Role Assignment",
     icon: <SecurityIcon />,
-    description: "System Access & Permissions",
+    description: "",
   },
 ];
 
@@ -600,7 +600,7 @@ const BasicInfoForm = ({ formik }) => (
     </Grid>
     <Grid item xs={12} md={6}>
       <FormControl fullWidth>
-        <InputLabel>Status</InputLabel>
+        <InputLabel>{<RequiredLabel>Status</RequiredLabel>}</InputLabel>
         <Select
           name="status"
           value={formik.values.status}
@@ -636,7 +636,7 @@ const BioDataForm = ({ formik }) => (
     </Grid>
     <Grid item xs={12} md={6}>
       <FormControl fullWidth>
-        <InputLabel>Marital Status</InputLabel>
+        <InputLabel>{<RequiredLabel>Marital Status</RequiredLabel>}</InputLabel>
         <Select
           name="bioData.marital_status"
           value={formik.values.bioData?.marital_status || ""}
@@ -652,7 +652,7 @@ const BioDataForm = ({ formik }) => (
     </Grid>
     <Grid item xs={12} md={6}>
       <FormControl fullWidth>
-        <InputLabel>Blood Group</InputLabel>
+        <InputLabel>{<RequiredLabel>Blood Group</RequiredLabel>}</InputLabel>
         <Select
           name="bioData.blood_group"
           value={formik.values.bioData?.blood_group || ""}
@@ -776,6 +776,24 @@ const PersonalInfoForm = ({ formik }) => (
 // Employment Data Form Component
 const EmploymentDataForm = ({ formik, departments, departmentsLoading }) => (
   <Grid container spacing={3}>
+    <Grid item xs={12} md={6}>
+      <TextField
+        fullWidth
+        label={<RequiredLabel>Registration Number</RequiredLabel>}
+        name="basicEmployeeData.registration_number"
+        value={formik.values.basicEmployeeData?.registration_number || ""}
+        onChange={formik.handleChange}
+        error={
+          formik.touched.basicEmployeeData?.registration_number &&
+          Boolean(formik.errors.basicEmployeeData?.registration_number)
+        }
+        helperText={
+          formik.touched.basicEmployeeData?.registration_number &&
+          formik.errors.basicEmployeeData?.registration_number
+        }
+        required
+      />
+    </Grid>
     <Grid item xs={12} md={6}>
       <FormControl fullWidth required>
         <InputLabel>
