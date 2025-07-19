@@ -132,24 +132,6 @@ const steps = [
   },
 ];
 
-// Updated validation schemas with combined fields
-const personalInfoSchema = Yup.object({
-  first_name: Yup.string().required("First name is required"),
-  sur_name: Yup.string().required("Surname is required"),
-  email: Yup.string().email("Invalid email").required("Email is required"),
-  phone_number: Yup.string().required("Phone number is required"),
-  gender: Yup.string().required("Gender is required"),
-  bioData: Yup.object({
-    dob: Yup.date().required("Date of birth is required"),
-    national_id: Yup.string()
-      .test(
-        "nida-format",
-        "Invalid NIDA format. Must be 20 digits",
-        validateNIDA
-      )
-      .required("National ID is required"),
-  }),
-});
 
 const contactPersonalDataSchema = Yup.object({
   personalEmployeeData: Yup.object({
@@ -494,7 +476,7 @@ const NextOfKinSection = ({ formik }) => {
 };
 
 // Personal Information Form (Basic Info + Bio Data combined)
-const PersonalInfoForm = ({ formik }) => (
+const PersonalInfoForm = ({ formik, editMode }) => (
   <Box>
     {/* Basic Information Section */}
     <Typography variant="h6" sx={{ mb: 3, color: "primary.main" }}>
@@ -580,7 +562,7 @@ const PersonalInfoForm = ({ formik }) => (
           )}
         </FormControl>
       </Grid>
-      <Grid item xs={12} md={6}>
+      <Grid item xs={12} md={editMode ? 12 : 6}>
         <FormControl fullWidth required>
           <InputLabel>Status</InputLabel>
           <Select
@@ -604,7 +586,8 @@ const PersonalInfoForm = ({ formik }) => (
           onChange={formik.handleChange}
           error={formik.touched.password && Boolean(formik.errors.password)}
           helperText={formik.touched.password && formik.errors.password}
-          required
+          disabled={editMode}
+          required={!editMode}
         />
       </Grid>
     </Grid>
@@ -1153,6 +1136,27 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
     }
   }, [editMode, initialData, availableRoles]);
 
+  const personalInfoSchema = Yup.object({
+    first_name: Yup.string().required("First name is required"),
+    sur_name: Yup.string().required("Surname is required"),
+    email: Yup.string().email("Invalid email").required("Email is required"),
+    phone_number: Yup.string().required("Phone number is required"),
+    gender: Yup.string().required("Gender is required"),
+    password: editMode
+      ? Yup.string()
+      : Yup.string().required("Password is required"),
+    bioData: Yup.object({
+      dob: Yup.date().required("Date of birth is required"),
+      national_id: Yup.string()
+        .test(
+          "nida-format",
+          "Invalid NIDA format. Must be 20 digits",
+          validateNIDA
+        )
+        .required("National ID is required"),
+    }),
+  });
+
   // Initialize form data
   const getInitialFormData = () => {
     if (editMode && initialData) {
@@ -1165,6 +1169,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         phone_number: initialData.phone_number || "",
         gender: initialData.gender || "",
         status: initialData.status || "active",
+        password: editMode ? "" : "",
 
         // Bio Data
         bioData: {
@@ -1430,6 +1435,8 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
         gender: values.gender,
         status: values.status,
         address: values.address,
+        ...(formik.values.password &&
+          !editMode && { password: formik.values.password }),
 
         basic_employee_data: values.basicEmployeeData,
         bio_data: {
@@ -1501,7 +1508,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   const renderStepContent = () => {
     switch (activeStep) {
       case 0:
-        return <PersonalInfoForm formik={formik} />;
+        return <PersonalInfoForm formik={formik} editMode={editMode} />; // Add editMode prop
       case 1:
         return <ContactPersonalDataForm formik={formik} />;
       case 2:
