@@ -349,7 +349,6 @@ const EmployeeList = () => {
           label={`EMP-${params.value.toString().padStart(3, "0")}`}
           size="small"
           variant="outlined"
-          icon={<BadgeIcon />}
         />
       ),
     },
