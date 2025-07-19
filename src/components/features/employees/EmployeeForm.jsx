@@ -946,7 +946,7 @@ const EmploymentRolesForm = ({
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="BIMA Number"
+            label="INSURANCE Number"
             name="basicEmployeeData.bima"
             value={formik.values.basicEmployeeData?.bima || ""}
             onChange={formik.handleChange}
