@@ -631,7 +631,6 @@ const LeaveTypeSettingsPage = () => {
                 <Box
                   sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}
                 >
-                  {hasPermission(PERMISSIONS.SETTINGS_CREATE) && (
                     <Button
                       variant="contained"
                       startIcon={<AddIcon />}
@@ -639,7 +638,6 @@ const LeaveTypeSettingsPage = () => {
                     >
                       Add Leave Type
                     </Button>
-                  )}
                   <Button
                     variant="outlined"
                     startIcon={<DownloadIcon />}
