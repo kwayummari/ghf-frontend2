@@ -535,7 +535,7 @@ const PersonalInfoForm = ({ formik }) => (
           required
         />
       </Grid>
-      <Grid item xs={12} md={6}>
+      <Grid item xs={12} md={4}>
         <TextField
           fullWidth
           label="Email"
@@ -548,7 +548,7 @@ const PersonalInfoForm = ({ formik }) => (
           required
         />
       </Grid>
-      <Grid item xs={12} md={6}>
+      <Grid item xs={12} md={4}>
         <TextField
           fullWidth
           label="Phone Number"
@@ -562,7 +562,7 @@ const PersonalInfoForm = ({ formik }) => (
           required
         />
       </Grid>
-      <Grid item xs={12} md={6}>
+      <Grid item xs={12} md={4}>
         <FormControl fullWidth required>
           <InputLabel>Gender</InputLabel>
           <Select
@@ -593,6 +593,19 @@ const PersonalInfoForm = ({ formik }) => (
             <MenuItem value="inactive">Inactive</MenuItem>
           </Select>
         </FormControl>
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label="Password"
+          name="password"
+          type="password"
+          value={formik.values.password}
+          onChange={formik.handleChange}
+          error={formik.touched.password && Boolean(formik.errors.password)}
+          helperText={formik.touched.password && formik.errors.password}
+          required
+        />
       </Grid>
     </Grid>
 
