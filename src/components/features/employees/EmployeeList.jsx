@@ -96,8 +96,6 @@ const EmployeeList = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  console.log("Employees Response:", employeesResponse);
-
   const { data: departmentsResponse, isLoading: departmentsLoading } = useQuery(
     {
       queryKey: ["departments"],
@@ -731,7 +729,6 @@ const EmployeeList = () => {
         onClose={() => {
           setViewDialogOpen(false);
           setSelectedEmployee(null);
-          console.log(selectedEmployee);
         }}
         maxWidth="md"
         fullWidth
