@@ -96,6 +96,8 @@ const EmployeeList = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  console.log("Employees Response:", employeesResponse);
+
   const { data: departmentsResponse, isLoading: departmentsLoading } = useQuery(
     {
       queryKey: ["departments"],
@@ -277,7 +279,7 @@ const EmployeeList = () => {
           emp.department || "",
           emp.position || "",
           emp.status || "",
-          emp.hire_date || "",
+          emp.date_joined || "",
           emp.phone_number || "",
         ].join(",")
       ),
@@ -332,7 +334,7 @@ const EmployeeList = () => {
               {params.row.full_name}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {params.row.email}
+              {params.row.email} <br /> {params.row.phone_number || "No Phone"}
             </Typography>
           </Box>
         </Box>
@@ -361,7 +363,7 @@ const EmployeeList = () => {
             {params.value || "Not Assigned"}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {params.row.position || "No Position"}
+            {params.row.designation || "No Position"}
           </Typography>
         </Box>
       ),
@@ -398,22 +400,7 @@ const EmployeeList = () => {
       ),
     },
     {
-      field: "phone_number",
-      headerName: "Contact",
-      width: 150,
-      renderCell: (params) => (
-        <Box>
-          <Typography variant="body2">
-            {params.value || "Not Provided"}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {params.row.email}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      field: "hire_date",
+      field: "date_joined",
       headerName: "Hire Date",
       width: 120,
       renderCell: (params) => (
