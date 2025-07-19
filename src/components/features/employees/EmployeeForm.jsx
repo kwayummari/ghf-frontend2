@@ -103,7 +103,6 @@ const formatNIDA = (value) => {
   }
 };
 
-
 // Validate NIDA format
 const validateNIDA = (value) => {
   if (!value) return false;
@@ -120,42 +119,26 @@ const RequiredLabel = ({ children }) => (
 
 const steps = [
   {
-    label: "Basic Information",
+    label: "Personal Information",
     icon: <PersonIcon />,
-    description: "",
   },
   {
-    label: "Bio Data",
+    label: "Contact & Personal Data",
     icon: <ContactIcon />,
-    description: "",
   },
   {
-    label: "Personal Data",
-    icon: <ContactIcon />,
-    description: "",
-  },
-  {
-    label: "Employment Data",
+    label: "Employment & Roles",
     icon: <WorkIcon />,
-    description: "",
-  },
-  {
-    label: "Role Assignment",
-    icon: <SecurityIcon />,
-    description: "",
   },
 ];
 
-// Updated validation schemas with required fields
-const basicInfoSchema = Yup.object({
+// Updated validation schemas with combined fields
+const personalInfoSchema = Yup.object({
   first_name: Yup.string().required("First name is required"),
   sur_name: Yup.string().required("Surname is required"),
   email: Yup.string().email("Invalid email").required("Email is required"),
   phone_number: Yup.string().required("Phone number is required"),
   gender: Yup.string().required("Gender is required"),
-});
-
-const bioDataSchema = Yup.object({
   bioData: Yup.object({
     dob: Yup.date().required("Date of birth is required"),
     national_id: Yup.string()
@@ -168,7 +151,7 @@ const bioDataSchema = Yup.object({
   }),
 });
 
-const personalDataSchema = Yup.object({
+const contactPersonalDataSchema = Yup.object({
   personalEmployeeData: Yup.object({
     location: Yup.string().required("Location is required"),
     education_level: Yup.string().required("Education level is required"),
@@ -187,7 +170,7 @@ const personalDataSchema = Yup.object({
     .min(1, "At least one emergency contact is required"),
 });
 
-const employmentDataSchema = Yup.object({
+const employmentRolesSchema = Yup.object({
   basicEmployeeData: Yup.object({
     department_id: Yup.number().required("Department is required"),
     designation: Yup.string().required("Designation is required"),
@@ -206,9 +189,6 @@ const employmentDataSchema = Yup.object({
     bank_name: Yup.string().required("Bank name is required"),
     account_number: Yup.string().required("Account number is required"),
   }),
-});
-
-const roleAssignmentSchema = Yup.object({
   role_ids: Yup.array()
     .of(Yup.number())
     .min(1, "At least one role must be assigned")
@@ -293,7 +273,7 @@ const EmergencyContactSection = ({ formik }) => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label={<RequiredLabel>Full Name</RequiredLabel>}
+                label="Full Name"
                 value={contact.name || ""}
                 onChange={(e) =>
                   updateEmergencyContact(index, "name", e.target.value)
@@ -312,7 +292,7 @@ const EmergencyContactSection = ({ formik }) => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label={<RequiredLabel>Phone Number</RequiredLabel>}
+                label="Phone Number"
                 value={contact.phone_number || ""}
                 onChange={(e) =>
                   updateEmergencyContact(index, "phone_number", e.target.value)
@@ -332,9 +312,7 @@ const EmergencyContactSection = ({ formik }) => {
             </Grid>
             <Grid item xs={12} md={4}>
               <FormControl fullWidth required>
-                <InputLabel>
-                  <RequiredLabel>Relationship</RequiredLabel>
-                </InputLabel>
+                <InputLabel>Relationship</InputLabel>
                 <Select
                   value={contact.relationship || ""}
                   onChange={(e) =>
@@ -515,204 +493,216 @@ const NextOfKinSection = ({ formik }) => {
   );
 };
 
-// Basic Info Form Component
-const BasicInfoForm = ({ formik }) => (
-  <Grid container spacing={3}>
-    <Grid item xs={12} md={4}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>First Name</RequiredLabel>}
-        name="first_name"
-        value={formik.values.first_name}
-        onChange={formik.handleChange}
-        error={formik.touched.first_name && Boolean(formik.errors.first_name)}
-        helperText={formik.touched.first_name && formik.errors.first_name}
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={4}>
-      <TextField
-        fullWidth
-        label="Middle Name"
-        name="middle_name"
-        value={formik.values.middle_name}
-        onChange={formik.handleChange}
-      />
-    </Grid>
-    <Grid item xs={12} md={4}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Surname</RequiredLabel>}
-        name="sur_name"
-        value={formik.values.sur_name}
-        onChange={formik.handleChange}
-        error={formik.touched.sur_name && Boolean(formik.errors.sur_name)}
-        helperText={formik.touched.sur_name && formik.errors.sur_name}
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Email</RequiredLabel>}
-        name="email"
-        type="email"
-        value={formik.values.email}
-        onChange={formik.handleChange}
-        error={formik.touched.email && Boolean(formik.errors.email)}
-        helperText={formik.touched.email && formik.errors.email}
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Phone Number</RequiredLabel>}
-        name="phone_number"
-        value={formik.values.phone_number}
-        onChange={formik.handleChange}
-        error={
-          formik.touched.phone_number && Boolean(formik.errors.phone_number)
-        }
-        helperText={formik.touched.phone_number && formik.errors.phone_number}
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <FormControl fullWidth required>
-        <InputLabel>
-          <RequiredLabel>Gender</RequiredLabel>
-        </InputLabel>
-        <Select
-          name="gender"
-          value={formik.values.gender}
-          onChange={formik.handleChange}
-          error={formik.touched.gender && Boolean(formik.errors.gender)}
-          label="Gender"
-        >
-          <MenuItem value="Male">Male</MenuItem>
-          <MenuItem value="Female">Female</MenuItem>
-        </Select>
-        {formik.touched.gender && formik.errors.gender && (
-          <FormHelperText error>{formik.errors.gender}</FormHelperText>
-        )}
-      </FormControl>
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <FormControl fullWidth>
-        <InputLabel>{<RequiredLabel>Status</RequiredLabel>}</InputLabel>
-        <Select
-          name="status"
-          value={formik.values.status}
-          onChange={formik.handleChange}
-          label="Status"
-        >
-          <MenuItem value="active">Active</MenuItem>
-          <MenuItem value="inactive">Inactive</MenuItem>
-        </Select>
-      </FormControl>
-    </Grid>
-  </Grid>
-);
-
-// Bio Data Form Component
-const BioDataForm = ({ formik }) => (
-  <Grid container spacing={3}>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Date of Birth</RequiredLabel>}
-        name="bioData.dob"
-        type="date"
-        value={formik.values.bioData?.dob || ""}
-        onChange={formik.handleChange}
-        error={
-          formik.touched.bioData?.dob && Boolean(formik.errors.bioData?.dob)
-        }
-        helperText={formik.touched.bioData?.dob && formik.errors.bioData?.dob}
-        InputLabelProps={{ shrink: true }}
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <FormControl fullWidth>
-        <InputLabel>{<RequiredLabel>Marital Status</RequiredLabel>}</InputLabel>
-        <Select
-          name="bioData.marital_status"
-          value={formik.values.bioData?.marital_status || ""}
-          onChange={formik.handleChange}
-          label="Marital Status"
-        >
-          <MenuItem value="single">Single</MenuItem>
-          <MenuItem value="married">Married</MenuItem>
-          <MenuItem value="divorced">Divorced</MenuItem>
-          <MenuItem value="widowed">Widowed</MenuItem>
-        </Select>
-      </FormControl>
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <FormControl fullWidth>
-        <InputLabel>{<RequiredLabel>Blood Group</RequiredLabel>}</InputLabel>
-        <Select
-          name="bioData.blood_group"
-          value={formik.values.bioData?.blood_group || ""}
-          onChange={formik.handleChange}
-          label="Blood Group"
-        >
-          <MenuItem value="">Select Blood Group</MenuItem>
-          <MenuItem value="A+">A+</MenuItem>
-          <MenuItem value="A-">A-</MenuItem>
-          <MenuItem value="B+">B+</MenuItem>
-          <MenuItem value="B-">B-</MenuItem>
-          <MenuItem value="AB+">AB+</MenuItem>
-          <MenuItem value="AB-">AB-</MenuItem>
-          <MenuItem value="O+">O+</MenuItem>
-          <MenuItem value="O-">O-</MenuItem>
-        </Select>
-      </FormControl>
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>National ID (NIDA)</RequiredLabel>}
-        name="bioData.national_id"
-        value={formik.values.bioData?.national_id || ""}
-        onChange={(e) => {
-          const formatted = formatNIDA(e.target.value);
-          formik.setFieldValue("bioData.national_id", formatted);
-        }}
-        error={
-          formik.touched.bioData?.national_id &&
-          Boolean(formik.errors.bioData?.national_id)
-        }
-        helperText={
-          formik.touched.bioData?.national_id &&
-          formik.errors.bioData?.national_id
-        }
-        placeholder="20000424-15112-0000-123"
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label="Fingerprint ID"
-        name="bioData.fingerprint_id"
-        value={formik.values.bioData?.fingerprint_id || ""}
-        onChange={formik.handleChange}
-      />
-    </Grid>
-  </Grid>
-);
-
-// Personal Info Form Component
+// Personal Information Form (Basic Info + Bio Data combined)
 const PersonalInfoForm = ({ formik }) => (
   <Box>
+    {/* Basic Information Section */}
+    <Typography variant="h6" sx={{ mb: 3, color: "primary.main" }}>
+      Basic Information
+    </Typography>
+    <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid item xs={12} md={4}>
+        <TextField
+          fullWidth
+          label="First Name"
+          name="first_name"
+          value={formik.values.first_name}
+          onChange={formik.handleChange}
+          error={formik.touched.first_name && Boolean(formik.errors.first_name)}
+          helperText={formik.touched.first_name && formik.errors.first_name}
+          required
+        />
+      </Grid>
+      <Grid item xs={12} md={4}>
+        <TextField
+          fullWidth
+          label="Middle Name"
+          name="middle_name"
+          value={formik.values.middle_name}
+          onChange={formik.handleChange}
+          required
+        />
+      </Grid>
+      <Grid item xs={12} md={4}>
+        <TextField
+          fullWidth
+          label="Surname"
+          name="sur_name"
+          value={formik.values.sur_name}
+          onChange={formik.handleChange}
+          error={formik.touched.sur_name && Boolean(formik.errors.sur_name)}
+          helperText={formik.touched.sur_name && formik.errors.sur_name}
+          required
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label="Email"
+          name="email"
+          type="email"
+          value={formik.values.email}
+          onChange={formik.handleChange}
+          error={formik.touched.email && Boolean(formik.errors.email)}
+          helperText={formik.touched.email && formik.errors.email}
+          required
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label="Phone Number"
+          name="phone_number"
+          value={formik.values.phone_number}
+          onChange={formik.handleChange}
+          error={
+            formik.touched.phone_number && Boolean(formik.errors.phone_number)
+          }
+          helperText={formik.touched.phone_number && formik.errors.phone_number}
+          required
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <FormControl fullWidth required>
+          <InputLabel>Gender</InputLabel>
+          <Select
+            name="gender"
+            value={formik.values.gender}
+            onChange={formik.handleChange}
+            error={formik.touched.gender && Boolean(formik.errors.gender)}
+            label="Gender"
+          >
+            <MenuItem value="Male">Male</MenuItem>
+            <MenuItem value="Female">Female</MenuItem>
+          </Select>
+          {formik.touched.gender && formik.errors.gender && (
+            <FormHelperText error>{formik.errors.gender}</FormHelperText>
+          )}
+        </FormControl>
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <FormControl fullWidth required>
+          <InputLabel>Status</InputLabel>
+          <Select
+            name="status"
+            value={formik.values.status}
+            onChange={formik.handleChange}
+            label="Status"
+          >
+            <MenuItem value="active">Active</MenuItem>
+            <MenuItem value="inactive">Inactive</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+    </Grid>
+
+    <Divider sx={{ my: 3 }} />
+
+    {/* Bio Data Section */}
+    <Typography variant="h6" sx={{ mb: 3, color: "primary.main" }}>
+      Biographical Data
+    </Typography>
     <Grid container spacing={3}>
       <Grid item xs={12} md={6}>
         <TextField
           fullWidth
-          label={<RequiredLabel>Location</RequiredLabel>}
+          label="Date of Birth"
+          name="bioData.dob"
+          type="date"
+          value={formik.values.bioData?.dob || ""}
+          onChange={formik.handleChange}
+          error={
+            formik.touched.bioData?.dob && Boolean(formik.errors.bioData?.dob)
+          }
+          helperText={formik.touched.bioData?.dob && formik.errors.bioData?.dob}
+          InputLabelProps={{ shrink: true }}
+          required
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <FormControl fullWidth required>
+          <InputLabel>Marital Status</InputLabel>
+          <Select
+            name="bioData.marital_status"
+            value={formik.values.bioData?.marital_status || ""}
+            onChange={formik.handleChange}
+            label="Marital Status"
+          >
+            <MenuItem value="single">Single</MenuItem>
+            <MenuItem value="married">Married</MenuItem>
+            <MenuItem value="divorced">Divorced</MenuItem>
+            <MenuItem value="widowed">Widowed</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <FormControl fullWidth required>
+          <InputLabel>Blood Group</InputLabel>
+          <Select
+            name="bioData.blood_group"
+            value={formik.values.bioData?.blood_group || ""}
+            onChange={formik.handleChange}
+            label="Blood Group"
+          >
+            <MenuItem value="">Select Blood Group</MenuItem>
+            <MenuItem value="A+">A+</MenuItem>
+            <MenuItem value="A-">A-</MenuItem>
+            <MenuItem value="B+">B+</MenuItem>
+            <MenuItem value="B-">B-</MenuItem>
+            <MenuItem value="AB+">AB+</MenuItem>
+            <MenuItem value="AB-">AB-</MenuItem>
+            <MenuItem value="O+">O+</MenuItem>
+            <MenuItem value="O-">O-</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label="National ID (NIDA)"
+          name="bioData.national_id"
+          value={formik.values.bioData?.national_id || ""}
+          onChange={(e) => {
+            const formatted = formatNIDA(e.target.value);
+            formik.setFieldValue("bioData.national_id", formatted);
+          }}
+          error={
+            formik.touched.bioData?.national_id &&
+            Boolean(formik.errors.bioData?.national_id)
+          }
+          helperText={
+            formik.touched.bioData?.national_id &&
+            formik.errors.bioData?.national_id
+          }
+          placeholder="********-*****-****-***"
+          required
+        />
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label="Fingerprint ID"
+          name="bioData.fingerprint_id"
+          value={formik.values.bioData?.fingerprint_id || ""}
+          onChange={formik.handleChange}
+        />
+      </Grid>
+    </Grid>
+  </Box>
+);
+
+// Contact & Personal Data Form
+const ContactPersonalDataForm = ({ formik }) => (
+  <Box>
+    {/* Location and Education Section */}
+    <Typography variant="h6" sx={{ mb: 3, color: "primary.main" }}>
+      Location & Education
+    </Typography>
+    <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label="Location"
           name="personalEmployeeData.location"
           value={formik.values.personalEmployeeData?.location || ""}
           onChange={formik.handleChange}
@@ -729,9 +719,7 @@ const PersonalInfoForm = ({ formik }) => (
       </Grid>
       <Grid item xs={12} md={6}>
         <FormControl fullWidth required>
-          <InputLabel>
-            <RequiredLabel>Education Level</RequiredLabel>
-          </InputLabel>
+          <InputLabel>Education Level</InputLabel>
           <Select
             name="personalEmployeeData.education_level"
             value={formik.values.personalEmployeeData?.education_level || ""}
@@ -752,7 +740,7 @@ const PersonalInfoForm = ({ formik }) => (
       <Grid item xs={12}>
         <TextField
           fullWidth
-          label={<RequiredLabel>Address</RequiredLabel>}
+          label="Address"
           name="address"
           multiline
           rows={2}
@@ -773,232 +761,14 @@ const PersonalInfoForm = ({ formik }) => (
   </Box>
 );
 
-// Employment Data Form Component
-const EmploymentDataForm = ({ formik, departments, departmentsLoading }) => (
-  <Grid container spacing={3}>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Registration Number</RequiredLabel>}
-        name="basicEmployeeData.registration_number"
-        value={formik.values.basicEmployeeData?.registration_number || ""}
-        onChange={formik.handleChange}
-        error={
-          formik.touched.basicEmployeeData?.registration_number &&
-          Boolean(formik.errors.basicEmployeeData?.registration_number)
-        }
-        helperText={
-          formik.touched.basicEmployeeData?.registration_number &&
-          formik.errors.basicEmployeeData?.registration_number
-        }
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <FormControl fullWidth required>
-        <InputLabel>
-          <RequiredLabel>Department</RequiredLabel>
-        </InputLabel>
-        <Select
-          name="basicEmployeeData.department_id"
-          value={formik.values.basicEmployeeData?.department_id || ""}
-          onChange={formik.handleChange}
-          label="Department"
-          disabled={departmentsLoading}
-        >
-          <MenuItem value="">Select Department</MenuItem>
-          {departments.map((dept) => (
-            <MenuItem key={dept.id} value={dept.id}>
-              {dept.department_name || dept.name}
-            </MenuItem>
-          ))}
-        </Select>
-        {departmentsLoading && (
-          <FormHelperText>Loading departments...</FormHelperText>
-        )}
-      </FormControl>
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Designation</RequiredLabel>}
-        name="basicEmployeeData.designation"
-        value={formik.values.basicEmployeeData?.designation || ""}
-        onChange={formik.handleChange}
-        error={
-          formik.touched.basicEmployeeData?.designation &&
-          Boolean(formik.errors.basicEmployeeData?.designation)
-        }
-        helperText={
-          formik.touched.basicEmployeeData?.designation &&
-          formik.errors.basicEmployeeData?.designation
-        }
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Salary</RequiredLabel>}
-        name="basicEmployeeData.salary"
-        value={formatSalary(formik.values.basicEmployeeData?.salary || "")}
-        onChange={(e) => {
-          const parsed = parseSalary(e.target.value);
-          formik.setFieldValue("basicEmployeeData.salary", parsed);
-        }}
-        error={
-          formik.touched.basicEmployeeData?.salary &&
-          Boolean(formik.errors.basicEmployeeData?.salary)
-        }
-        helperText={
-          formik.touched.basicEmployeeData?.salary &&
-          formik.errors.basicEmployeeData?.salary
-        }
-        InputProps={{
-          startAdornment: <InputAdornment position="start">TZS</InputAdornment>,
-        }}
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Date Joined</RequiredLabel>}
-        name="basicEmployeeData.date_joined"
-        type="date"
-        value={formik.values.basicEmployeeData?.date_joined || ""}
-        onChange={formik.handleChange}
-        error={
-          formik.touched.basicEmployeeData?.date_joined &&
-          Boolean(formik.errors.basicEmployeeData?.date_joined)
-        }
-        helperText={
-          formik.touched.basicEmployeeData?.date_joined &&
-          formik.errors.basicEmployeeData?.date_joined
-        }
-        InputLabelProps={{ shrink: true }}
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <FormControl fullWidth required>
-        <InputLabel>
-          <RequiredLabel>Employment Type</RequiredLabel>
-        </InputLabel>
-        <Select
-          name="basicEmployeeData.employment_type"
-          value={formik.values.basicEmployeeData?.employment_type || ""}
-          onChange={formik.handleChange}
-          error={
-            formik.touched.basicEmployeeData?.employment_type &&
-            Boolean(formik.errors.basicEmployeeData?.employment_type)
-          }
-          label="Employment Type"
-        >
-          <MenuItem value="full time">Full Time</MenuItem>
-          <MenuItem value="part time">Part Time</MenuItem>
-          <MenuItem value="contract">Contract</MenuItem>
-          <MenuItem value="intern">Intern</MenuItem>
-          <MenuItem value="volunteer">Volunteer</MenuItem>
-        </Select>
-        {formik.touched.basicEmployeeData?.employment_type &&
-          formik.errors.basicEmployeeData?.employment_type && (
-            <FormHelperText error>
-              {formik.errors.basicEmployeeData?.employment_type}
-            </FormHelperText>
-          )}
-      </FormControl>
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>NIDA Number</RequiredLabel>}
-        name="basicEmployeeData.nida"
-        value={formik.values.basicEmployeeData?.nida || ""}
-        onChange={(e) => {
-          const formatted = formatNIDA(e.target.value);
-          formik.setFieldValue("basicEmployeeData.nida", formatted);
-        }}
-        error={
-          formik.touched.basicEmployeeData?.nida &&
-          Boolean(formik.errors.basicEmployeeData?.nida)
-        }
-        helperText={
-          formik.touched.basicEmployeeData?.nida &&
-          formik.errors.basicEmployeeData?.nida
-        }
-        placeholder="20000424-15112-0000-123"
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label="NSSF Number"
-        name="basicEmployeeData.nssf"
-        value={formik.values.basicEmployeeData?.nssf || ""}
-        onChange={formik.handleChange}
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label="BIMA Number"
-        name="basicEmployeeData.bima"
-        value={formik.values.basicEmployeeData?.bima || ""}
-        onChange={formik.handleChange}
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label="HELSB Number"
-        name="basicEmployeeData.helsb"
-        value={formik.values.basicEmployeeData?.helsb || ""}
-        onChange={formik.handleChange}
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Bank Name</RequiredLabel>}
-        name="basicEmployeeData.bank_name"
-        value={formik.values.basicEmployeeData?.bank_name || ""}
-        onChange={formik.handleChange}
-        error={
-          formik.touched.basicEmployeeData?.bank_name &&
-          Boolean(formik.errors.basicEmployeeData?.bank_name)
-        }
-        helperText={
-          formik.touched.basicEmployeeData?.bank_name &&
-          formik.errors.basicEmployeeData?.bank_name
-        }
-        required
-      />
-    </Grid>
-    <Grid item xs={12} md={6}>
-      <TextField
-        fullWidth
-        label={<RequiredLabel>Account Number</RequiredLabel>}
-        name="basicEmployeeData.account_number"
-        value={formik.values.basicEmployeeData?.account_number || ""}
-        onChange={formik.handleChange}
-        error={
-          formik.touched.basicEmployeeData?.account_number &&
-          Boolean(formik.errors.basicEmployeeData?.account_number)
-        }
-        helperText={
-          formik.touched.basicEmployeeData?.account_number &&
-          formik.errors.basicEmployeeData?.account_number
-        }
-        required
-      />
-    </Grid>
-  </Grid>
-);
-
-// Role Assignment Form Component
-const RoleAssignmentForm = ({ formik, availableRoles }) => {
+// Employment & Roles Form (combined without tabs)
+const EmploymentRolesForm = ({
+  formik,
+  departments,
+  departmentsLoading,
+  availableRoles,
+  rolesLoading,
+}) => {
   const handleRoleChange = (event) => {
     const value = event.target.value;
     formik.setFieldValue("role_ids", value);
@@ -1006,64 +776,293 @@ const RoleAssignmentForm = ({ formik, availableRoles }) => {
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        <RequiredLabel>Role Assignment</RequiredLabel>
+      {/* Employment Data Section */}
+      <Typography variant="h6" sx={{ mb: 3, color: "primary.main" }}>
+        Employment Information
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Assign system roles to define the employee's access permissions.
-        Multiple roles can be assigned.
-      </Typography>
-
-      <Grid container spacing={2}>
-        <Grid item xs={12}>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            select
-            label={<RequiredLabel>Select Roles</RequiredLabel>}
-            name="role_ids"
-            value={formik.values.role_ids || []}
-            onChange={handleRoleChange}
-            error={formik.touched.role_ids && Boolean(formik.errors.role_ids)}
-            helperText={formik.touched.role_ids && formik.errors.role_ids}
-            SelectProps={{
-              multiple: true,
-              displayEmpty: true,
+            label="Registration Number"
+            name="basicEmployeeData.registration_number"
+            value={formik.values.basicEmployeeData?.registration_number || ""}
+            onChange={formik.handleChange}
+            error={
+              formik.touched.basicEmployeeData?.registration_number &&
+              Boolean(formik.errors.basicEmployeeData?.registration_number)
+            }
+            helperText={
+              formik.touched.basicEmployeeData?.registration_number &&
+              formik.errors.basicEmployeeData?.registration_number
+            }
+            required
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <FormControl fullWidth required>
+            <InputLabel>Department</InputLabel>
+            <Select
+              name="basicEmployeeData.department_id"
+              value={formik.values.basicEmployeeData?.department_id || ""}
+              onChange={formik.handleChange}
+              label="Department"
+              disabled={departmentsLoading}
+            >
+              <MenuItem value="">Select Department</MenuItem>
+              {departments.map((dept) => (
+                <MenuItem key={dept.id} value={dept.id}>
+                  {dept.department_name || dept.name}
+                </MenuItem>
+              ))}
+            </Select>
+            {departmentsLoading && (
+              <FormHelperText>Loading departments...</FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="Designation"
+            name="basicEmployeeData.designation"
+            value={formik.values.basicEmployeeData?.designation || ""}
+            onChange={formik.handleChange}
+            error={
+              formik.touched.basicEmployeeData?.designation &&
+              Boolean(formik.errors.basicEmployeeData?.designation)
+            }
+            helperText={
+              formik.touched.basicEmployeeData?.designation &&
+              formik.errors.basicEmployeeData?.designation
+            }
+            required
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="Salary"
+            name="basicEmployeeData.salary"
+            value={formatSalary(formik.values.basicEmployeeData?.salary || "")}
+            onChange={(e) => {
+              const parsed = parseSalary(e.target.value);
+              formik.setFieldValue("basicEmployeeData.salary", parsed);
+            }}
+            error={
+              formik.touched.basicEmployeeData?.salary &&
+              Boolean(formik.errors.basicEmployeeData?.salary)
+            }
+            helperText={
+              formik.touched.basicEmployeeData?.salary &&
+              formik.errors.basicEmployeeData?.salary
+            }
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">TZS</InputAdornment>
+              ),
             }}
             required
-          >
-            <MenuItem value="" disabled>
-              Select roles for this employee
-            </MenuItem>
-            {availableRoles.map((role) => (
-              <MenuItem key={role.id} value={role.id}>
-                {role.role_name}
-                {role.description && ` - ${role.description}`}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
         </Grid>
-
-        {formik.values.role_ids && formik.values.role_ids.length > 0 && (
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Selected Roles:
-            </Typography>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              {formik.values.role_ids.map((roleId) => {
-                const role = availableRoles.find((r) => r.id === roleId);
-                return role ? (
-                  <Box key={role.id} sx={{ mb: 1 }}>
-                    <Typography variant="body2">
-                      <strong>{role.role_name}</strong>
-                      {role.description && ` - ${role.description}`}
-                    </Typography>
-                  </Box>
-                ) : null;
-              })}
-            </Box>
-          </Grid>
-        )}
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="Date Joined"
+            name="basicEmployeeData.date_joined"
+            type="date"
+            value={formik.values.basicEmployeeData?.date_joined || ""}
+            onChange={formik.handleChange}
+            error={
+              formik.touched.basicEmployeeData?.date_joined &&
+              Boolean(formik.errors.basicEmployeeData?.date_joined)
+            }
+            helperText={
+              formik.touched.basicEmployeeData?.date_joined &&
+              formik.errors.basicEmployeeData?.date_joined
+            }
+            InputLabelProps={{ shrink: true }}
+            required
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <FormControl fullWidth required>
+            <InputLabel>Employment Type</InputLabel>
+            <Select
+              name="basicEmployeeData.employment_type"
+              value={formik.values.basicEmployeeData?.employment_type || ""}
+              onChange={formik.handleChange}
+              error={
+                formik.touched.basicEmployeeData?.employment_type &&
+                Boolean(formik.errors.basicEmployeeData?.employment_type)
+              }
+              label="Employment Type"
+            >
+              <MenuItem value="full time">Full Time</MenuItem>
+              <MenuItem value="part time">Part Time</MenuItem>
+              <MenuItem value="contract">Contract</MenuItem>
+              <MenuItem value="intern">Intern</MenuItem>
+              <MenuItem value="volunteer">Volunteer</MenuItem>
+            </Select>
+            {formik.touched.basicEmployeeData?.employment_type &&
+              formik.errors.basicEmployeeData?.employment_type && (
+                <FormHelperText error>
+                  {formik.errors.basicEmployeeData?.employment_type}
+                </FormHelperText>
+              )}
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="NIDA Number"
+            name="basicEmployeeData.nida"
+            value={formik.values.basicEmployeeData?.nida || ""}
+            onChange={(e) => {
+              const formatted = formatNIDA(e.target.value);
+              formik.setFieldValue("basicEmployeeData.nida", formatted);
+            }}
+            error={
+              formik.touched.basicEmployeeData?.nida &&
+              Boolean(formik.errors.basicEmployeeData?.nida)
+            }
+            helperText={
+              formik.touched.basicEmployeeData?.nida &&
+              formik.errors.basicEmployeeData?.nida
+            }
+            placeholder="20000424-15112-0000-123"
+            required
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="NSSF Number"
+            name="basicEmployeeData.nssf"
+            value={formik.values.basicEmployeeData?.nssf || ""}
+            onChange={formik.handleChange}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="BIMA Number"
+            name="basicEmployeeData.bima"
+            value={formik.values.basicEmployeeData?.bima || ""}
+            onChange={formik.handleChange}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="HELSB Number"
+            name="basicEmployeeData.helsb"
+            value={formik.values.basicEmployeeData?.helsb || ""}
+            onChange={formik.handleChange}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="Bank Name"
+            name="basicEmployeeData.bank_name"
+            value={formik.values.basicEmployeeData?.bank_name || ""}
+            onChange={formik.handleChange}
+            error={
+              formik.touched.basicEmployeeData?.bank_name &&
+              Boolean(formik.errors.basicEmployeeData?.bank_name)
+            }
+            helperText={
+              formik.touched.basicEmployeeData?.bank_name &&
+              formik.errors.basicEmployeeData?.bank_name
+            }
+            required
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <TextField
+            fullWidth
+            label="Account Number"
+            name="basicEmployeeData.account_number"
+            value={formik.values.basicEmployeeData?.account_number || ""}
+            onChange={formik.handleChange}
+            error={
+              formik.touched.basicEmployeeData?.account_number &&
+              Boolean(formik.errors.basicEmployeeData?.account_number)
+            }
+            helperText={
+              formik.touched.basicEmployeeData?.account_number &&
+              formik.errors.basicEmployeeData?.account_number
+            }
+            required
+          />
+        </Grid>
       </Grid>
+
+      <Divider sx={{ my: 3 }} />
+
+      {/* Role Assignment Section */}
+      <Typography variant="h6" sx={{ mb: 3, color: "primary.main" }}>
+        <RequiredLabel>Role Assignment</RequiredLabel>
+      </Typography>
+
+      {rolesLoading ? (
+        <Box display="flex" justifyContent="center" p={4}>
+          <CircularProgress />
+          <Typography sx={{ ml: 2 }}>Loading roles...</Typography>
+        </Box>
+      ) : (
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              select
+              label="Select Roles"
+              name="role_ids"
+              value={formik.values.role_ids || []}
+              onChange={handleRoleChange}
+              error={formik.touched.role_ids && Boolean(formik.errors.role_ids)}
+              helperText={formik.touched.role_ids && formik.errors.role_ids}
+              SelectProps={{
+                multiple: true,
+                displayEmpty: true,
+              }}
+              required
+            >
+              <MenuItem value="" disabled>
+                Select roles for this employee
+              </MenuItem>
+              {availableRoles.map((role) => (
+                <MenuItem key={role.id} value={role.id}>
+                  {role.role_name}
+                  {role.description && ` - ${role.description}`}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+
+          {formik.values.role_ids && formik.values.role_ids.length > 0 && (
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Selected Roles:
+              </Typography>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                {formik.values.role_ids.map((roleId) => {
+                  const role = availableRoles.find((r) => r.id === roleId);
+                  return role ? (
+                    <Box key={role.id} sx={{ mb: 1 }}>
+                      <Typography variant="body2">
+                        <strong>{role.role_name}</strong>
+                        {role.description && ` - ${role.description}`}
+                      </Typography>
+                    </Box>
+                  ) : null;
+                })}
+              </Box>
+            </Grid>
+          )}
+        </Grid>
+      )}
     </Box>
   );
 };
@@ -1262,15 +1261,11 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   const getValidationSchema = () => {
     switch (activeStep) {
       case 0:
-        return basicInfoSchema;
+        return personalInfoSchema;
       case 1:
-        return bioDataSchema;
+        return contactPersonalDataSchema;
       case 2:
-        return personalDataSchema;
-      case 3:
-        return employmentDataSchema;
-      case 4:
-        return roleAssignmentSchema;
+        return employmentRolesSchema;
       default:
         return Yup.object({});
     }
@@ -1388,24 +1383,18 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
           phone_number: formik.values.phone_number,
           gender: formik.values.gender,
           status: formik.values.status,
-        };
-      case 1:
-        return {
           bioData: formik.values.bioData,
         };
-      case 2:
+      case 1:
         return {
           personalEmployeeData: formik.values.personalEmployeeData,
           address: formik.values.address,
           emergency_contacts: formik.values.emergency_contacts,
           next_of_kin: formik.values.next_of_kin,
         };
-      case 3:
+      case 2:
         return {
           basicEmployeeData: formik.values.basicEmployeeData,
-        };
-      case 4:
-        return {
           role_ids: formik.values.role_ids,
         };
       default:
@@ -1499,27 +1488,18 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
   const renderStepContent = () => {
     switch (activeStep) {
       case 0:
-        return <BasicInfoForm formik={formik} />;
-      case 1:
-        return <BioDataForm formik={formik} />;
-      case 2:
         return <PersonalInfoForm formik={formik} />;
-      case 3:
+      case 1:
+        return <ContactPersonalDataForm formik={formik} />;
+      case 2:
         return (
-          <EmploymentDataForm
+          <EmploymentRolesForm
             formik={formik}
             departments={departments}
             departmentsLoading={departmentsLoading}
+            availableRoles={availableRoles}
+            rolesLoading={rolesLoading}
           />
-        );
-      case 4:
-        return rolesLoading ? (
-          <Box display="flex" justifyContent="center" p={4}>
-            <CircularProgress />
-            <Typography sx={{ ml: 2 }}>Loading roles...</Typography>
-          </Box>
-        ) : (
-          <RoleAssignmentForm formik={formik} availableRoles={availableRoles} />
         );
       default:
         return null;
@@ -1532,11 +1512,6 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
           {editMode ? "Edit Employee" : "Add New Employee"}
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          {editMode
-            ? "Update employee information and role assignments"
-            : "Register a new employee in the system with role assignments"}
         </Typography>
       </Box>
 
@@ -1639,7 +1614,7 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
                 variant="contained"
                 onClick={handleNext}
                 loading={loading && activeStep === steps.length - 1}
-                disabled={loading || (activeStep === 4 && rolesLoading)}
+                disabled={loading || (activeStep === 2 && rolesLoading)}
                 endIcon={
                   activeStep === steps.length - 1 ? null : <NavigateNextIcon />
                 }

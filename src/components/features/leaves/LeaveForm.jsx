@@ -485,17 +485,12 @@ const LeaveForm = ({ editMode = false }) => {
         <Typography variant="h4" gutterBottom>
           {editMode ? "Edit Leave Application" : "Apply for Leave"}
         </Typography>
-        <Typography variant="body1" color="text.secondary">
-          {editMode
-            ? "Update your leave application details"
-            : "Submit a new leave application for approval"}
-        </Typography>
       </Box>
 
       <form onSubmit={formik.handleSubmit}>
         <Grid container spacing={3}>
           {/* Main Form */}
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={getSelectedLeaveType() ? 8 : 12}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -751,6 +746,66 @@ const LeaveForm = ({ editMode = false }) => {
                       placeholder="Add any additional information about your leave request..."
                     />
                   </Grid>
+                  <Grid item xs={12}>
+                    <Grid
+                      item
+                      xs={12}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          width: getSelectedLeaveType() ? "100%" : "50%",
+                          gap: 2,
+                        }}
+                      >
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          size="large"
+                          onClick={() => navigate(ROUTES.LEAVES)}
+                          sx={{
+                            color: "red",
+                            borderColor: "red",
+                            "&:hover": {
+                              borderColor: "darkred",
+                              backgroundColor: "lightcoral",
+                              color: "white",
+                            },
+                          }}
+                        >
+                          Cancel
+                        </Button>
+
+                        <LoadingButton
+                          fullWidth
+                          variant="outlined"
+                          size="large"
+                          startIcon={<SaveIcon />}
+                          onClick={handleDraftSave}
+                          loading={loading && submitType === "draft"}
+                          disabled={!formik.dirty || fileUploading}
+                        >
+                          Save as Draft
+                        </LoadingButton>
+
+                        <LoadingButton
+                          fullWidth
+                          variant="contained"
+                          size="large"
+                          startIcon={<SendIcon />}
+                          onClick={handleFinalSubmit}
+                          loading={loading && submitType === "submit"}
+                          disabled={!canSubmit()}
+                        >
+                          Submit Application
+                        </LoadingButton>
+                      </Box>
+                    </Grid>
+                  </Grid>
                 </Grid>
               </CardContent>
             </Card>
@@ -825,50 +880,6 @@ const LeaveForm = ({ editMode = false }) => {
                 </CardContent>
               </Card>
             )}
-
-            {/* Action Buttons */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Actions
-                </Typography>
-
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <LoadingButton
-                    fullWidth
-                    variant="contained"
-                    size="large"
-                    startIcon={<SendIcon />}
-                    onClick={handleFinalSubmit}
-                    loading={loading && submitType === "submit"}
-                    disabled={!canSubmit()}
-                  >
-                    Submit Application
-                  </LoadingButton>
-
-                  <LoadingButton
-                    fullWidth
-                    variant="outlined"
-                    size="large"
-                    startIcon={<SaveIcon />}
-                    onClick={handleDraftSave}
-                    loading={loading && submitType === "draft"}
-                    disabled={!formik.dirty || fileUploading}
-                  >
-                    Save as Draft
-                  </LoadingButton>
-
-                  <Button
-                    fullWidth
-                    variant="text"
-                    size="large"
-                    onClick={() => navigate(ROUTES.LEAVES)}
-                  >
-                    Cancel
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
           </Grid>
         </Grid>
       </form>

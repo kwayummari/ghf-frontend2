@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -26,16 +26,12 @@ import {
   Select,
   Alert,
   Divider,
-  Badge,
   Tooltip,
-  Switch,
-  FormControlLabel,
   CircularProgress,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
   Search as SearchIcon,
-  Add as AddIcon,
   MoreVert as MoreVertIcon,
   Visibility as ViewIcon,
   Edit as EditIcon,
@@ -44,44 +40,36 @@ import {
   Refresh as RefreshIcon,
   Person as PersonIcon,
   PersonAdd as PersonAddIcon,
-  Group as GroupIcon,
   CheckCircle as EnabledIcon,
   Cancel as InactiveIcon,
   Warning as WarningIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
   Business as DepartmentIcon,
   Badge as BadgeIcon,
   Block as BlockIcon,
-  Assignment as AssignmentIcon,
 } from "@mui/icons-material";
 import { format } from "date-fns";
 import { useAuth } from "../auth/AuthGuard";
 import { useNotification, useConfirmDialog } from "../../../hooks/common";
 import { employeesAPI, departmentsAPI } from "../../../services/api";
-import { ROUTES, ROLES, PERMISSIONS } from "../../../constants";
+import { ROUTES, ROLES } from "../../../constants";
 import { ErrorMessage } from "../../common/Error";
 import { LoadingSpinner } from "../../common/Loading";
 
 const EmployeeList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { hasRole, hasAnyRole, hasPermission } = useAuth();
+  const { hasRole, hasAnyRole } = useAuth();
   const { showSuccess, showError } = useNotification();
   const { openDialog } = useConfirmDialog();
-
-  // State management
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [positionFilter, setPositionFilter] = useState("");
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
 
-  // Fetch employees with React Query
   const {
     data: employeesResponse,
     isLoading: employeesLoading,
@@ -108,7 +96,6 @@ const EmployeeList = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch departments for filter dropdown
   const { data: departmentsResponse, isLoading: departmentsLoading } = useQuery(
     {
       queryKey: ["departments"],
@@ -117,7 +104,6 @@ const EmployeeList = () => {
     }
   );
 
-  // Delete employee mutation
   const deleteEmployeeMutation = useMutation({
     mutationFn: (employeeId) => employeesAPI.delete(employeeId),
     onSuccess: () => {
@@ -130,7 +116,6 @@ const EmployeeList = () => {
     },
   });
 
-  // Extract data from API responses
   const employees = Array.isArray(employeesResponse?.data?.data)
     ? employeesResponse.data.data.map((emp) => ({
         ...emp,
@@ -145,35 +130,29 @@ const EmployeeList = () => {
     ? departmentsResponse.data
     : [];
 
-  // Available status options
   const employeeStatuses = [
     {
-      value: "Active",
-      label: "Active",
+      value: "active",
+      label: "active",
       color: "success",
-      icon: <EnabledIcon />,
     },
     {
-      value: "Inactive",
-      label: "Inactive",
+      value: "inactive",
+      label: "inactive",
       color: "default",
-      icon: <InactiveIcon />,
     },
     {
-      value: "On Leave",
-      label: "On Leave",
+      value: "onLeave",
+      label: "onLeave",
       color: "warning",
-      icon: <WarningIcon />,
     },
     {
-      value: "Suspended",
-      label: "Suspended",
+      value: "suspended",
+      label: "suspended",
       color: "error",
-      icon: <BlockIcon />,
     },
   ];
 
-  // Summary cards data
   const summaryCards = [
     {
       title: "Total Employees",
@@ -325,7 +304,6 @@ const EmployeeList = () => {
     return statusConfig?.color || "default";
   };
 
-  // Filter employees
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch =
       employee.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -339,7 +317,6 @@ const EmployeeList = () => {
     return matchesSearch && matchesStatus && matchesDepartment;
   });
 
-  // DataGrid columns
   const columns = [
     {
       field: "employee_info",
@@ -347,7 +324,7 @@ const EmployeeList = () => {
       width: 250,
       renderCell: (params) => (
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Avatar sx={{ bgcolor: "primary.main" }}>
+          <Avatar sx={{ bgcolor: "#C2895A", fontSize: "1rem" }}>
             {getInitials(params.row.first_name, params.row.sur_name)}
           </Avatar>
           <Box>
@@ -367,7 +344,7 @@ const EmployeeList = () => {
       width: 130,
       renderCell: (params) => (
         <Chip
-          label={`EMP-${params.value.toString().padStart(3, "0")}`} // Format as EMP-001, EMP-002, etc.
+          label={`EMP-${params.value.toString().padStart(3, "0")}`}
           size="small"
           variant="outlined"
           icon={<BadgeIcon />}
@@ -469,7 +446,6 @@ const EmployeeList = () => {
             size="small"
             color={status?.color || "default"}
             variant="filled"
-            icon={status?.icon}
           />
         );
       },
@@ -487,12 +463,10 @@ const EmployeeList = () => {
     },
   ];
 
-  // Loading state
   if (employeesLoading && employees.length === 0) {
     return <LoadingSpinner message="Loading employees..." />;
   }
 
-  // Error state
   if (employeesError) {
     return (
       <Box sx={{ p: 3 }}>
