@@ -168,7 +168,7 @@ const DepartmentList = () => {
   };
 
   const getStatusColor = (isActive) => {
-    return isActive ? "success" : "error";
+    return isActive ? "active" : "inactive";
   };
 
   if (showCreateForm) {
