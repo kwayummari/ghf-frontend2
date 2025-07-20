@@ -1085,7 +1085,8 @@ const EmployeeForm = ({ editMode = false, initialData = null, onSuccess }) => {
       try {
         setDepartmentsLoading(true);
         const response = await departmentsAPI.getAllDepartments();
-        setDepartments(response.data || []);
+        console.log("Fetched Departments:", response.data);
+        setDepartments(response.data.departments || []);
       } catch (error) {
         console.error("Failed to fetch departments:", error);
         showError("Failed to load departments");
