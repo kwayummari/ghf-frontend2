@@ -1,5 +1,27 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { departmentsAPI } from '../../services/api';
+import { departmentsAPI } from '../../services/api/departments.api';
+
+// Initial state
+const initialState = {
+    departments: [],
+    currentDepartment: null,
+    potentialHeads: [],
+    departmentEmployees: [],
+    loading: false,
+    error: null,
+    pagination: {
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+    },
+    filters: {
+        search: '',
+        status: 'all',
+        sortBy: 'department_name',
+        sortOrder: 'ASC',
+    },
+};
 
 // Async thunks
 export const fetchDepartments = createAsyncThunk(
@@ -7,9 +29,11 @@ export const fetchDepartments = createAsyncThunk(
     async (params, { rejectWithValue }) => {
         try {
             const response = await departmentsAPI.getAllDepartments(params);
-            return response;
+            return response.data;
         } catch (error) {
-            return rejectWithValue(error.userMessage || error.message);
+            return rejectWithValue(
+                error.response?.data?.message || 'Failed to fetch departments'
+            );
         }
     }
 );
@@ -21,7 +45,9 @@ export const fetchDepartmentById = createAsyncThunk(
             const response = await departmentsAPI.getDepartmentById(id);
             return response.data;
         } catch (error) {
-            return rejectWithValue(error.userMessage || error.message);
+            return rejectWithValue(
+                error.response?.data?.message || 'Failed to fetch department'
+            );
         }
     }
 );
@@ -33,7 +59,9 @@ export const createDepartment = createAsyncThunk(
             const response = await departmentsAPI.createDepartment(departmentData);
             return response.data;
         } catch (error) {
-            return rejectWithValue(error.userMessage || error.message);
+            return rejectWithValue(
+                error.response?.data?.message || 'Failed to create department'
+            );
         }
     }
 );
@@ -45,7 +73,9 @@ export const updateDepartment = createAsyncThunk(
             const response = await departmentsAPI.updateDepartment(id, data);
             return response.data;
         } catch (error) {
-            return rejectWithValue(error.userMessage || error.message);
+            return rejectWithValue(
+                error.response?.data?.message || 'Failed to update department'
+            );
         }
     }
 );
@@ -57,31 +87,9 @@ export const deleteDepartment = createAsyncThunk(
             await departmentsAPI.deleteDepartment(id);
             return id;
         } catch (error) {
-            return rejectWithValue(error.userMessage || error.message);
-        }
-    }
-);
-
-export const fetchDepartmentEmployees = createAsyncThunk(
-    'departments/fetchDepartmentEmployees',
-    async ({ id, params }, { rejectWithValue }) => {
-        try {
-            const response = await departmentsAPI.getDepartmentEmployees(id, params);
-            return { departmentId: id, data: response };
-        } catch (error) {
-            return rejectWithValue(error.userMessage || error.message);
-        }
-    }
-);
-
-export const fetchDepartmentStats = createAsyncThunk(
-    'departments/fetchDepartmentStats',
-    async (id, { rejectWithValue }) => {
-        try {
-            const response = await departmentsAPI.getDepartmentStats(id);
-            return { departmentId: id, stats: response.data };
-        } catch (error) {
-            return rejectWithValue(error.userMessage || error.message);
+            return rejectWithValue(
+                error.response?.data?.message || 'Failed to delete department'
+            );
         }
     }
 );
@@ -91,9 +99,39 @@ export const fetchPotentialHeads = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await departmentsAPI.getPotentialHeads();
-            return response.data || response;
+            return response.data;
         } catch (error) {
-            return rejectWithValue(error.userMessage || error.message);
+            return rejectWithValue(
+                error.response?.data?.message || 'Failed to fetch potential heads'
+            );
+        }
+    }
+);
+
+export const fetchDepartmentEmployees = createAsyncThunk(
+    'departments/fetchDepartmentEmployees',
+    async ({ id, params }, { rejectWithValue }) => {
+        try {
+            const response = await departmentsAPI.getDepartmentEmployees(id, params);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(
+                error.response?.data?.message || 'Failed to fetch department employees'
+            );
+        }
+    }
+);
+
+export const toggleDepartmentStatus = createAsyncThunk(
+    'departments/toggleDepartmentStatus',
+    async ({ id, isActive }, { rejectWithValue }) => {
+        try {
+            const response = await departmentsAPI.toggleDepartmentStatus(id, isActive);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(
+                error.response?.data?.message || 'Failed to toggle department status'
+            );
         }
     }
 );
@@ -103,35 +141,14 @@ export const assignDepartmentHead = createAsyncThunk(
     async ({ departmentId, userId }, { rejectWithValue }) => {
         try {
             const response = await departmentsAPI.assignDepartmentHead(departmentId, userId);
-            return { departmentId, userId, data: response.data };
+            return response.data;
         } catch (error) {
-            return rejectWithValue(error.userMessage || error.message);
+            return rejectWithValue(
+                error.response?.data?.message || 'Failed to assign department head'
+            );
         }
     }
 );
-
-// Initial state
-const initialState = {
-    departments: [],
-    currentDepartment: null,
-    departmentEmployees: {},
-    departmentStats: {},
-    potentialHeads: [],
-    loading: false,
-    error: null,
-    pagination: {
-        page: 1,
-        limit: 10,
-        total: 0,
-        totalPages: 0,
-    },
-    filters: {
-        search: '',
-        sortBy: 'department_name',
-        sortOrder: 'ASC',
-    },
-    employeesPagination: {},
-};
 
 // Department slice
 const departmentSlice = createSlice({
@@ -144,20 +161,17 @@ const departmentSlice = createSlice({
         clearCurrentDepartment: (state) => {
             state.currentDepartment = null;
         },
+        clearDepartmentEmployees: (state) => {
+            state.departmentEmployees = [];
+        },
         setFilters: (state, action) => {
             state.filters = { ...state.filters, ...action.payload };
         },
+        resetFilters: (state) => {
+            state.filters = initialState.filters;
+        },
         setPagination: (state, action) => {
             state.pagination = { ...state.pagination, ...action.payload };
-        },
-        clearDepartmentEmployees: (state, action) => {
-            if (action.payload) {
-                delete state.departmentEmployees[action.payload];
-                delete state.employeesPagination[action.payload];
-            } else {
-                state.departmentEmployees = {};
-                state.employeesPagination = {};
-            }
         },
     },
     extraReducers: (builder) => {
@@ -169,14 +183,8 @@ const departmentSlice = createSlice({
             })
             .addCase(fetchDepartments.fulfilled, (state, action) => {
                 state.loading = false;
-                state.departments = action.payload.data || action.payload;
-                state.pagination = {
-                    page: action.payload.currentPage || 1,
-                    limit: action.payload.limit || 10,
-                    total: action.payload.total || state.departments.length,
-                    totalPages: action.payload.totalPages || Math.ceil((action.payload.total || state.departments.length) / (action.payload.limit || 10)),
-                };
-                state.error = null;
+                state.departments = action.payload.departments;
+                state.pagination = action.payload.pagination;
             })
             .addCase(fetchDepartments.rejected, (state, action) => {
                 state.loading = false;
@@ -191,7 +199,6 @@ const departmentSlice = createSlice({
             .addCase(fetchDepartmentById.fulfilled, (state, action) => {
                 state.loading = false;
                 state.currentDepartment = action.payload;
-                state.error = null;
             })
             .addCase(fetchDepartmentById.rejected, (state, action) => {
                 state.loading = false;
@@ -206,8 +213,6 @@ const departmentSlice = createSlice({
             .addCase(createDepartment.fulfilled, (state, action) => {
                 state.loading = false;
                 state.departments.unshift(action.payload);
-                state.pagination.total += 1;
-                state.error = null;
             })
             .addCase(createDepartment.rejected, (state, action) => {
                 state.loading = false;
@@ -221,14 +226,15 @@ const departmentSlice = createSlice({
             })
             .addCase(updateDepartment.fulfilled, (state, action) => {
                 state.loading = false;
-                const index = state.departments.findIndex(dept => dept.id === action.payload.id);
+                const index = state.departments.findIndex(
+                    (dept) => dept.id === action.payload.id
+                );
                 if (index !== -1) {
                     state.departments[index] = action.payload;
                 }
-                if (state.currentDepartment && state.currentDepartment.id === action.payload.id) {
+                if (state.currentDepartment?.id === action.payload.id) {
                     state.currentDepartment = action.payload;
                 }
-                state.error = null;
             })
             .addCase(updateDepartment.rejected, (state, action) => {
                 state.loading = false;
@@ -242,15 +248,23 @@ const departmentSlice = createSlice({
             })
             .addCase(deleteDepartment.fulfilled, (state, action) => {
                 state.loading = false;
-                state.departments = state.departments.filter(dept => dept.id !== action.payload);
-                state.pagination.total -= 1;
-                if (state.currentDepartment && state.currentDepartment.id === action.payload) {
-                    state.currentDepartment = null;
-                }
-                state.error = null;
+                state.departments = state.departments.filter(
+                    (dept) => dept.id !== action.payload
+                );
             })
             .addCase(deleteDepartment.rejected, (state, action) => {
                 state.loading = false;
+                state.error = action.payload;
+            })
+
+            // Fetch potential heads
+            .addCase(fetchPotentialHeads.pending, (state) => {
+                state.error = null;
+            })
+            .addCase(fetchPotentialHeads.fulfilled, (state, action) => {
+                state.potentialHeads = action.payload;
+            })
+            .addCase(fetchPotentialHeads.rejected, (state, action) => {
                 state.error = action.payload;
             })
 
@@ -261,41 +275,36 @@ const departmentSlice = createSlice({
             })
             .addCase(fetchDepartmentEmployees.fulfilled, (state, action) => {
                 state.loading = false;
-                const { departmentId, data } = action.payload;
-                state.departmentEmployees[departmentId] = data.data || data;
-                state.employeesPagination[departmentId] = {
-                    page: data.currentPage || 1,
-                    limit: data.limit || 10,
-                    total: data.total || (data.data || data).length,
-                    totalPages: data.totalPages || Math.ceil((data.total || (data.data || data).length) / (data.limit || 10)),
-                };
-                state.error = null;
+                state.departmentEmployees = action.payload.employees;
             })
             .addCase(fetchDepartmentEmployees.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
             })
 
-            // Fetch department stats
-            .addCase(fetchDepartmentStats.fulfilled, (state, action) => {
-                const { departmentId, stats } = action.payload;
-                state.departmentStats[departmentId] = stats;
-            })
-
-            // Fetch potential heads
-            .addCase(fetchPotentialHeads.fulfilled, (state, action) => {
-                state.potentialHeads = action.payload;
+            // Toggle department status
+            .addCase(toggleDepartmentStatus.fulfilled, (state, action) => {
+                const index = state.departments.findIndex(
+                    (dept) => dept.id === action.payload.id
+                );
+                if (index !== -1) {
+                    state.departments[index] = action.payload;
+                }
+                if (state.currentDepartment?.id === action.payload.id) {
+                    state.currentDepartment = action.payload;
+                }
             })
 
             // Assign department head
             .addCase(assignDepartmentHead.fulfilled, (state, action) => {
-                const { departmentId, userId } = action.payload;
-                const department = state.departments.find(dept => dept.id === departmentId);
-                if (department) {
-                    department.head_id = userId;
+                const index = state.departments.findIndex(
+                    (dept) => dept.id === action.payload.id
+                );
+                if (index !== -1) {
+                    state.departments[index] = action.payload;
                 }
-                if (state.currentDepartment && state.currentDepartment.id === departmentId) {
-                    state.currentDepartment.head_id = userId;
+                if (state.currentDepartment?.id === action.payload.id) {
+                    state.currentDepartment = action.payload;
                 }
             });
     },
@@ -305,24 +314,42 @@ const departmentSlice = createSlice({
 export const {
     clearError,
     clearCurrentDepartment,
-    setFilters,
-    setPagination,
     clearDepartmentEmployees,
+    setFilters,
+    resetFilters,
+    setPagination,
 } = departmentSlice.actions;
 
 // Selectors
 export const selectDepartments = (state) => state.departments.departments;
 export const selectCurrentDepartment = (state) => state.departments.currentDepartment;
-export const selectDepartmentEmployees = (departmentId) => (state) =>
-    state.departments.departmentEmployees[departmentId] || [];
-export const selectDepartmentStats = (departmentId) => (state) =>
-    state.departments.departmentStats[departmentId] || {};
 export const selectPotentialHeads = (state) => state.departments.potentialHeads;
+export const selectDepartmentEmployees = (state) => state.departments.departmentEmployees;
 export const selectDepartmentsLoading = (state) => state.departments.loading;
 export const selectDepartmentsError = (state) => state.departments.error;
 export const selectDepartmentsPagination = (state) => state.departments.pagination;
 export const selectDepartmentsFilters = (state) => state.departments.filters;
-export const selectEmployeesPagination = (departmentId) => (state) =>
-    state.departments.employeesPagination[departmentId] || { page: 1, limit: 10, total: 0, totalPages: 0 };
+
+// Complex selectors
+export const selectActiveDepartments = (state) =>
+    state.departments.departments.filter((dept) => dept.is_active);
+
+export const selectDepartmentsWithHeads = (state) =>
+    state.departments.departments.filter((dept) => dept.head);
+
+export const selectDepartmentById = (state, departmentId) =>
+    state.departments.departments.find((dept) => dept.id === departmentId);
+
+export const selectDepartmentStats = (state) => {
+    const departments = state.departments.departments;
+    return {
+        total: departments.length,
+        active: departments.filter((dept) => dept.is_active).length,
+        inactive: departments.filter((dept) => !dept.is_active).length,
+        withHeads: departments.filter((dept) => dept.head).length,
+        withoutHeads: departments.filter((dept) => !dept.head).length,
+        totalBudget: departments.reduce((sum, dept) => sum + (dept.budget || 0), 0),
+    };
+};
 
 export default departmentSlice.reducer;

@@ -16,6 +16,7 @@ import {
   Switch,
   FormControlLabel,
   InputAdornment,
+  Chip,
 } from "@mui/material";
 import { LoadingButton } from "@mui/lab";
 import SaveIcon from "@mui/icons-material/Save";
@@ -35,6 +36,7 @@ import {
   selectPotentialHeads,
 } from "../../../store/slices/departmentSlice";
 
+// Validation schema - only department_name is required
 const validationSchema = Yup.object({
   department_name: Yup.string()
     .required("Department name is required")
@@ -52,6 +54,7 @@ const validationSchema = Yup.object({
     .positive("Budget must be a positive number")
     .typeError("Budget must be a valid number"),
   location: Yup.string().max(200, "Location must be less than 200 characters"),
+  is_active: Yup.boolean(),
 });
 
 const DepartmentForm = ({
@@ -120,17 +123,17 @@ const DepartmentForm = ({
     }).format(value);
   };
 
+  const handleBudgetChange = (event) => {
+    const value = event.target.value.replace(/[^0-9]/g, "");
+    formik.setFieldValue("budget", value);
+  };
+
   return (
     <Box>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
           {editMode ? "Edit Department" : "Create New Department"}
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          {editMode
-            ? "Update department information and settings"
-            : "Add a new department to your organization"}
         </Typography>
       </Box>
 
@@ -155,11 +158,11 @@ const DepartmentForm = ({
                   variant="h6"
                   sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}
                 >
-                  <DepartmentIcon color="primary" />
                   Basic Information
                 </Typography>
               </Grid>
 
+              {/* Department Name - Required */}
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -178,9 +181,17 @@ const DepartmentForm = ({
                   }
                   required
                   placeholder="e.g., Human Resources, Information Technology"
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Chip label="Required" size="small" color="error" />
+                      </InputAdornment>
+                    ),
+                  }}
                 />
               </Grid>
 
+              {/* Location - Optional */}
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -204,6 +215,7 @@ const DepartmentForm = ({
                 />
               </Grid>
 
+              {/* Description - Optional */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -236,11 +248,11 @@ const DepartmentForm = ({
                   variant="h6"
                   sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}
                 >
-                  <PersonIcon color="primary" />
-                  Management & Budget
+                  Management & Financial Information
                 </Typography>
               </Grid>
 
+              {/* Department Head - Optional */}
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -254,54 +266,38 @@ const DepartmentForm = ({
                     formik.touched.head_id && Boolean(formik.errors.head_id)
                   }
                   helperText={formik.touched.head_id && formik.errors.head_id}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PersonIcon color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
                 >
                   <MenuItem value="">
-                    <em>No department head assigned</em>
+                    <em>Select Department Head (Optional)</em>
                   </MenuItem>
-                  {potentialHeads.map((head) => (
-                    <MenuItem key={head.id} value={head.id}>
-                      {`${head.first_name} ${head.sur_name}`}
-                      {head.email && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ ml: 1 }}
-                        >
-                          ({head.email})
-                        </Typography>
-                      )}
+                  {potentialHeads.map((user) => (
+                    <MenuItem key={user.id} value={user.id}>
+                      {user.first_name} {user.last_name} - {user.email}
                     </MenuItem>
                   ))}
                 </TextField>
               </Grid>
 
+              {/* Budget - Optional */}
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
                   name="budget"
-                  label="Annual Budget (TZS)"
-                  type="number"
-                  value={formik.values.budget}
-                  onChange={formik.handleChange}
+                  label="Annual Budget"
+                  value={formatCurrency(formik.values.budget)}
+                  onChange={handleBudgetChange}
                   onBlur={formik.handleBlur}
                   error={formik.touched.budget && Boolean(formik.errors.budget)}
                   helperText={
                     (formik.touched.budget && formik.errors.budget) ||
-                    (formik.values.budget &&
-                      `Formatted: ${formatCurrency(formik.values.budget)} TZS`)
+                    "Optional - Enter amount in TZS"
                   }
                   placeholder="0"
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
                         <BudgetIcon color="action" />
+                        TZS
                       </InputAdornment>
                     ),
                   }}
@@ -314,10 +310,15 @@ const DepartmentForm = ({
 
               {/* Status */}
               <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
+                <Typography
+                  variant="h6"
+                  sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}
+                >
                   Status
                 </Typography>
+              </Grid>
 
+              <Grid item xs={12}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -325,49 +326,63 @@ const DepartmentForm = ({
                       onChange={(e) =>
                         formik.setFieldValue("is_active", e.target.checked)
                       }
-                      name="is_active"
                       color="primary"
                     />
                   }
                   label={
-                    <Box>
-                      <Typography variant="body1">
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography>
                         {formik.values.is_active ? "Active" : "Inactive"}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {formik.values.is_active
-                          ? "Department is active and operational"
-                          : "Department is inactive and hidden from most views"}
-                      </Typography>
+                      <Chip
+                        label={formik.values.is_active ? "Active" : "Inactive"}
+                        color={formik.values.is_active ? "success" : "default"}
+                        size="small"
+                      />
                     </Box>
                   }
                 />
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 1 }}
+                >
+                  {formik.values.is_active
+                    ? "Department is active and visible to users"
+                    : "Department is inactive and hidden from users"}
+                </Typography>
+              </Grid>
+
+              {/* Form Actions */}
+              <Grid item xs={12}>
+                <Divider sx={{ my: 3 }} />
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 2,
+                  }}
+                >
+                  <Button
+                    variant="outlined"
+                    startIcon={<CancelIcon />}
+                    onClick={onClose}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                  <LoadingButton
+                    type="submit"
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    loading={loading}
+                    loadingPosition="start"
+                  >
+                    {editMode ? "Update Department" : "Create Department"}
+                  </LoadingButton>
+                </Box>
               </Grid>
             </Grid>
-
-            <Divider sx={{ my: 4 }} />
-
-            {/* Action Buttons */}
-            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-              <Button
-                variant="outlined"
-                startIcon={<CancelIcon />}
-                onClick={onClose}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-
-              <LoadingButton
-                type="submit"
-                variant="contained"
-                startIcon={<SaveIcon />}
-                loading={loading}
-                disabled={!formik.isValid || !formik.dirty}
-              >
-                {editMode ? "Update Department" : "Create Department"}
-              </LoadingButton>
-            </Box>
           </form>
         </CardContent>
       </Card>

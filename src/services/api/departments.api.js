@@ -1,24 +1,15 @@
 import apiClient from './axios.config';
 import { API_ENDPOINTS } from '../../constants';
 
-export class DepartmentAPI {
+class DepartmentAPI {
     /**
-     * Get all departments
+     * Get all departments with pagination and search
      * @param {Object} params - Query parameters
-     * @returns {Promise<Object>} - Departments list
+     * @returns {Promise<Object>} - Departments list with pagination
      */
     async getAllDepartments(params = {}) {
         try {
-            const response = await apiClient.get(API_ENDPOINTS.DEPARTMENTS, {
-                params: {
-                    page: params.page || 1,
-                    limit: params.limit || 10,
-                    search: params.search || '',
-                    sort_by: params.sortBy || 'department_name',
-                    sort_order: params.sortOrder || 'ASC',
-                    ...params,
-                },
-            });
+            const response = await apiClient.get(API_ENDPOINTS.DEPARTMENTS, { params });
             return response.data;
         } catch (error) {
             console.error('Get departments error:', error);
@@ -29,14 +20,14 @@ export class DepartmentAPI {
     /**
      * Get department by ID
      * @param {number} id - Department ID
-     * @returns {Promise<Object>} - Department data
+     * @returns {Promise<Object>} - Department details
      */
     async getDepartmentById(id) {
         try {
             const response = await apiClient.get(API_ENDPOINTS.DEPARTMENT_BY_ID(id));
             return response.data;
         } catch (error) {
-            console.error('Get department error:', error);
+            console.error('Get department by ID error:', error);
             throw error;
         }
     }
@@ -48,11 +39,16 @@ export class DepartmentAPI {
      */
     async createDepartment(departmentData) {
         try {
+            // Validate required fields
+            if (!departmentData.department_name) {
+                throw new Error('Department name is required');
+            }
+
             const response = await apiClient.post(API_ENDPOINTS.DEPARTMENTS, {
                 department_name: departmentData.department_name,
-                description: departmentData.description,
+                description: departmentData.description || null,
                 head_id: departmentData.head_id || null,
-                budget: departmentData.budget || null,
+                budget: departmentData.budget ? parseFloat(departmentData.budget) : null,
                 location: departmentData.location || null,
                 is_active: departmentData.is_active !== undefined ? departmentData.is_active : true,
             });
@@ -73,9 +69,9 @@ export class DepartmentAPI {
         try {
             const response = await apiClient.put(API_ENDPOINTS.DEPARTMENT_BY_ID(id), {
                 department_name: departmentData.department_name,
-                description: departmentData.description,
+                description: departmentData.description || null,
                 head_id: departmentData.head_id || null,
-                budget: departmentData.budget || null,
+                budget: departmentData.budget ? parseFloat(departmentData.budget) : null,
                 location: departmentData.location || null,
                 is_active: departmentData.is_active,
             });
@@ -102,6 +98,20 @@ export class DepartmentAPI {
     }
 
     /**
+     * Get potential department heads
+     * @returns {Promise<Object>} - List of users who can be department heads
+     */
+    async getPotentialHeads() {
+        try {
+            const response = await apiClient.get(`${API_ENDPOINTS.DEPARTMENTS}/potential-heads`);
+            return response.data;
+        } catch (error) {
+            console.error('Get potential heads error:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Get department employees
      * @param {number} id - Department ID
      * @param {Object} params - Query parameters
@@ -109,18 +119,28 @@ export class DepartmentAPI {
      */
     async getDepartmentEmployees(id, params = {}) {
         try {
-            const response = await apiClient.get(API_ENDPOINTS.DEPARTMENT_EMPLOYEES(id), {
-                params: {
-                    page: params.page || 1,
-                    limit: params.limit || 10,
-                    status: params.status || '',
-                    position: params.position || '',
-                    ...params,
-                },
-            });
+            const response = await apiClient.get(`${API_ENDPOINTS.DEPARTMENT_BY_ID(id)}/employees`, { params });
             return response.data;
         } catch (error) {
             console.error('Get department employees error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Assign department head
+     * @param {number} departmentId - Department ID
+     * @param {number} userId - User ID to assign as head
+     * @returns {Promise<Object>} - Assignment response
+     */
+    async assignDepartmentHead(departmentId, userId) {
+        try {
+            const response = await apiClient.put(API_ENDPOINTS.DEPARTMENT_BY_ID(departmentId), {
+                head_id: userId,
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Assign department head error:', error);
             throw error;
         }
     }
@@ -141,73 +161,54 @@ export class DepartmentAPI {
     }
 
     /**
-     * Get all employees (for department head selection)
-     * @returns {Promise<Object>} - Employees list
-     */
-    async getPotentialHeads() {
-        try {
-            const response = await apiClient.get(API_ENDPOINTS.USERS, {
-                params: {
-                    limit: 1000,
-                    status: 'active',
-                    roles: 'Department Head,HR Manager,Admin',
-                },
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Get potential heads error:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Assign department head
-     * @param {number} departmentId - Department ID
-     * @param {number} userId - User ID to assign as head
-     * @returns {Promise<Object>} - Assignment response
-     */
-    async assignDepartmentHead(departmentId, userId) {
-        try {
-            const response = await apiClient.put(`${API_ENDPOINTS.DEPARTMENT_BY_ID(departmentId)}/head`, {
-                head_id: userId,
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Assign department head error:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Get department budget details
+     * Toggle department status
      * @param {number} id - Department ID
-     * @param {string} year - Budget year
-     * @returns {Promise<Object>} - Budget details
+     * @param {boolean} isActive - New status
+     * @returns {Promise<Object>} - Updated department
      */
-    async getDepartmentBudget(id, year = new Date().getFullYear()) {
+    async toggleDepartmentStatus(id, isActive) {
         try {
-            const response = await apiClient.get(`${API_ENDPOINTS.DEPARTMENT_BY_ID(id)}/budget`, {
-                params: { year },
+            const response = await apiClient.put(API_ENDPOINTS.DEPARTMENT_BY_ID(id), {
+                is_active: isActive,
             });
             return response.data;
         } catch (error) {
-            console.error('Get department budget error:', error);
+            console.error('Toggle department status error:', error);
             throw error;
         }
     }
 
     /**
-     * Update department budget
-     * @param {number} id - Department ID
-     * @param {Object} budgetData - Budget data
-     * @returns {Promise<Object>} - Updated budget
+     * Export departments data
+     * @param {Object} params - Export parameters
+     * @returns {Promise<Blob>} - Excel file blob
      */
-    async updateDepartmentBudget(id, budgetData) {
+    async exportDepartments(params = {}) {
         try {
-            const response = await apiClient.put(`${API_ENDPOINTS.DEPARTMENT_BY_ID(id)}/budget`, budgetData);
+            const response = await apiClient.get(`${API_ENDPOINTS.DEPARTMENTS}/export`, {
+                params,
+                responseType: 'blob',
+            });
             return response.data;
         } catch (error) {
-            console.error('Update department budget error:', error);
+            console.error('Export departments error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Bulk update departments
+     * @param {Array} updates - Array of department updates
+     * @returns {Promise<Object>} - Bulk update response
+     */
+    async bulkUpdateDepartments(updates) {
+        try {
+            const response = await apiClient.put(`${API_ENDPOINTS.DEPARTMENTS}/bulk`, {
+                updates,
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Bulk update departments error:', error);
             throw error;
         }
     }
