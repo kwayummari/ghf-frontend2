@@ -191,6 +191,7 @@ const LeaveApproval = () => {
     try {
       setLoading(true);
       const response = await leavesAPI.getById(id);
+      console.log("Leave application response:", response);
       if (response && response.success) {
         setLeaveApplication(response.data);
       } else {
