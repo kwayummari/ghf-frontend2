@@ -758,7 +758,7 @@ const LeaveForm = ({ editMode = false }) => {
                       <Box
                         sx={{
                           display: "flex",
-                          width: getSelectedLeaveType() ? "100%" : "50%",
+                          width:  "100%",
                           gap: 2,
                         }}
                       >

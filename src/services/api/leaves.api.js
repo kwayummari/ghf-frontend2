@@ -165,25 +165,6 @@ class LeavesAPI {
         }
     }
 
-    /**
-     * Get leave applications for approval (managers)
-     * @param {Object} params - Query parameters
-     * @returns {Promise<Object>} - Pending leave applications
-     */
-    async getForApproval(params = {}) {
-        try {
-            // Filter for pending statuses
-            const approvalParams = {
-                ...params,
-                status: 'pending,approved by supervisor,approved by hr'
-            };
-
-            return this.getAll(approvalParams);
-        } catch (error) {
-            console.error('Get leaves for approval error:', error);
-            throw new Error(error.response?.data?.message || error.message || 'Failed to fetch leaves for approval');
-        }
-    }
 
     /**
      * Get leave statistics (if available)
@@ -341,6 +322,33 @@ class LeavesAPI {
             throw new Error(error.response?.data?.message || error.message || 'Failed to fetch leaves for approval');
         }
     }
+
+    /**
+ * Resubmit leave application
+ * @param {number} id - Leave application ID
+ * @param {Object} resubmitData - Resubmit data
+ * @returns {Promise<Object>} - Resubmit result
+ */
+    async resubmit(id, resubmitData = {}) {
+        try {
+            const response = await apiClient.put(`${API_ENDPOINTS.LEAVES}/${id}/resubmit`, resubmitData);
+            return response.data;
+        } catch (error) {
+            console.error('Resubmit leave error:', error);
+
+            // Handle validation errors specifically
+            if (error.response?.status === 400) {
+                const validationErrors = error.response.data?.validation_errors || [];
+                if (validationErrors.length > 0) {
+                    const errorMessage = validationErrors.map(err => err.message).join(', ');
+                    throw new Error(errorMessage);
+                }
+            }
+
+            throw new Error(error.response?.data?.message || error.message || 'Failed to resubmit leave');
+        }
+    }
+    
 
     /**
  * Create leave type

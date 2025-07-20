@@ -14,8 +14,6 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
-  Tabs,
-  Tab,
   Alert,
   Dialog,
   DialogTitle,
@@ -23,8 +21,21 @@ import {
   DialogActions,
   DialogContentText,
   CircularProgress,
+  Grid,
+  Divider,
+  Paper,
+  Stack,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
 import {
   Search as SearchIcon,
   MoreVert as MoreVertIcon,
@@ -33,6 +44,11 @@ import {
   Cancel as RejectIcon,
   Schedule as PendingIcon,
   Refresh as RefreshIcon,
+  ExpandMore as ExpandMoreIcon,
+  Person as PersonIcon,
+  Event as EventIcon,
+  Description as DescriptionIcon,
+  AttachFile as AttachFileIcon,
 } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 import { selectUser } from "../../store/slices/authSlice";
@@ -44,7 +60,7 @@ import useNotification from "../../hooks/common/useNotification";
 const LeaveApprovalsPage = () => {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
-  const { hasRole, hasAnyRole } = useAuth();
+  const { hasRole } = useAuth();
   const { showSuccess, showError, showWarning } = useNotification();
 
   // State management
@@ -54,94 +70,51 @@ const LeaveApprovalsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const [activeTab, setActiveTab] = useState(0);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [approvalAction, setApprovalAction] = useState(null);
   const [approvalComment, setApprovalComment] = useState("");
+  const [expandedLeave, setExpandedLeave] = useState(null);
   const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    totalItems: 0,
-    totalPages: 0,
+    page: 0,
+    rowsPerPage: 10,
+    total: 0,
   });
 
   // Initialize data
   useEffect(() => {
     fetchPendingLeaves();
-  }, [activeTab, pagination.page, pagination.limit]);
+  }, [pagination.page, pagination.rowsPerPage]);
 
   const fetchPendingLeaves = async () => {
     try {
       setLoading(true);
-
-      // Build query parameters based on user role and active tab
-      const isAdmin = hasRole(ROLES.ADMIN);
-      const isHR = hasRole(ROLES.HR_MANAGER);
-      const isDeptHead = hasRole(ROLES.DEPARTMENT_HEAD);
+      console.log("Fetching leaves for approval...");
 
       const params = {
-        page: pagination.page,
-        limit: pagination.limit,
+        page: pagination.page + 1, // Backend expects 1-based pagination
+        limit: pagination.rowsPerPage,
       };
 
-      // Determine which leaves to fetch based on tab and role
-      switch (activeTab) {
-        case 0: // My Queue - leaves that current user can approve
-          if (isAdmin) {
-            // Admins see HR approved leaves awaiting final approval
-            params.status = "approved by hr";
-          } else if (isHR) {
-            // HR sees pending leaves and supervisor approved leaves
-            params.status = "pending,approved by supervisor";
-          } else if (isDeptHead) {
-            // Department heads see pending leaves for their department
-            params.status = "pending";
-            // Add department filter if available
-          }
-          break;
-        case 1: // Pending HR
-          params.status = "pending,approved by supervisor";
-          break;
-        case 2: // Pending Admin (only for admins)
-          params.status = "approved by hr";
-          break;
-        default:
-          // Default to pending leaves
-          params.status = "pending";
-          break;
-      }
+      // Add filters if selected
+      if (statusFilter) params.status = statusFilter;
+      if (typeFilter) params.type_id = typeFilter;
 
-      // Add filters
-      if (statusFilter) {
-        params.status = statusFilter;
-      }
-      if (typeFilter) {
-        params.type_id = typeFilter;
-      }
+      console.log("API params:", params);
 
-      const response = await leavesAPI.getAll(params);
+      const response = await leavesAPI.getForApproval(params);
+      console.log("API response:", response);
 
       if (response && response.success) {
         const leavesData = response.data.applications || [];
-        const metaData = response.meta || {};
+        const paginationData = response.data.pagination || {};
 
-        // Filter leaves based on user's approval authority
-        const filteredLeaves = leavesData.filter((leave) =>
-          canUserApprove(leave)
-        );
-
-        setLeaves(filteredLeaves);
+        console.log("Leaves data:", leavesData);
+        setLeaves(leavesData);
         setPagination((prev) => ({
           ...prev,
-          totalItems:
-            metaData.totalItems || metaData.total || filteredLeaves.length,
-          totalPages:
-            metaData.totalPages ||
-            Math.ceil(
-              (metaData.total || filteredLeaves.length) / pagination.limit
-            ),
+          total: paginationData.totalItems || leavesData.length,
         }));
       } else {
         throw new Error(response?.message || "Failed to fetch leaves");
@@ -153,33 +126,6 @@ const LeaveApprovalsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const canUserApprove = (leave) => {
-    const isAdmin = hasRole(ROLES.ADMIN);
-    const isHR = hasRole(ROLES.HR_MANAGER);
-    const isDeptHead = hasRole(ROLES.DEPARTMENT_HEAD);
-
-    // Admin can approve HR-approved leaves
-    if (isAdmin && leave.approval_status === "approved by hr") {
-      return true;
-    }
-
-    // HR can approve pending and supervisor-approved leaves
-    if (
-      isHR &&
-      ["pending", "approved by supervisor"].includes(leave.approval_status)
-    ) {
-      return true;
-    }
-
-    // Department heads can approve pending leaves from their department
-    if (isDeptHead && leave.approval_status === "pending") {
-      // You might need to add department checking logic here
-      return true;
-    }
-
-    return false;
   };
 
   const handleRefresh = async () => {
@@ -194,42 +140,49 @@ const LeaveApprovalsPage = () => {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setSelectedLeave(null);
+    // Only clear selectedLeave if no dialog is open
+    if (!approvalDialogOpen) {
+      setSelectedLeave(null);
+    }
   };
 
-  const handleViewLeave = () => {
-    if (selectedLeave) {
-      navigate(`${ROUTES.LEAVES}/${selectedLeave.id}`);
-    }
+  const handleDialogClose = () => {
+    setApprovalDialogOpen(false);
+    setApprovalAction(null);
+    setSelectedLeave(null); // Clear it here instead
+    setApprovalComment("");
+  };
+
+  const handleViewDetails = (leave) => {
+    setExpandedLeave(expandedLeave === leave.id ? null : leave.id);
     handleMenuClose();
   };
 
   const handleQuickAction = (action) => {
+    console.log("Quick action:", action, "for leave:", selectedLeave?.id);
     setApprovalAction(action);
     setApprovalComment("");
     setApprovalDialogOpen(true);
-    handleMenuClose();
+    // DON'T call handleMenuClose() here - keep selectedLeave available
+    setAnchorEl(null); // Just close the menu without clearing selectedLeave
   };
 
   const confirmApprovalAction = async () => {
-    if (!selectedLeave || !approvalAction) return;
+    if (!selectedLeave || !approvalAction) {
+      console.log("Missing data:", { selectedLeave, approvalAction });
+      return;
+    }
 
     try {
       setActionLoading(true);
+      console.log("Processing approval action:", {
+        leaveId: selectedLeave.id,
+        action: approvalAction,
+        comment: approvalComment,
+      });
 
-      // Determine the new status based on user role and action
-      let newStatus;
-      if (approvalAction === "approve") {
-        if (hasRole(ROLES.ADMIN)) {
-          newStatus = "approved"; // Final approval
-        } else if (hasRole(ROLES.HR_MANAGER)) {
-          newStatus = "approved by hr";
-        } else if (hasRole(ROLES.DEPARTMENT_HEAD)) {
-          newStatus = "approved by supervisor";
-        }
-      } else {
-        newStatus = "rejected";
-      }
+      // Simple status mapping - backend handles the logic
+      const newStatus = approvalAction === "approve" ? "approved" : "rejected";
 
       const statusData = {
         status: newStatus,
@@ -238,23 +191,26 @@ const LeaveApprovalsPage = () => {
           `${approvalAction === "approve" ? "Approved" : "Rejected"} by ${user.first_name} ${user.sur_name}`,
       };
 
+      console.log("Sending status update:", statusData);
 
       const response = await leavesAPI.updateStatus(
         selectedLeave.id,
         statusData
       );
+      console.log("Update response:", response);
 
       if (response && response.success) {
         showSuccess(
           `Leave application ${approvalAction === "approve" ? "approved" : "rejected"} successfully`
         );
-        await fetchPendingLeaves(); // Refresh the list
+        await fetchPendingLeaves();
+        handleDialogClose();
       } else {
         throw new Error(response?.message || "Failed to update leave status");
       }
     } catch (error) {
       console.error("Error updating leave status:", error);
-      showError("Failed to update leave application status");
+      showError(error.message || "Failed to update leave application status");
     } finally {
       setActionLoading(false);
       setApprovalDialogOpen(false);
@@ -262,6 +218,28 @@ const LeaveApprovalsPage = () => {
       setSelectedLeave(null);
       setApprovalComment("");
     }
+  };
+
+  const canUserApprove = (leave) => {
+    // Check if user is the assigned approver for this leave
+    const isAssignedApprover = leave.approver_id === user?.id;
+    const isAdmin = hasRole(ROLES.ADMIN);
+
+    if (!isAssignedApprover && !isAdmin) {
+      return false;
+    }
+
+    // Supervisor level: can approve pending applications
+    if (leave.approval_status === "pending" && isAssignedApprover) {
+      return true;
+    }
+
+    // Admin level: can approve supervisor-approved applications
+    if (isAdmin && leave.approval_status === "approved by supervisor") {
+      return true;
+    }
+
+    return false;
   };
 
   const getStatusColor = (status) => {
@@ -285,27 +263,6 @@ const LeaveApprovalsPage = () => {
     return status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ");
   };
 
-  const getApprovalBadge = (leave) => {
-    const canApprove = canUserApprove(leave);
-
-    if (canApprove) {
-      return (
-        <Chip label="Awaiting Your Approval" color="warning" size="small" />
-      );
-    }
-
-    // Show what level of approval is needed
-    if (leave.approval_status === "pending") {
-      return <Chip label="Awaiting Supervisor" color="default" size="small" />;
-    } else if (leave.approval_status === "approved by supervisor") {
-      return <Chip label="Awaiting HR" color="info" size="small" />;
-    } else if (leave.approval_status === "approved by hr") {
-      return <Chip label="Awaiting Admin" color="secondary" size="small" />;
-    }
-
-    return <Chip label="Unknown Status" color="default" size="small" />;
-  };
-
   const getPriorityLevel = (leave) => {
     const today = new Date();
     const startDate = new Date(leave.starting_date);
@@ -324,128 +281,22 @@ const LeaveApprovalsPage = () => {
     }
   };
 
-  const columns = [
-    {
-      field: "user_info",
-      headerName: "Employee",
-      flex: 1,
-      minWidth: 200,
-      renderCell: (params) => {
-        const user = params.row.user;
-        const fullName = user
-          ? `${user.first_name || ""} ${user.middle_name || ""} ${user.sur_name || ""}`.trim()
-          : "Unknown User";
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
-        return (
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: "medium" }}>
-              {fullName}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {user?.email || "No email"}
-            </Typography>
-          </Box>
-        );
-      },
-    },
-    {
-      field: "leave_type",
-      headerName: "Leave Type",
-      width: 130,
-      renderCell: (params) => (
-        <Chip
-          label={params.row.leaveType?.name || params.row.type || "Unknown"}
-          size="small"
-          variant="outlined"
-          color="primary"
-        />
-      ),
-    },
-    {
-      field: "date_range",
-      headerName: "Date Range",
-      width: 200,
-      renderCell: (params) => (
-        <Box>
-          <Typography variant="body2">
-            {new Date(params.row.starting_date).toLocaleDateString()}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            to {new Date(params.row.end_date).toLocaleDateString()}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      field: "validity_check",
-      headerName: "Days",
-      width: 80,
-      renderCell: (params) => {
-        const days = params.value ? params.value.split(" ")[0] : "0";
-        return (
-          <Chip
-            label={`${days}d`}
-            size="small"
-            color="primary"
-            variant="outlined"
-          />
-        );
-      },
-    },
-    {
-      field: "approval_status",
-      headerName: "Status",
-      width: 150,
-      renderCell: (params) => (
-        <Box>
-          <Chip
-            label={formatStatus(params.value)}
-            color={getStatusColor(params.value)}
-            size="small"
-            sx={{ mb: 0.5 }}
-          />
-          <br />
-          {getApprovalBadge(params.row)}
-        </Box>
-      ),
-    },
-    {
-      field: "created_at",
-      headerName: "Applied",
-      width: 120,
-      renderCell: (params) => new Date(params.value).toLocaleDateString(),
-    },
-    {
-      field: "priority",
-      headerName: "Priority",
-      width: 100,
-      renderCell: (params) => {
-        const priority = getPriorityLevel(params.row);
-        return (
-          <Chip label={priority.label} color={priority.color} size="small" />
-        );
-      },
-    },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 80,
-      sortable: false,
-      renderCell: (params) => (
-        <IconButton
-          onClick={(event) => {
-            event.stopPropagation();
-            handleMenuOpen(event, params.row);
-          }}
-          size="small"
-        >
-          <MoreVertIcon />
-        </IconButton>
-      ),
-    },
-  ];
+  const calculateDays = (startDate, endDate) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const timeDiff = Math.abs(end - start);
+    return Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
+  };
 
-  // Filter data based on active tab and filters
+  // Filter data based on search and filters
   const getFilteredLeaves = () => {
     let filtered = leaves;
 
@@ -476,29 +327,129 @@ const LeaveApprovalsPage = () => {
 
   const filteredLeaves = getFilteredLeaves();
 
-  // Get unique leave types and statuses for filters
+  // Get unique leave types for filters
   const leaveTypes = [
     ...new Set(leaves.map((leave) => leave.leaveType?.name || leave.type)),
   ].filter(Boolean);
-  const statuses = [
-    ...new Set(leaves.map((leave) => leave.approval_status)),
-  ].filter(Boolean);
 
-  // Get counts for tabs
-  const getTabCounts = () => {
-    const myQueueCount = leaves.filter((leave) => canUserApprove(leave)).length;
-    const pendingHRCount = leaves.filter((leave) =>
-      ["pending", "approved by supervisor"].includes(leave.approval_status)
-    ).length;
-    const pendingAdminCount = leaves.filter(
-      (leave) => leave.approval_status === "approved by hr"
-    ).length;
-
-    return [myQueueCount, pendingHRCount, pendingAdminCount];
+  const handleChangePage = (event, newPage) => {
+    setPagination((prev) => ({ ...prev, page: newPage }));
   };
 
-  const tabCounts = getTabCounts();
-  const pendingCount = tabCounts[0]; // My queue count
+  const handleChangeRowsPerPage = (event) => {
+    setPagination((prev) => ({
+      ...prev,
+      rowsPerPage: parseInt(event.target.value, 10),
+      page: 0,
+    }));
+  };
+
+  const renderLeaveDetails = (leave) => (
+    <Box sx={{ p: 2, bgcolor: "grey.50" }}>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Typography variant="subtitle2" gutterBottom>
+            <PersonIcon sx={{ mr: 1, verticalAlign: "middle" }} />
+            Employee Details
+          </Typography>
+          <Box sx={{ ml: 3 }}>
+            <Typography variant="body2">
+              <strong>Name:</strong> {leave.user?.first_name}{" "}
+              {leave.user?.middle_name} {leave.user?.sur_name}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Email:</strong> {leave.user?.email}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Department:</strong>{" "}
+              {leave.user?.basicEmployeeData?.department?.department_name ||
+                "N/A"}
+            </Typography>
+          </Box>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Typography variant="subtitle2" gutterBottom>
+            <EventIcon sx={{ mr: 1, verticalAlign: "middle" }} />
+            Leave Details
+          </Typography>
+          <Box sx={{ ml: 3 }}>
+            <Typography variant="body2">
+              <strong>Type:</strong> {leave.leaveType?.name || "N/A"}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Duration:</strong>{" "}
+              {calculateDays(leave.starting_date, leave.end_date)} days
+            </Typography>
+            <Typography variant="body2">
+              <strong>Applied:</strong> {formatDate(leave.created_at)}
+            </Typography>
+          </Box>
+        </Grid>
+
+        {leave.comment && (
+          <Grid item xs={12}>
+            <Typography variant="subtitle2" gutterBottom>
+              <DescriptionIcon sx={{ mr: 1, verticalAlign: "middle" }} />
+              Comment
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ ml: 3, bgcolor: "white", p: 1, borderRadius: 1 }}
+            >
+              {leave.comment}
+            </Typography>
+          </Grid>
+        )}
+
+        {leave.attachment && (
+          <Grid item xs={12}>
+            <Typography variant="subtitle2" gutterBottom>
+              <AttachFileIcon sx={{ mr: 1, verticalAlign: "middle" }} />
+              Attachment
+            </Typography>
+            <Box sx={{ ml: 3 }}>
+              <Button size="small" startIcon={<AttachFileIcon />}>
+                {leave.attachment.name}
+              </Button>
+            </Box>
+          </Grid>
+        )}
+
+        {canUserApprove(leave) && (
+          <Grid item xs={12}>
+            <Divider sx={{ my: 1 }} />
+            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<ApproveIcon />}
+                onClick={() => {
+                  setSelectedLeave(leave);
+                  handleQuickAction("approve");
+                }}
+                size="small"
+              >
+                Approve
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                startIcon={<RejectIcon />}
+                onClick={() => {
+                  setSelectedLeave(leave);
+                  handleQuickAction("reject");
+                }}
+                size="small"
+              >
+                Reject
+              </Button>
+            </Box>
+          </Grid>
+        )}
+      </Grid>
+    </Box>
+  );
 
   return (
     <Box>
@@ -516,7 +467,7 @@ const LeaveApprovalsPage = () => {
             Leave Approvals
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Review and approve pending leave applications
+            Review and approve leave applications
           </Typography>
         </Box>
 
@@ -538,27 +489,12 @@ const LeaveApprovalsPage = () => {
       </Box>
 
       {/* Alert for pending approvals */}
-      {pendingCount > 0 && (
-        <Alert severity="warning" sx={{ mb: 3 }} icon={<PendingIcon />}>
-          You have {pendingCount} leave application{pendingCount > 1 ? "s" : ""}{" "}
-          awaiting your approval.
+      {filteredLeaves.length > 0 && (
+        <Alert severity="info" sx={{ mb: 3 }} icon={<PendingIcon />}>
+          You have {filteredLeaves.length} leave application
+          {filteredLeaves.length > 1 ? "s" : ""} awaiting your review.
         </Alert>
       )}
-
-      {/* Tabs */}
-      <Card sx={{ mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={(e, newValue) => setActiveTab(newValue)}
-          sx={{ borderBottom: 1, borderColor: "divider" }}
-        >
-          <Tab label={`My Queue (${tabCounts[0] || 0})`} />
-          <Tab label={`Pending HR (${tabCounts[1] || 0})`} />
-          {hasRole(ROLES.ADMIN) && (
-            <Tab label={`Pending Admin (${tabCounts[2] || 0})`} />
-          )}
-        </Tabs>
-      </Card>
 
       {/* Filters */}
       <Card sx={{ mb: 3 }}>
@@ -611,11 +547,10 @@ const LeaveApprovalsPage = () => {
               size="small"
             >
               <MenuItem value="">All Status</MenuItem>
-              {statuses.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {formatStatus(status)}
-                </MenuItem>
-              ))}
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="approved by supervisor">
+                Approved by Supervisor
+              </MenuItem>
             </TextField>
 
             <Typography
@@ -623,13 +558,13 @@ const LeaveApprovalsPage = () => {
               color="text.secondary"
               sx={{ ml: "auto" }}
             >
-              Showing {filteredLeaves.length} of {leaves.length} applications
+              Showing {filteredLeaves.length} applications
             </Typography>
           </Box>
         </CardContent>
       </Card>
 
-      {/* Leaves Table */}
+      {/* Leaves List */}
       <Card>
         {filteredLeaves.length === 0 && !loading ? (
           <Box sx={{ p: 4, textAlign: "center" }}>
@@ -640,42 +575,131 @@ const LeaveApprovalsPage = () => {
             </Alert>
           </Box>
         ) : (
-          <Box sx={{ height: 600 }}>
-            <DataGrid
-              rows={filteredLeaves}
-              columns={columns}
-              loading={loading}
-              pageSize={pagination.limit}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              disableSelectionOnClick
-              sx={{
-                border: "none",
-                "& .MuiDataGrid-cell:focus": {
-                  outline: "none",
-                },
-                "& .MuiDataGrid-row": {
-                  cursor: "pointer",
-                },
-              }}
-              onRowClick={(params) => {
-                navigate(`${ROUTES.LEAVES}/${params.id}`);
-              }}
-              getRowId={(row) => row.id}
-              onPageSizeChange={(newPageSize) => {
-                setPagination((prev) => ({
-                  ...prev,
-                  limit: newPageSize,
-                  page: 1,
-                }));
-              }}
-              page={pagination.page - 1}
-              onPageChange={(newPage) => {
-                setPagination((prev) => ({ ...prev, page: newPage + 1 }));
-              }}
-              rowCount={pagination.totalItems}
-              paginationMode="server"
+          <>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Employee</TableCell>
+                    <TableCell>Leave Type</TableCell>
+                    <TableCell>Date Range</TableCell>
+                    <TableCell>Days</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Priority</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">
+                        <CircularProgress />
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredLeaves.map((leave) => (
+                      <React.Fragment key={leave.id}>
+                        <TableRow
+                          hover
+                          sx={{ cursor: "pointer" }}
+                          onClick={() => handleViewDetails(leave)}
+                        >
+                          <TableCell>
+                            <Box>
+                              <Typography variant="subtitle2">
+                                {leave.user?.first_name} {leave.user?.sur_name}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                {leave.user?.email}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={leave.leaveType?.name || "Unknown"}
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Box>
+                              <Typography variant="body2">
+                                {formatDate(leave.starting_date)}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                to {formatDate(leave.end_date)}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={`${calculateDays(leave.starting_date, leave.end_date)}d`}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={formatStatus(leave.approval_status)}
+                              color={getStatusColor(leave.approval_status)}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const priority = getPriorityLevel(leave);
+                              return (
+                                <Chip
+                                  label={priority.label}
+                                  color={priority.color}
+                                  size="small"
+                                />
+                              );
+                            })()}
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleMenuOpen(event, leave);
+                              }}
+                              size="small"
+                            >
+                              <MoreVertIcon />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                        {expandedLeave === leave.id && (
+                          <TableRow>
+                            <TableCell colSpan={7} sx={{ p: 0 }}>
+                              {renderLeaveDetails(leave)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={pagination.total}
+              rowsPerPage={pagination.rowsPerPage}
+              page={pagination.page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
             />
-          </Box>
+          </>
         )}
       </Card>
 
@@ -685,11 +709,15 @@ const LeaveApprovalsPage = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={handleViewLeave}>
+        <MenuItem onClick={() => handleViewDetails(selectedLeave)}>
           <ListItemIcon>
             <ViewIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>View Details</ListItemText>
+          <ListItemText>
+            {expandedLeave === selectedLeave?.id
+              ? "Hide Details"
+              : "View Details"}
+          </ListItemText>
         </MenuItem>
 
         {selectedLeave &&
@@ -701,13 +729,13 @@ const LeaveApprovalsPage = () => {
               <ListItemIcon>
                 <ApproveIcon fontSize="small" color="success" />
               </ListItemIcon>
-              <ListItemText>Quick Approve</ListItemText>
+              <ListItemText>Approve</ListItemText>
             </MenuItem>,
             <MenuItem key="reject" onClick={() => handleQuickAction("reject")}>
               <ListItemIcon>
                 <RejectIcon fontSize="small" color="error" />
               </ListItemIcon>
-              <ListItemText>Quick Reject</ListItemText>
+              <ListItemText>Reject</ListItemText>
             </MenuItem>,
           ]}
       </Menu>
@@ -715,7 +743,7 @@ const LeaveApprovalsPage = () => {
       {/* Approval Confirmation Dialog */}
       <Dialog
         open={approvalDialogOpen}
-        onClose={() => setApprovalDialogOpen(false)}
+        onClose={handleDialogClose} // Use the new handler
         maxWidth="sm"
         fullWidth
       >
@@ -744,10 +772,7 @@ const LeaveApprovalsPage = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => setApprovalDialogOpen(false)}
-            disabled={actionLoading}
-          >
+          <Button onClick={handleDialogClose} disabled={actionLoading}>
             Cancel
           </Button>
           <Button

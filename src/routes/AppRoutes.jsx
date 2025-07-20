@@ -24,6 +24,7 @@ import EmployeeDetailsPage from "../pages/employees/EmployeeDetailsPage";
 import CreateEmployeePage from "../pages/employees/CreateEmployeePage";
 import LeavesPage from "../pages/leaves/LeavesPage";
 import LeaveDetailsPage from "../pages/leaves/LeaveDetailsPage";
+import LeaveEditPage from "../pages/leaves/LeaveEditPage";
 import CreateLeavePage from "../pages/leaves/CreateLeavePage";
 import LeaveApprovalsPage from "../pages/leaves/LeaveApprovalsPage";
 import AttendancePage from "../pages/attendance/AttendancePage";
@@ -210,6 +211,14 @@ const AppRoutes = () => {
           element={
             <PermissionGuard permissions={[PERMISSIONS.LEAVES_READ]}>
               <LeaveDetailsPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="leaves/:id/edit"
+          element={
+            <PermissionGuard permissions={[PERMISSIONS.LEAVES_UPDATE]}>
+              <LeaveEditPage />
             </PermissionGuard>
           }
         />
