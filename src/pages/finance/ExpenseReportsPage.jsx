@@ -952,7 +952,7 @@ const ExpenseReportsPage = () => {
                   }}
                 >
                   <Typography variant="h6">All Expense Items</Typography>
-                  {hasPermission(PERMISSIONS.MANAGE_EXPENSES) && (
+                  {/* {hasPermission(PERMISSIONS.MANAGE_EXPENSES) && ( */}
                     <Button
                       variant="contained"
                       startIcon={<AddIcon />}
@@ -960,7 +960,7 @@ const ExpenseReportsPage = () => {
                     >
                       Add Expense
                     </Button>
-                  )}
+                  {/* )} */}
                 </Box>
                 <Box sx={{ height: 600, width: "100%" }}>
                   <DataGrid

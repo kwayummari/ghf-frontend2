@@ -87,7 +87,7 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, startOfMonth, endOfMonth, differenceInDays, addDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO, isValid } from "date-fns";
 import { useSelector } from 'react-redux';
 import { selectUser } from '../../store/slices/authSlice';
 import { useAuth } from '../../components/features/auth/AuthGuard';
@@ -121,119 +121,6 @@ const PAYMENT_METHODS = [
   { value: 'mobile_money', label: 'Mobile Money' },
 ];
 
-const MOCK_EXPENSES = [
-  {
-    id: 1,
-    petty_cash_book_id: 1,
-    book_name: 'Head Office Petty Cash',
-    expense_date: '2024-06-20',
-    category: 'Office Supplies',
-    description: 'Printing paper and pens',
-    amount: 25000,
-    vendor_name: 'Office Mart',
-    receipt_number: 'OM-2024-001',
-    payment_method: 'cash',
-    requested_by: 'John Doe',
-    approved_by: 'Jane Smith',
-    status: 'approved',
-    balance_before: 500000,
-    balance_after: 475000,
-    created_at: '2024-06-20T10:30:00',
-    approved_at: '2024-06-20T14:15:00',
-    notes: 'Urgent office supplies needed',
-    receipt_attached: true,
-    category_color: 'primary',
-  },
-  {
-    id: 2,
-    petty_cash_book_id: 1,
-    book_name: 'Head Office Petty Cash',
-    expense_date: '2024-06-19',
-    category: 'Transportation',
-    description: 'Taxi fare for client meeting',
-    amount: 15000,
-    vendor_name: 'Uber Tanzania',
-    receipt_number: 'UB-789123',
-    payment_method: 'cash',
-    requested_by: 'Mike Johnson',
-    approved_by: 'Jane Smith',
-    status: 'approved',
-    balance_before: 475000,
-    balance_after: 460000,
-    created_at: '2024-06-19T16:45:00',
-    approved_at: '2024-06-19T17:00:00',
-    notes: 'Emergency client visit',
-    receipt_attached: true,
-    category_color: 'success',
-  },
-  {
-    id: 3,
-    petty_cash_book_id: 2,
-    book_name: 'Field Office Petty Cash',
-    expense_date: '2024-06-18',
-    category: 'Refreshments',
-    description: 'Tea and snacks for meeting',
-    amount: 18000,
-    vendor_name: 'Local Café',
-    receipt_number: 'LC-456',
-    payment_method: 'cash',
-    requested_by: 'Sarah Wilson',
-    approved_by: '',
-    status: 'pending',
-    balance_before: 300000,
-    balance_after: 300000,
-    created_at: '2024-06-18T11:20:00',
-    approved_at: null,
-    notes: 'Community meeting refreshments',
-    receipt_attached: false,
-    category_color: 'warning',
-  },
-  {
-    id: 4,
-    petty_cash_book_id: 1,
-    book_name: 'Head Office Petty Cash',
-    expense_date: '2024-06-17',
-    category: 'Communication',
-    description: 'Mobile airtime for field work',
-    amount: 10000,
-    vendor_name: 'Vodacom',
-    receipt_number: 'VD-2024-789',
-    payment_method: 'cash',
-    requested_by: 'David Brown',
-    approved_by: '',
-    status: 'rejected',
-    balance_before: 460000,
-    balance_after: 460000,
-    created_at: '2024-06-17T09:15:00',
-    approved_at: '2024-06-17T13:30:00',
-    notes: 'Personal use detected - rejected',
-    receipt_attached: true,
-    category_color: 'error',
-  },
-];
-
-const MOCK_PETTY_CASH_BOOKS = [
-  {
-    id: 1,
-    book_name: 'Head Office Petty Cash',
-    custodian: 'Jane Smith',
-    current_balance: 460000,
-    opening_balance: 500000,
-    total_expenses: 40000,
-    status: 'active',
-    last_replenishment: '2024-06-01',
-  },
-  {
-    id: 2,
-    book_name: 'Field Office Petty Cash',
-    custodian: 'Mike Johnson',
-    current_balance: 300000,
-    opening_balance: 350000,
-    total_expenses: 50000,
-    status: 'active',
-    last_replenishment: '2024-05-28',
-  },
-];
 
 // ==================== MAIN COMPONENT ====================
 
@@ -321,11 +208,13 @@ const PettyCashExpensesPage = () => {
     {
       title: "Expenses Today",
       value: expenses
-        .filter(
-          (exp) =>
-            format(new Date(exp.expense_date), "yyyy-MM-dd") ===
-            format(new Date(), "yyyy-MM-dd")
-        )
+        .filter((exp) => {
+          const date = parseISO(exp.expense_date);
+          return (
+            isValid(date) &&
+            format(date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")
+          );
+        })
         .length.toString(),
       subtitle: "Today's transactions",
       icon: <ReceiptIcon />,
@@ -370,7 +259,9 @@ const PettyCashExpensesPage = () => {
       width: 120,
       renderCell: (params) => (
         <Typography variant="body2">
-          {format(new Date(params.value), "dd/MM/yyyy")}
+          {isValid(new Date(params.value))
+            ? format(new Date(params.value), "dd/MM/yyyy")
+            : "N/A"}
         </Typography>
       ),
     },
@@ -508,12 +399,29 @@ const PettyCashExpensesPage = () => {
 
   const fetchPettyCashBooks = async () => {
     try {
+      console.log("Fetching petty cash books..."); // Debug log
       const response = await pettyCashAPI.getAllBooks({
         status: "active",
       });
-      setPettyCashBooks(response.data.books || []);
+
+      console.log("API Response:", response); // Debug log
+
+      // Handle different possible response structures
+      const books = response.data?.books || response.data || response || [];
+
+      console.log("Processed books:", books); // Debug log
+
+      setPettyCashBooks(books);
+
+      if (books.length === 0) {
+        console.warn("No petty cash books found");
+        showError(
+          "No active petty cash books found. Please create a petty cash book first."
+        );
+      }
     } catch (error) {
-      showError("Failed to fetch petty cash books");
+      console.error("Failed to fetch petty cash books:", error); // Better error logging
+      showError(`Failed to fetch petty cash books: ${error.message}`);
     }
   };
 
@@ -523,11 +431,13 @@ const PettyCashExpensesPage = () => {
     try {
       const expenseData = {
         petty_cash_book_id: formData.petty_cash_book_id,
-        date: formData.date,
+        date: formData.expense_date.toISOString().split("T")[0],
         description: formData.description,
         amount: parseFloat(formData.amount),
         receipt_document_id: formData.receipt_document_id || null,
       };
+
+      console.log("Submitting expense data:", expenseData); // Debug log
 
       if (editingExpense) {
         await pettyCashAPI.updateExpense(editingExpense.id, expenseData);
@@ -666,7 +576,7 @@ const PettyCashExpensesPage = () => {
           >
             Reports
           </Button>
-          {hasPermission(PERMISSIONS.MANAGE_PETTY_CASH) && (
+          {/* {hasPermission(PERMISSIONS.CREATE_PETTY_CASH_ENTRY) && ( */}
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -674,7 +584,7 @@ const PettyCashExpensesPage = () => {
             >
               Record Expense
             </Button>
-          )}
+          {/* // )} */}
         </Box>
       </Box>
       <Typography variant="body1" color="text.secondary">
@@ -771,10 +681,14 @@ const PettyCashExpensesPage = () => {
                         <Avatar
                           sx={{ width: 20, height: 20, fontSize: "0.7rem" }}
                         >
-                          {book.custodian.charAt(0)}
+                          {(book.custodian?.name || book.custodian || "")
+                            .toString()
+                            .charAt(0) || "?"}
                         </Avatar>
                         <Typography variant="body2">
-                          {book.custodian}
+                          {book.custodian?.first_name
+                            ? `${book.custodian.first_name} ${book.custodian.sur_name || ""}`.trim()
+                            : book.custodian || "Unknown"}
                         </Typography>
                       </Box>
                     </Grid>
@@ -783,10 +697,12 @@ const PettyCashExpensesPage = () => {
                         Last Replenishment
                       </Typography>
                       <Typography variant="body2">
-                        {format(
-                          new Date(book.last_replenishment),
-                          "dd/MM/yyyy"
-                        )}
+                        {book.last_replenishment
+                          ? format(
+                              new Date(book.last_replenishment),
+                              "dd/MM/yyyy"
+                            )
+                          : "Not available"}
                       </Typography>
                     </Grid>
                   </Grid>
@@ -1279,7 +1195,7 @@ const PettyCashExpensesPage = () => {
         </ListItemIcon>
         <ListItemText>View Details</ListItemText>
       </MenuItem>
-      {hasPermission(PERMISSIONS.MANAGE_PETTY_CASH) &&
+      {hasPermission(PERMISSIONS.CREATE_PETTY_CASH_ENTRY) &&
         selectedExpense?.status === "pending" && (
           <MenuItem onClick={() => handleEdit(selectedExpense)}>
             <ListItemIcon>
@@ -1317,7 +1233,7 @@ const PettyCashExpensesPage = () => {
         </ListItemIcon>
         <ListItemText>Print Receipt</ListItemText>
       </MenuItem>
-      {hasPermission(PERMISSIONS.MANAGE_PETTY_CASH) &&
+      {hasPermission(PERMISSIONS.CREATE_PETTY_CASH_ENTRY) &&
         selectedExpense?.status === "pending" && (
           <MenuItem
             onClick={() => handleDelete(selectedExpense)}
@@ -1347,7 +1263,7 @@ const PettyCashExpensesPage = () => {
           >
             {pettyCashBooks.map((book) => (
               <MenuItem key={book.id} value={book.id}>
-                {book.book_name}
+                {book.book_number} (TZS {book.current_balance})
               </MenuItem>
             ))}
           </Select>
@@ -1681,10 +1597,12 @@ const PettyCashExpensesPage = () => {
                           Expense Date
                         </Typography>
                         <Typography variant="body1" sx={{ mb: 2 }}>
-                          {format(
-                            new Date(selectedExpense.expense_date),
-                            "dd/MM/yyyy"
-                          )}
+                          {(() => {
+                            const date = parseISO(selectedExpense.expense_date);
+                            return isValid(date)
+                              ? format(date, "dd/MM/yyyy")
+                              : "N/A";
+                          })()}
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
@@ -1899,7 +1817,7 @@ const PettyCashExpensesPage = () => {
         >
           Print
         </Button>
-        {hasPermission(PERMISSIONS.MANAGE_PETTY_CASH) &&
+        {hasPermission(PERMISSIONS.CREATE_PETTY_CASH_ENTRY) &&
           selectedExpense?.status === "pending" && (
             <Button
               variant="contained"
@@ -1940,7 +1858,7 @@ const PettyCashExpensesPage = () => {
               <Select defaultValue="" label="Petty Cash Book">
                 {pettyCashBooks.map((book) => (
                   <MenuItem key={book.id} value={book.id}>
-                    {book.book_name} (TZS{" "}
+                    {book.book_number} (TZS{" "}
                     {book.current_balance.toLocaleString()})
                   </MenuItem>
                 ))}
