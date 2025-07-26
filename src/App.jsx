@@ -14,6 +14,7 @@ import {
   selectAuthInitialized,
   selectAuthLoading,
 } from "./store/slices/authSlice";
+import { customTheme } from "./theme/customTheme";
 
 // Create a query client for React Query
 const queryClient = new QueryClient({
@@ -159,7 +160,7 @@ function App() {
     <ErrorBoundary>
       <Provider store={store}>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
+          <ThemeProvider theme={customTheme}>
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               <SnackbarProvider
                 maxSnack={3}

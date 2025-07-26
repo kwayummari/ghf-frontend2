@@ -95,6 +95,7 @@ import { ROUTES, ROLES, PERMISSIONS } from '../../constants';
 import useNotification from '../../hooks/common/useNotification';
 import useConfirmDialog from '../../hooks/common/useConfirmDialog';
 import { LoadingSpinner } from '../../components/common/Loading';
+import { pettyCashAPI } from "../../services/api/pettyCash.api";
 
 // ==================== CONSTANTS & STATIC DATA ====================
 
@@ -489,16 +490,17 @@ const PettyCashExpensesPage = () => {
   const fetchExpenses = async () => {
     try {
       setLoading(true);
-      // Replace with actual API call
-      // const response = await pettyCashAPI.getExpenses({
-      //   petty_cash_book_id: selectedBookId,
-      //   period: format(selectedPeriod, 'yyyy-MM'),
-      //   include_receipts: true
-      // });
-      // setExpenses(response.data || []);
-      setExpenses(MOCK_EXPENSES);
+      const response = await pettyCashAPI.getAllExpenses({
+        page: 1,
+        limit: 50,
+        petty_cash_book_id: selectedBookId,
+        start_date: startOfMonth(selectedPeriod).toISOString().split("T")[0],
+        end_date: endOfMonth(selectedPeriod).toISOString().split("T")[0],
+        search: searchTerm,
+      });
+      setExpenses(response.data.expenses || []);
     } catch (error) {
-      showError("Failed to fetch expenses");
+      showError(error.message || "Failed to fetch expenses");
     } finally {
       setLoading(false);
     }
@@ -506,10 +508,10 @@ const PettyCashExpensesPage = () => {
 
   const fetchPettyCashBooks = async () => {
     try {
-      // Replace with actual API call
-      // const response = await pettyCashAPI.getPettyCashBooks();
-      // setPettyCashBooks(response.data || []);
-      setPettyCashBooks(MOCK_PETTY_CASH_BOOKS);
+      const response = await pettyCashAPI.getAllBooks({
+        status: "active",
+      });
+      setPettyCashBooks(response.data.books || []);
     } catch (error) {
       showError("Failed to fetch petty cash books");
     }
@@ -520,22 +522,26 @@ const PettyCashExpensesPage = () => {
   const handleSubmit = async () => {
     try {
       const expenseData = {
-        ...formData,
-        expense_date: format(formData.expense_date, "yyyy-MM-dd"),
+        petty_cash_book_id: formData.petty_cash_book_id,
+        date: formData.date,
+        description: formData.description,
+        amount: parseFloat(formData.amount),
+        receipt_document_id: formData.receipt_document_id || null,
       };
 
       if (editingExpense) {
-        // await pettyCashAPI.updateExpense(editingExpense.id, expenseData);
+        await pettyCashAPI.updateExpense(editingExpense.id, expenseData);
         showSuccess("Expense updated successfully");
       } else {
-        // await pettyCashAPI.createExpense(expenseData);
-        showSuccess("Expense recorded successfully");
+        await pettyCashAPI.createExpense(expenseData);
+        showSuccess("Expense created successfully");
       }
+
       setDialogOpen(false);
       resetForm();
       fetchExpenses();
     } catch (error) {
-      showError("Failed to save expense");
+      showError(error.message || "Failed to save expense");
     }
   };
 
@@ -599,21 +605,20 @@ const PettyCashExpensesPage = () => {
     setAnchorEl(null);
   };
 
-  const handleDelete = (expense) => {
+  const handleDelete = async (expense) => {
     openDialog({
-      title: "Delete Expense",
-      message: `Are you sure you want to delete this expense record?`,
+      title: "Confirm Delete",
+      message: `Are you sure you want to delete this expense: ${expense.description}?`,
       onConfirm: async () => {
         try {
-          // await pettyCashAPI.deleteExpense(expense.id);
+          await pettyCashAPI.deleteExpense(expense.id);
           showSuccess("Expense deleted successfully");
           fetchExpenses();
         } catch (error) {
-          showError("Failed to delete expense");
+          showError(error.message || "Failed to delete expense");
         }
       },
     });
-    setAnchorEl(null);
   };
 
   // ==================== EFFECTS ====================

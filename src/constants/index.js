@@ -285,6 +285,15 @@ export const PERMISSIONS = {
     FINANCE_UPDATE: 'Finance:update',
     FINANCE_DELETE: 'Finance:delete',
 
+    VIEW_PETTY_CASH: 'View Petty Cash',
+    CREATE_PETTY_CASH_ENTRY: 'Create Petty Cash Entry',
+    UPDATE_PETTY_CASH: 'Update Petty Cash',
+    DELETE_PETTY_CASH_ENTRY: 'Delete Petty Cash Entry',
+    REQUEST_REPLENISHMENT: 'Request Replenishment',
+    APPROVE_REPLENISHMENT: 'Approve Replenishment',
+    VIEW_PETTY_CASH_REPORTS: 'View Petty Cash Reports',
+    MANAGE_PETTY_CASH_BOOK: 'Manage Petty Cash Book',
+
     // Reports
     REPORTS_READ: 'Reports:read',
 
