@@ -28,11 +28,13 @@ const PendingApprovalsWidget = () => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
   const { showSuccess, showError } = useNotification();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasAnyRole } = useAuth();
   const navigate = useNavigate();
+  const canViewApprovals =
+    hasAnyRole(["Admin"]) || hasPermission(PERMISSIONS.APPROVE_REPLENISHMENT);
 
   useEffect(() => {
-    if (hasPermission(PERMISSIONS.APPROVE_REPLENISHMENT)) {
+    if (canViewApprovals) {
       fetchPendingApprovals();
     }
   }, []);
@@ -77,12 +79,12 @@ const PendingApprovalsWidget = () => {
     }
   };
 
-  if (!hasPermission(PERMISSIONS.APPROVE_REPLENISHMENT)) {
+  if (!canViewApprovals) {
     return null;
   }
 
   return (
-    <Card sx={{ height: "100%" }}>
+    <Card sx={{ height: "100%", marginTop: 2 }}>
       <CardContent>
         <Box
           sx={{
