@@ -76,6 +76,8 @@ import ExpenseReportsPage from "../pages/finance/ExpenseReportsPage";
 import PettyCashPage from "../pages/finance/PettyCashPage";
 import PettyCashExpensesPage from "../pages/finance/PettyCashExpensesPage";
 import ReplenishmentPage from "../pages/finance/ReplenishmentPage";
+import ReplenishmentApprovalPage from "../pages/finance/ReplenishmentApprovalPage";
+import PettyCashExpenseApprovalPage from "../pages/finance/PettyCashExpenseApprovalPage";
 
 // Procurement
 import SuppliersPage from "../pages/procurement/SuppliersPage";
@@ -465,6 +467,26 @@ const AppRoutes = () => {
           element={
             <PermissionGuard permissions={[PERMISSIONS.REQUEST_REPLENISHMENT]}>
               <ReplenishmentPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/petty-cash/approvals"
+          element={
+            <PermissionGuard
+              permissions={[PERMISSIONS.VIEW_PETTY_CASH_APPROVAL_QUEUE]}
+            >
+              <ReplenishmentApprovalPage />
+            </PermissionGuard>
+          }
+        />
+        <Route
+          path="finance/petty-cash/expense-approvals"
+          element={
+            <PermissionGuard
+              permissions={[PERMISSIONS.VIEW_PETTY_CASH_APPROVAL_QUEUE]}
+            >
+              <PettyCashExpenseApprovalPage />
             </PermissionGuard>
           }
         />

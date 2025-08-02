@@ -33,7 +33,12 @@ import {
   Pending as PendingIcon,
   Warning as WarningIcon,
   AttachFile as AttachIcon,
+  RequestPage as RequestIcon,
+  CheckCircleOutline as ApprovedIcon,
+  CancelOutlined as RejectedIcon,
+  Edit as EditIcon,
 } from "@mui/icons-material";
+import { Tooltip } from "@mui/material";
 import { format } from "date-fns";
 import { selectUser } from "../../store/slices/authSlice";
 import { useAuth } from "../../components/features/auth/AuthGuard";
@@ -102,24 +107,82 @@ const ReplenishmentPage = () => {
       field: "book_name",
       headerName: "Book",
       type: "text",
-      valueGetter: (row) => row.pettyCashBook?.book_number || "-",
+      valueGetter: (row) =>
+        row.book_name || row.pettyCashBook?.book_number || "-",
     },
     {
       field: "requested_by_name",
       headerName: "Requested By",
       type: "text",
       valueGetter: (row) =>
-        `${row.requester?.first_name || ""} ${row.requester?.sur_name || ""}`,
+        row.requested_by_name ||
+        `${row.requester?.first_name || ""} ${row.requester?.sur_name || ""}`.trim() ||
+        "-",
     },
-    { field: "status", headerName: "Status", type: "status" },
+    { field: "description", headerName: "Description", type: "text" },
     { field: "urgency", headerName: "Priority", type: "status" },
+    {
+      field: "status",
+      headerName: "Status",
+      type: "status",
+      valueGetter: (row) => {
+        const status = row.status;
+        const statusConfig = replenishmentStatuses.find(
+          (s) => s.value === status
+        );
+        return {
+          label: statusConfig?.label || status,
+          color: statusConfig?.color || "#4F78AE",
+          isRejected: status === "rejected",
+          rejectionReason: row.rejection_reason,
+        };
+      },
+      renderCell: (params) => {
+        const { label, color, isRejected, rejectionReason } = params.value;
+        return (
+          <Tooltip
+            title={
+              isRejected && rejectionReason
+                ? `Rejected: ${rejectionReason}`
+                : label
+            }
+            placement="top"
+          >
+            <Chip
+              label={label}
+              size="small"
+              sx={{
+                backgroundColor: color,
+                color: "#ffffff",
+                fontSize: "0.75rem",
+                fontWeight: 500,
+                cursor: isRejected ? "help" : "default",
+              }}
+            />
+          </Tooltip>
+        );
+      },
+    },
+    {
+      field: "created_at",
+      headerName: "Created",
+      type: "date",
+      valueGetter: (row) =>
+        row.created_at ? new Date(row.created_at).toLocaleDateString() : "-",
+    },
   ];
 
   // Replenishment statuses
   const replenishmentStatuses = [
+    { value: "draft", label: "Draft", color: "#C2895A" },
     { value: "pending", label: "Pending Approval", color: "#C2895A" },
     { value: "submitted", label: "Submitted", color: "#C2895A" },
-    { value: "approved", label: "Approved", color: "#4F78AE" },
+    {
+      value: "finance_manager_approved",
+      label: "Finance Manager Approved",
+      color: "#4F78AE",
+    },
+    { value: "admin_approved", label: "Approved", color: "#4F78AE" },
     { value: "rejected", label: "Rejected", color: "#C2895A" },
     { value: "disbursed", label: "Disbursed", color: "#4F78AE" },
   ];
@@ -170,6 +233,7 @@ const ReplenishmentPage = () => {
         petty_cash_book_id: cashBookId,
         ...filters,
       });
+      console.log("Replenishment data:", response.data.replenishments);
       setReplenishments(response.data.replenishments || []);
     } catch (error) {
       showError(error.message || "Failed to fetch replenishment requests");
@@ -220,8 +284,15 @@ const ReplenishmentPage = () => {
   };
 
   // Handle form submission
-  const handleSubmit = async () => {
+  const handleSubmit = async (saveAsDraft = false) => {
     try {
+      console.log(
+        "Submitting replenishment request:",
+        formData,
+        "saveAsDraft:",
+        saveAsDraft
+      );
+
       if (editingReplenishment) {
         await pettyCashAPI.updateReplenishment(
           editingReplenishment.id,
@@ -229,14 +300,28 @@ const ReplenishmentPage = () => {
         );
         showSuccess("Replenishment request updated successfully");
       } else {
-        await pettyCashAPI.createReplenishment(formData);
-        showSuccess("Replenishment request submitted successfully");
+        const requestData = {
+          ...formData,
+          save_as_draft: saveAsDraft,
+          submit: !saveAsDraft,
+        };
+        const response = await pettyCashAPI.createReplenishment(requestData);
+        console.log("Replenishment created successfully:", response);
+        showSuccess(
+          saveAsDraft
+            ? "Replenishment request saved as draft successfully"
+            : "Replenishment request submitted successfully"
+        );
       }
+
+      console.log("Closing dialogs and resetting form...");
       setDialogOpen(false);
       setRequestDialogOpen(false);
       resetForm();
-      fetchReplenishments();
+      await fetchReplenishments();
+      console.log("Replenishment request completed successfully");
     } catch (error) {
+      console.error("Error in handleSubmit:", error);
       showError(error.message || "Failed to save replenishment request");
     }
   };
@@ -287,6 +372,17 @@ const ReplenishmentPage = () => {
         }
       },
     });
+  };
+
+  const handleResubmit = async (replenishment) => {
+    try {
+      await pettyCashAPI.resubmitReplenishment(replenishment.id);
+      showSuccess("Replenishment request resubmitted successfully");
+      fetchReplenishments();
+      setViewDialogOpen(false);
+    } catch (error) {
+      showError(error.message || "Failed to resubmit replenishment request");
+    }
   };
 
   // Bulk operations
@@ -377,6 +473,139 @@ const ReplenishmentPage = () => {
       {/* Summary Cards */}
       <PettyCashSummaryCards onRefresh={fetchReplenishments} />
 
+      {/* Replenishment Summary Cards */}
+      <Grid container spacing={3} sx={{ mt: 2 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="h4"
+                    sx={{ color: "#4F78AE", fontWeight: 600 }}
+                  >
+                    {replenishments.length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Total Requests
+                  </Typography>
+                </Box>
+                <Box sx={{ color: "#4F78AE" }}>
+                  <RequestIcon sx={{ fontSize: 40 }} />
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="h4"
+                    sx={{ color: "#ffc107", fontWeight: 600 }}
+                  >
+                    {
+                      replenishments.filter(
+                        (r) =>
+                          r.status === "pending" ||
+                          r.status === "submitted" ||
+                          r.status === "finance_manager_approved"
+                      ).length
+                    }
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Pending Approval
+                  </Typography>
+                </Box>
+                <Box sx={{ color: "#ffc107" }}>
+                  <PendingIcon sx={{ fontSize: 40 }} />
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="h4"
+                    sx={{ color: "#28a745", fontWeight: 600 }}
+                  >
+                    {
+                      replenishments.filter(
+                        (r) => r.status === "admin_approved"
+                      ).length
+                    }
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Approved
+                  </Typography>
+                </Box>
+                <Box sx={{ color: "#28a745" }}>
+                  <ApprovedIcon sx={{ fontSize: 40 }} />
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="h4"
+                    sx={{ color: "#dc3545", fontWeight: 600 }}
+                  >
+                    {
+                      replenishments.filter((r) => r.status === "rejected")
+                        .length
+                    }
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Rejected
+                  </Typography>
+                </Box>
+                <Box sx={{ color: "#dc3545" }}>
+                  <RejectedIcon sx={{ fontSize: 40 }} />
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
       {/* Main Content */}
       <Card sx={{ mt: 3 }}>
         <Box sx={{ p: 3 }}>
@@ -420,19 +649,34 @@ const ReplenishmentPage = () => {
               setViewDialogOpen(true);
               fetchWorkflowStatus(request.id);
             }}
-            onEdit={(request) => {
-              setEditingReplenishment(request);
-              setFormData({
-                petty_cash_book_id: request.petty_cash_book_id,
-                request_amount: request.amount,
-                justification: request.description,
-                urgency: request.urgency || "normal",
-                expected_usage_period: 30,
-                supporting_documents: [],
-                notes: request.notes || "",
-              });
-              setDialogOpen(true);
-            }}
+            actionButtons={[
+              {
+                label: "Edit",
+                icon: <EditIcon />,
+                color: "primary",
+                onClick: (request) => {
+                  setEditingReplenishment(request);
+                  setFormData({
+                    petty_cash_book_id: request.petty_cash_book_id,
+                    request_amount: request.amount,
+                    justification: request.description,
+                    urgency: request.urgency || "normal",
+                    expected_usage_period: 30,
+                    supporting_documents: [],
+                    notes: request.notes || "",
+                  });
+                  setDialogOpen(true);
+                },
+                show: (request) => request.status === "draft", // Only show for draft requests
+              },
+              {
+                label: "Resubmit",
+                icon: <RequestIcon />,
+                color: "success",
+                onClick: (request) => handleResubmit(request),
+                show: (request) => request.status === "rejected", // Only show for rejected requests
+              },
+            ]}
           />
         </Box>
       </Card>
@@ -692,16 +936,34 @@ const ReplenishmentPage = () => {
               Next
             </Button>
           ) : (
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
-              sx={{
-                backgroundColor: "#4F78AE",
-                "&:hover": { backgroundColor: "#3A5B89" },
-              }}
-            >
-              {editingReplenishment ? "Update Request" : "Submit Request"}
-            </Button>
+            <Box sx={{ display: "flex", gap: 2 }}>
+              {!editingReplenishment && (
+                <Button
+                  onClick={() => handleSubmit(true)} // true for draft
+                  variant="outlined"
+                  sx={{
+                    borderColor: "#C2895A",
+                    color: "#C2895A",
+                    "&:hover": {
+                      borderColor: "#A67A4A",
+                      backgroundColor: "rgba(194, 137, 90, 0.1)",
+                    },
+                  }}
+                >
+                  Save as Draft
+                </Button>
+              )}
+              <Button
+                onClick={() => handleSubmit(false)} // false for submit
+                variant="contained"
+                sx={{
+                  backgroundColor: "#4F78AE",
+                  "&:hover": { backgroundColor: "#3A5B89" },
+                }}
+              >
+                {editingReplenishment ? "Update Request" : "Submit Request"}
+              </Button>
+            </Box>
           )}
         </DialogActions>
       </Dialog>
@@ -789,6 +1051,66 @@ const ReplenishmentPage = () => {
                   </Typography>
                   <Typography>{selectedReplenishment.description}</Typography>
                 </Box>
+
+                {/* Rejection Information */}
+                {selectedReplenishment.status === "rejected" && (
+                  <Box
+                    sx={{
+                      mb: 2,
+                      p: 2,
+                      bgcolor: "#fff3cd",
+                      borderRadius: 1,
+                      border: "1px solid #ffeaa7",
+                    }}
+                  >
+                    <Typography variant="h6" sx={{ color: "#856404", mb: 1 }}>
+                      Rejection Details
+                    </Typography>
+                    {selectedReplenishment.rejection_reason && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "#856404", fontWeight: 500 }}
+                        >
+                          Reason:
+                        </Typography>
+                        <Typography variant="body1" sx={{ color: "#856404" }}>
+                          {selectedReplenishment.rejection_reason}
+                        </Typography>
+                      </Box>
+                    )}
+                    {selectedReplenishment.rejected_by && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "#856404", fontWeight: 500 }}
+                        >
+                          Rejected By:
+                        </Typography>
+                        <Typography variant="body1" sx={{ color: "#856404" }}>
+                          {selectedReplenishment.rejected_by_user?.first_name}{" "}
+                          {selectedReplenishment.rejected_by_user?.sur_name}
+                        </Typography>
+                      </Box>
+                    )}
+                    {selectedReplenishment.rejected_at && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "#856404", fontWeight: 500 }}
+                        >
+                          Rejected On:
+                        </Typography>
+                        <Typography variant="body1" sx={{ color: "#856404" }}>
+                          {format(
+                            new Date(selectedReplenishment.rejected_at),
+                            "PPP"
+                          )}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                )}
               </Grid>
 
               <Grid item xs={12} md={6}>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
   Card,
@@ -47,8 +47,8 @@ import {
   Step,
   StepLabel,
   StepContent,
-} from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
+} from "@mui/material";
+import { DataGrid } from "@mui/x-data-grid";
 import {
   Search as SearchIcon,
   Add as AddIcon,
@@ -74,7 +74,7 @@ import {
   AttachFile as AttachmentIcon,
   PhotoCamera as PhotoIcon,
   Save as SaveIcon,
-  Send as SubmitIcon,
+  Send as SendIcon,
   Refresh as RefreshIcon,
   Assessment as ReportIcon,
   ExpandMore as ExpandMoreIcon,
@@ -83,44 +83,65 @@ import {
   RequestQuote as RequestIcon,
   Notifications as AlertIcon,
   History as HistoryIcon,
-} from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+} from "@mui/icons-material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { format, startOfMonth, endOfMonth, parseISO, isValid } from "date-fns";
-import { useSelector } from 'react-redux';
-import { selectUser } from '../../store/slices/authSlice';
-import { useAuth } from '../../components/features/auth/AuthGuard';
-import { ROUTES, ROLES, PERMISSIONS } from '../../constants';
-import useNotification from '../../hooks/common/useNotification';
-import useConfirmDialog from '../../hooks/common/useConfirmDialog';
-import { LoadingSpinner } from '../../components/common/Loading';
+import { useSelector } from "react-redux";
+import { selectUser } from "../../store/slices/authSlice";
+import { useAuth } from "../../components/features/auth/AuthGuard";
+import { ROUTES, ROLES, PERMISSIONS } from "../../constants";
+import useNotification from "../../hooks/common/useNotification";
+import useConfirmDialog from "../../hooks/common/useConfirmDialog";
+import { LoadingSpinner } from "../../components/common/Loading";
 import { pettyCashAPI } from "../../services/api/pettyCash.api";
 
 // ==================== CONSTANTS & STATIC DATA ====================
 
 const EXPENSE_CATEGORIES = [
-  { value: 'office_supplies', label: 'Office Supplies', color: 'primary' },
-  { value: 'transportation', label: 'Transportation', color: 'success' },
-  { value: 'refreshments', label: 'Refreshments', color: 'warning' },
-  { value: 'communication', label: 'Communication', color: 'info' },
-  { value: 'utilities', label: 'Utilities', color: 'secondary' },
-  { value: 'maintenance', label: 'Maintenance', color: 'error' },
-  { value: 'miscellaneous', label: 'Miscellaneous', color: 'default' },
+  { value: "office_supplies", label: "Office Supplies", color: "primary" },
+  { value: "transportation", label: "Transportation", color: "success" },
+  { value: "refreshments", label: "Refreshments", color: "warning" },
+  { value: "communication", label: "Communication", color: "info" },
+  { value: "utilities", label: "Utilities", color: "secondary" },
+  { value: "maintenance", label: "Maintenance", color: "error" },
+  { value: "miscellaneous", label: "Miscellaneous", color: "default" },
 ];
 
 const EXPENSE_STATUSES = [
-  { value: 'pending', label: 'Pending', color: 'warning', icon: <PendingIcon /> },
-  { value: 'approved', label: 'Approved', color: 'success', icon: <ApprovedIcon /> },
-  { value: 'rejected', label: 'Rejected', color: 'error', icon: <RejectedIcon /> },
+  { value: "draft", label: "Draft", color: "info", icon: <SaveIcon /> },
+  {
+    value: "pending",
+    label: "Pending Review",
+    color: "warning",
+    icon: <PendingIcon />,
+  },
+  {
+    value: "finance_manager_approved",
+    label: "Finance Manager Approved",
+    color: "info",
+    icon: <ApprovedIcon />,
+  },
+  {
+    value: "admin_approved",
+    label: "Approved",
+    color: "success",
+    icon: <ApprovedIcon />,
+  },
+  {
+    value: "rejected",
+    label: "Rejected",
+    color: "error",
+    icon: <RejectedIcon />,
+  },
 ];
 
 const PAYMENT_METHODS = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
-  { value: 'mobile_money', label: 'Mobile Money' },
+  { value: "cash", label: "Cash" },
+  { value: "card", label: "Card" },
+  { value: "mobile_money", label: "Mobile Money" },
 ];
-
 
 // ==================== MAIN COMPONENT ====================
 
@@ -173,10 +194,13 @@ const PettyCashExpensesPage = () => {
     payment_method: "cash",
     requested_by: user?.id || "",
     approved_by: "",
-    status: "pending",
+    status: "draft",
     notes: "",
     receipt_document_id: null,
   });
+
+  // Submission type state
+  const [submitType, setSubmitType] = useState("draft");
 
   // ==================== COMPUTED VALUES ====================
 
@@ -184,15 +208,26 @@ const PettyCashExpensesPage = () => {
   const summaryCards = [
     {
       title: "Total Expenses",
-      value: `TZS ${expenses.reduce((sum, exp) => sum + (exp.status === "approved" ? exp.amount : 0), 0).toLocaleString()}`,
+      value: `TZS ${expenses.reduce((sum, exp) => sum + (exp.status === "admin_approved" ? exp.amount : 0), 0).toLocaleString()}`,
       subtitle: "This month",
       icon: <ExpenseIcon />,
       color: "error",
     },
     {
+      title: "Draft Expenses",
+      value: expenses.filter((exp) => exp.status === "draft").length.toString(),
+      subtitle: "Saved as drafts",
+      icon: <SaveIcon />,
+      color: "info",
+    },
+    {
       title: "Pending Approval",
       value: expenses
-        .filter((exp) => exp.status === "pending")
+        .filter(
+          (exp) =>
+            exp.status === "pending" ||
+            exp.status === "finance_manager_approved"
+        )
         .length.toString(),
       subtitle: "Awaiting approval",
       icon: <PendingIcon />,
@@ -241,7 +276,8 @@ const PettyCashExpensesPage = () => {
   // Calculate category totals
   const categoryTotals = EXPENSE_CATEGORIES.map((category) => {
     const categoryExpenses = filteredExpenses.filter(
-      (exp) => exp.category === category.label && exp.status === "approved"
+      (exp) =>
+        exp.category === category.label && exp.status === "admin_approved"
     );
     const total = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
     return {
@@ -435,16 +471,26 @@ const PettyCashExpensesPage = () => {
         description: formData.description,
         amount: parseFloat(formData.amount),
         receipt_document_id: formData.receipt_document_id || null,
+        save_as_draft: submitType === "draft",
+        submit: submitType === "submit",
       };
 
       console.log("Submitting expense data:", expenseData); // Debug log
 
       if (editingExpense) {
         await pettyCashAPI.updateExpense(editingExpense.id, expenseData);
-        showSuccess("Expense updated successfully");
+        const message =
+          submitType === "draft"
+            ? "Expense saved as draft successfully"
+            : "Expense submitted successfully";
+        showSuccess(message);
       } else {
         await pettyCashAPI.createExpense(expenseData);
-        showSuccess("Expense created successfully");
+        const message =
+          submitType === "draft"
+            ? "Expense saved as draft successfully"
+            : "Expense submitted successfully";
+        showSuccess(message);
       }
 
       setDialogOpen(false);
@@ -467,12 +513,13 @@ const PettyCashExpensesPage = () => {
       payment_method: "cash",
       requested_by: user?.id || "",
       approved_by: "",
-      status: "pending",
+      status: "draft",
       notes: "",
       receipt_document_id: null,
     });
     setEditingExpense(null);
     setActiveStep(0);
+    setSubmitType("draft");
   };
 
   const handleRefresh = async () => {
@@ -511,6 +558,7 @@ const PettyCashExpensesPage = () => {
       expense_date: new Date(expense.expense_date),
     });
     setEditingExpense(expense);
+    setSubmitType("draft"); // Default to draft when editing
     setDialogOpen(true);
     setAnchorEl(null);
   };
@@ -529,6 +577,16 @@ const PettyCashExpensesPage = () => {
         }
       },
     });
+  };
+
+  const handleResubmit = async (expense) => {
+    try {
+      await pettyCashAPI.resubmitExpense(expense.id);
+      showSuccess("Expense resubmitted successfully");
+      fetchExpenses();
+    } catch (error) {
+      showError(error.message || "Failed to resubmit expense");
+    }
   };
 
   // ==================== EFFECTS ====================
@@ -577,13 +635,13 @@ const PettyCashExpensesPage = () => {
             Reports
           </Button>
           {/* {hasPermission(PERMISSIONS.CREATE_PETTY_CASH_ENTRY) && ( */}
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setDialogOpen(true)}
-            >
-              Record Expense
-            </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setDialogOpen(true)}
+          >
+            Record Expense
+          </Button>
           {/* // )} */}
         </Box>
       </Box>
@@ -1064,8 +1122,8 @@ const PettyCashExpensesPage = () => {
                   </ListItemAvatar>
                   <MUIListItemText
                     primary="Approved Expenses"
-                    secondary={`${filteredExpenses.filter((exp) => exp.status === "approved").length} transactions • TZS ${filteredExpenses
-                      .filter((exp) => exp.status === "approved")
+                    secondary={`${filteredExpenses.filter((exp) => exp.status === "admin_approved").length} transactions • TZS ${filteredExpenses
+                      .filter((exp) => exp.status === "admin_approved")
                       .reduce((sum, exp) => sum + exp.amount, 0)
                       .toLocaleString()}`}
                   />
@@ -1196,12 +1254,21 @@ const PettyCashExpensesPage = () => {
         <ListItemText>View Details</ListItemText>
       </MenuItem>
       {hasPermission(PERMISSIONS.CREATE_PETTY_CASH_ENTRY) &&
-        selectedExpense?.status === "pending" && (
+        selectedExpense?.status === "draft" && (
           <MenuItem onClick={() => handleEdit(selectedExpense)}>
             <ListItemIcon>
               <EditIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Edit Expense</ListItemText>
+          </MenuItem>
+        )}
+      {selectedExpense?.status === "rejected" &&
+        selectedExpense?.created_by === user.id && (
+          <MenuItem onClick={() => handleResubmit(selectedExpense)}>
+            <ListItemIcon>
+              <EditIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Resubmit</ListItemText>
           </MenuItem>
         )}
       {selectedExpense?.status === "pending" &&
@@ -1234,7 +1301,7 @@ const PettyCashExpensesPage = () => {
         <ListItemText>Print Receipt</ListItemText>
       </MenuItem>
       {hasPermission(PERMISSIONS.CREATE_PETTY_CASH_ENTRY) &&
-        selectedExpense?.status === "pending" && (
+        selectedExpense?.status === "draft" && (
           <MenuItem
             onClick={() => handleDelete(selectedExpense)}
             sx={{ color: "error.main" }}
@@ -1328,33 +1395,34 @@ const PettyCashExpensesPage = () => {
       <Grid item xs={12} md={6}>
         <TextField
           fullWidth
-          label="Vendor Name"
+          label="Vendor Name (Optional)"
           value={formData.vendor_name}
           onChange={(e) =>
             setFormData({ ...formData, vendor_name: e.target.value })
           }
-          required
+          placeholder="Enter vendor name if applicable"
         />
       </Grid>
       <Grid item xs={12} md={6}>
         <TextField
           fullWidth
-          label="Receipt Number"
+          label="Receipt Number (Optional)"
           value={formData.receipt_number}
           onChange={(e) =>
             setFormData({ ...formData, receipt_number: e.target.value })
           }
+          placeholder="Enter receipt number if available"
         />
       </Grid>
       <Grid item xs={12} md={6}>
         <FormControl fullWidth>
-          <InputLabel>Payment Method</InputLabel>
+          <InputLabel>Payment Method (Optional)</InputLabel>
           <Select
             value={formData.payment_method}
             onChange={(e) =>
               setFormData({ ...formData, payment_method: e.target.value })
             }
-            label="Payment Method"
+            label="Payment Method (Optional)"
           >
             {PAYMENT_METHODS.map((method) => (
               <MenuItem key={method.value} value={method.value}>
@@ -1391,12 +1459,12 @@ const PettyCashExpensesPage = () => {
       <Grid item xs={12}>
         <TextField
           fullWidth
-          label="Additional Notes"
+          label="Additional Notes (Optional)"
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           multiline
           rows={3}
-          placeholder="Any additional notes or justification for this expense"
+          placeholder="Any additional notes or justification for this expense (optional)"
         />
       </Grid>
     </Grid>
@@ -1499,11 +1567,7 @@ const PettyCashExpensesPage = () => {
                 {renderExpenseFormStep2()}
                 <Box sx={{ mt: 2, display: "flex", gap: 1 }}>
                   <Button onClick={() => setActiveStep(0)}>Back</Button>
-                  <Button
-                    variant="contained"
-                    onClick={() => setActiveStep(2)}
-                    disabled={!formData.vendor_name}
-                  >
+                  <Button variant="contained" onClick={() => setActiveStep(2)}>
                     Next
                   </Button>
                 </Box>
@@ -1518,11 +1582,25 @@ const PettyCashExpensesPage = () => {
                 <Box sx={{ mt: 2, display: "flex", gap: 1 }}>
                   <Button onClick={() => setActiveStep(1)}>Back</Button>
                   <Button
-                    variant="contained"
-                    onClick={handleSubmit}
+                    variant="outlined"
+                    onClick={() => {
+                      setSubmitType("draft");
+                      handleSubmit();
+                    }}
                     startIcon={<SaveIcon />}
                   >
-                    {editingExpense ? "Update" : "Record"} Expense
+                    Save as Draft
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      setSubmitType("submit");
+                      handleSubmit();
+                    }}
+                    startIcon={<SendIcon />}
+                    color="primary"
+                  >
+                    {editingExpense ? "Submit" : "Submit"} Expense
                   </Button>
                 </Box>
               </StepContent>
@@ -1768,7 +1846,7 @@ const PettyCashExpensesPage = () => {
                   </CardContent>
                 </Card>
 
-                {selectedExpense.status === "approved" && (
+                {selectedExpense.status === "admin_approved" && (
                   <Card variant="outlined" sx={{ mt: 2 }}>
                     <CardContent>
                       <Typography variant="h6" sx={{ mb: 2 }}>
@@ -1899,15 +1977,18 @@ const PettyCashExpensesPage = () => {
                     </TableHead>
                     <TableBody>
                       {expenses
-                        .filter((exp) => exp.status === "approved")
+                        .filter((exp) => exp.status === "admin_approved")
                         .slice(0, 5)
                         .map((expense) => (
                           <TableRow key={expense.id}>
                             <TableCell>
-                              {format(
-                                new Date(expense.expense_date),
-                                "dd/MM/yyyy"
-                              )}
+                              {expense.expense_date &&
+                              isValid(new Date(expense.expense_date))
+                                ? format(
+                                    new Date(expense.expense_date),
+                                    "dd/MM/yyyy"
+                                  )
+                                : "N/A"}
                             </TableCell>
                             <TableCell>{expense.description}</TableCell>
                             <TableCell align="right">

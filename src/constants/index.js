@@ -293,6 +293,11 @@ export const PERMISSIONS = {
     APPROVE_REPLENISHMENT: 'Approve Replenishment',
     VIEW_PETTY_CASH_REPORTS: 'View Petty Cash Reports',
     MANAGE_PETTY_CASH_BOOK: 'Manage Petty Cash Book',
+    APPROVE_PETTY_CASH_REPLENISHMENT: 'Approve Petty Cash Replenishment',
+    APPROVE_PETTY_CASH_EXPENSES: 'Approve Petty Cash Expenses',
+    VIEW_PETTY_CASH_APPROVAL_QUEUE: 'View Petty Cash Approval Queue',
+    MANAGE_PETTY_CASH_APPROVAL_WORKFLOW: 'Manage Petty Cash Approval Workflow',
+    CREATE_PETTY_CASH_BOOK: 'Create Petty Cash Book',
 
     // Reports
     REPORTS_READ: 'Reports:read',
@@ -480,7 +485,7 @@ export const NOTIFICATION_TYPES = {
     WARNING: 'warning',
     INFO: 'info',
 };
-  
+
 export const MEETING_PERMISSIONS = {
     VIEW_MEETINGS: 'view_meetings',
     CREATE_MEETINGS: 'create_meetings',

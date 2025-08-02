@@ -85,6 +85,14 @@ const FinancePage = () => {
         { label: "Petty Cash Overview", path: "/finance/petty-cash" },
         { label: "Cash Expenses", path: "/finance/petty-cash/expenses" },
         { label: "Replenishment", path: "/finance/petty-cash/replenishment" },
+        {
+          label: "Replenishment Approvals",
+          path: "/finance/petty-cash/approvals",
+        },
+        {
+          label: "Expense Approvals",
+          path: "/finance/petty-cash/expense-approvals",
+        },
       ],
     },
     {
